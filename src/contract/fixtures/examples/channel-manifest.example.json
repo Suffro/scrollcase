@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "kind": "scrollcase.box.channel",
+  "channel": "beta",
+  "boxId": "example-model",
+  "target": {
+    "platform": "macos",
+    "arch": "aarch64",
+    "accelerator": "metal"
+  },
+  "updatedAt": "2026-07-25T12:05:00+00:00",
+  "cohortSalt": "41547ba146d88df877b97a331854567e",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "releaseManifestUrl": "https://assets.example.org/boxes/boxes/example-model/1.0.0/macos-aarch64-metal/c1a0f67d97543c9f0deccffdd00fbad45662ceed828f84e866b997ab4b019d1f.release.json",
+      "rolloutPercentage": 100
+    }
+  ]
+}

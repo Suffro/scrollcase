@@ -5,51 +5,51 @@ import MailingListForm from './MailingListForm.vue'
 const pillars = [
   {
     icon: 'shield',
-    title: 'Private by design',
-    text: 'Your genomic data never leaves the machine. No API calls, no telemetry, no licence checks — Liatir runs the same on an air-gapped workstation as on a connected laptop.',
+    title: 'Signed and verifiable',
+    text: 'Every box carries a manifest, content digests, and a signature. Consumers verify a box offline before unpacking it — no registry call, no trust in the download path.',
   },
   {
     icon: 'bolt',
-    title: 'Native performance',
-    text: 'Every file read, process spawn, and parse runs in Rust through Tauri. Open a 40 GB BAM, stream gzipped FASTQ, or scan a dense VCF without freezing the UI or exhausting memory.',
+    title: 'No container runtime',
+    text: 'A box is a single archive that unpacks into a self-contained Python environment. No Docker, no daemon, no dependency resolution at install time.',
   },
   {
     icon: 'puzzle',
-    title: 'Endlessly extensible',
-    text: 'Package anything as a .lia plugin — Node or WASM — and it becomes a first-class analysis step. If you can build it in Node or WASM, you can plug it into Liatir.',
+    title: 'One format, many targets',
+    text: 'macOS Metal, Linux and Windows on CPU or CUDA — described by one target model that builders, signers, and clients agree on character for character.',
   },
 ]
 
 const capabilities = [
   {
     icon: 'terminal',
-    title: 'Powerful tools',
-    text: 'FastQC, fastp, seqkit, samtools, bcftools, BWA-MEM, minimap2, SnpEff and more, ready to run — no setup, no containers.',
+    title: 'Build from a recipe',
+    text: 'Describe the environment once. scrollcase resolves it against conda-forge with pixi and produces a box per target, fully pinned.',
   },
   {
     icon: 'flow',
-    title: 'Visual pipelines',
-    text: 'Connect tools, AI Models, custom plugins and more with a modern visual pipeline builder. No-code required, unless you want it.',
+    title: 'Validated before shipping',
+    text: 'Each build runs the recipe’s own validation on real inputs. A box that fails validation never gets an identity.',
   },
   {
     icon: 'spark',
-    title: 'Local AI models & tools',
-    text: 'Install runtimes only when needed, then run single-cell annotation, sequence embeddings, structure prediction and variant scoring on your own hardware.',
+    title: 'Accelerator-aware',
+    text: 'The accelerator and CUDA ABI version are part of the box identity, so a CUDA 12.4 build can never be mistaken for a 12.8 one.',
   },
   {
     icon: 'layers',
-    title: 'Unified data layer',
-    text: 'Import a file once and use it everywhere. Liatir tracks every file by path, shows type-aware previews, and notices when one moves or disappears.',
+    title: 'Reproducible identity',
+    text: 'The target ID that appears in archive names, object keys, and registry routes is derived deterministically and locked by golden fixtures.',
   },
   {
     icon: 'plug',
-    title: 'API connectors',
-    text: 'Wire external services into your workflows and drop them into pipelines as ordinary nodes — configured visually, not hand-coded.',
+    title: 'Portable contract',
+    text: 'The box format ships as a reference implementation plus JSON Schemas and fixtures, so other languages can mirror it and stay in agreement.',
   },
   {
     icon: 'eye',
-    title: 'Built-in viewers',
-    text: 'Inspect genome tracks, protein and molecular structures, and single-cell data inline, right next to the step that produced them.',
+    title: 'Air-gapped installs',
+    text: 'Download once, carry the archive across, verify and unpack anywhere. The same box works on a connected laptop and an isolated workstation.',
   },
 ]
 </script>
@@ -63,30 +63,30 @@ const capabilities = [
       <div class="container hero-inner">
         <span class="status"><span class="status-dot" aria-hidden="true"></span>In active development · Coming soon</span>
 
-        <img class="hero-logo" :src="withBase('/static/logos/svg/logo-color.svg')" alt="" aria-hidden="true" />
+        <img class="hero-logo" :src="withBase('/static/svg/icon-colored.svg')" alt="" aria-hidden="true" />
 
-        <h1 class="name">Liatir</h1>
+        <h1 class="name">scrollcase</h1>
 
-        <p class="headline">Bioinformatics on your machine.<br>Under your control.</p>
+        <p class="headline">Ship a scientific model<br>as a single signed box.</p>
 
         <p class="tagline">
-          A desktop app that runs bioinformatics tools, AI, and pipelines locally.<br>Your data never leaves your machine 
-          — Rust-powered native speed, even on multi-gigabyte files
+          scrollcase builds self-contained Python environment boxes for AI and scientific models —
+          pinned, validated, signed, and installable offline on macOS, Linux, and Windows.
         </p>
 
         <div class="actions">
-          <a class="btn btn-brand" href="#subscribe">Waiting list</a>
-          <a class="btn btn-alt" :href="withBase('/introduction/overview')">Read the docs</a>
+          <a class="btn btn-brand" href="#subscribe">Release updates</a>
+          <a class="btn btn-alt" :href="withBase('/getting-started/quickstart')">Read the docs</a>
         </div>
 
-        <p class="trust">No cloud · No servers · Completely Free</p>
+        <p class="trust">Apache-2.0 · No Docker · Offline-installable</p>
       </div>
 
       <!-- ── Mailing list ─────────────────────────────────────── -->
       <div id="subscribe" class="container band">
         <div class="cta">
           <h2 style="font-size: 22px; margin-top: -10px;">Stay in the loop</h2>
-          <p style="font-size: 16px;">Liatir is under active development. Subscribe to know when it launches:</p>
+          <p style="font-size: 16px;">scrollcase is under active development. Subscribe to know when it launches:</p>
           <MailingListForm />
           <p style="font-size: 12px; opacity: 0.5;">No spam, unsubscribe anytime.</p>
         </div>
@@ -121,8 +121,8 @@ const capabilities = [
     <!-- ── Capabilities ─────────────────────────────────────── -->
     <section class="container band">
       <div class="section-head">
-        <h2>Everything in one place</h2>
-        <p>From raw reads to annotated results — without leaving your desktop.</p>
+        <h2>From recipe to installable box</h2>
+        <p>Resolve, build, validate, sign — one pipeline, one format, every target.</p>
       </div>
 
       <div class="grid">

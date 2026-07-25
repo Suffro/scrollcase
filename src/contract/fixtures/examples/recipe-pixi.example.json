@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "recipeId": "example-model-linux-x86_64-cuda12.9",
+  "recipeVersion": "1.0.0",
+  "boxId": "example-model",
+  "modelId": "example-org-example-model",
+  "runtimeId": "example-model-runtime",
+  "version": "1.0.0",
+  "sourceRevision": "9f0d3a1c4b5e6f7081920a3b4c5d6e7f80910a2b",
+  "target": {
+    "platform": "linux",
+    "arch": "x86_64",
+    "accelerator": "cuda",
+    "cudaVersion": "12.9"
+  },
+  "compatibility": {
+    "minHostAppVersion": "1.0.0",
+    "minRamGb": 16,
+    "minNvidiaDriverVersion": "525.60.13"
+  },
+  "pythonVersion": "3.11.15",
+  "pixiVersion": "0.73.0",
+  "condaDependencyLicenseAudit": "legal/audits/example-model-linux-x86_64-cuda12.9.json",
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/example-model",
+  "assetBaseUrl": "https://assets.example.org/boxes",
+  "assets": [
+    {
+      "url": "https://assets.example.org/example-model/weights.safetensors",
+      "relativePath": "model-cache/example-model/weights.safetensors",
+      "sizeBytes": 205385258,
+      "sha256": "6cb5d451ab5c4b33eb673adbe4fddc61d2389df1b89b7651a9fe2e557572b922"
+    },
+    {
+      "url": "https://codeload.example.org/example-org/example-model/zip/9f0d3a1c4b5e6f7081920a3b4c5d6e7f80910a2b",
+      "relativePath": ".sources/example-model-source.zip",
+      "sizeBytes": 12117557,
+      "sha256": "1b825a687b4855dbb8c7b530f17cc246ef677d93d0e2df3fbc82330ff9d189db"
+    }
+  ],
+  "assetArchives": [
+    {
+      "relativePath": ".sources/example-model-source.zip",
+      "format": "zip",
+      "destination": "source/example-model",
+      "stripComponents": 1,
+      "removeAfterExtract": true
+    }
+  ],
+  "localFiles": [
+    {
+      "sourcePath": "legal/notices/example-model-THIRD-PARTY.txt",
+      "relativePath": "THIRD_PARTY_NOTICES/example-model.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "prunePaths": [
+    "source/example-model/docs",
+    "source/example-model/tests",
+    "venv/lib/python3.11/site-packages/pip",
+    "venv/lib/python3.11/tkinter"
+  ],
+  "selfTest": {
+    "imports": ["torch", "numpy"],
+    "files": [
+      "model-cache/example-model/weights.safetensors",
+      "source/example-model/LICENSE"
+    ],
+    "pythonCode": "assert torch.cuda.is_available()"
+  }
+}

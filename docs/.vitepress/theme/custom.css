@@ -22,7 +22,7 @@
   color: var(--vp-c-brand-1) !important;
 }
 
-/* Balance the tall logo mark against the "Liatir" wordmark. */
+/* Balance the tall logo mark against the "scrollcase" wordmark. */
 .VPNavBarTitle .logo {
   height: 24px;
   width: auto;
@@ -69,13 +69,13 @@
   margin-top: 40px;
 }
 
-.liatir-architecture-figure {
+.scrollcase-architecture-figure {
   width: 100%;
   max-width: 100%;
   margin: 32px 0 40px;
 }
 
-.liatir-architecture-figure img {
+.scrollcase-architecture-figure img {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -198,12 +198,12 @@ body:has(.cookie-backdrop) {
 }
 
 @media (max-width: 768px) {
-  .liatir-architecture-figure {
+  .scrollcase-architecture-figure {
     margin: 24px 0;
   }
 }
 
-/* Nascondi su schermi molto piccoli per non coprire il testo */
+/* Hide on very small screens so it never covers the content. */
 @media (max-width: 768px) {
   .floating-share {
     display: none;

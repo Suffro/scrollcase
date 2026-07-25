@@ -6,16 +6,16 @@ withDefaults(
   }>(),
   {
     href: 'https://www.patreon.com/16427094/join',
-    label: 'Support Liatir on Patreon'
+    label: 'Support scrollcase on Patreon'
   }
 )
 </script>
 
 <template>
   <div class="patreon-cta">
-    <a class="liatir-btn" :href="href" target="_blank" rel="noopener noreferrer">
+    <a class="patreon-btn" :href="href" target="_blank" rel="noopener noreferrer">
       <svg
-        class="liatir-btn__icon"
+        class="patreon-btn__icon"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 512 512"
         aria-hidden="true"
@@ -38,7 +38,7 @@ withDefaults(
   padding: 48px 0;
 }
 
-.liatir-btn {
+.patreon-btn {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -53,23 +53,23 @@ withDefaults(
   transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
 }
 
-.liatir-btn:hover {
+.patreon-btn:hover {
   background-color: #087f77;
   color: #fff;
   text-decoration: none;
   box-shadow: 0 6px 16px rgba(10, 148, 139, 0.35);
 }
 
-.liatir-btn:active {
+.patreon-btn:active {
   transform: translateY(1px);
 }
 
-.liatir-btn:focus-visible {
+.patreon-btn:focus-visible {
   outline: 2px solid #0a948b;
   outline-offset: 3px;
 }
 
-.liatir-btn__icon {
+.patreon-btn__icon {
   width: 17px;
   height: 17px;
   flex: 0 0 auto;

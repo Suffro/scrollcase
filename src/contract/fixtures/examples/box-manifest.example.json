@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "boxId": "example-model",
+  "modelId": "example-org-example-model",
+  "runtimeId": "example-model-runtime",
+  "version": "1.0.0",
+  "target": {
+    "platform": "macos",
+    "arch": "aarch64",
+    "accelerator": "metal"
+  },
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/example-model",
+  "selfTest": {
+    "pythonImports": [
+      "torch",
+      "numpy"
+    ],
+    "timeoutSeconds": 180
+  },
+  "provenance": {
+    "recipeId": "example-model-macos-arm64-metal",
+    "recipeVersion": "1.0.0",
+    "builderRevision": "4c1d9b7e2a0f5836d419e7c05b3a8f61d2704e93",
+    "sourceTreeDirty": false,
+    "sourceRevision": "9f0d3a1c4b5e6f7081920a3b4c5d6e7f80910a2b",
+    "pythonVersion": "3.11.15",
+    "pixiVersion": "0.73.0",
+    "dependencyLockSha256": "3b1f8c47a2d9e05b6c7418af23d5e69017b4c8ad91e2f350768bd4ca19e0f5b7",
+    "builtAt": "2026-07-25T12:00:00+00:00"
+  }
+}

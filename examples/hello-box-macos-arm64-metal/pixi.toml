@@ -1,0 +1,8 @@
+# Minimal scrollcase example: a stdlib-only Python environment, packed as a box.
+[workspace]
+name = "hello-box-macos-arm64-metal"
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+python = "3.11.*"

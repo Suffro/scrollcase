@@ -5,13 +5,12 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "deploy": "npm run build && npx wrangler pages deploy",
     "preview": "vitepress preview"
   },
   "devDependencies": {
-    "vitepress": "^2.0.0-alpha.18"
+    "vitepress": "^2.0.0-alpha.17"
   },
   "dependencies": {
-    "wrangler": "^4.114.0"
+    "wrangler": "^4.107.0"
   }
 }

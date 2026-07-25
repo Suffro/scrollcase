@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "recipeId": "hello-box-macos-arm64-metal",
+  "recipeVersion": "1.0.0",
+  "boxId": "hello-box",
+  "modelId": "example-org-hello",
+  "runtimeId": "hello-box-runtime",
+  "version": "1.0.0",
+  "sourceRevision": "example-hello-v1",
+  "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
+  "compatibility": { "minHostAppVersion": "1.0.0", "minMacosVersion": "13.0", "minRamGb": 1 },
+  "pythonVersion": "3.11",
+  "pixiVersion": "0.73.0",
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/hello",
+  "assetBaseUrl": "https://assets.example.org/boxes",
+  "assets": [],
+  "selfTest": { "imports": ["json", "sqlite3"], "files": [] }
+}

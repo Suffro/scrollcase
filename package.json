@@ -1,0 +1,40 @@
+{
+  "name": "scrollcase",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build signed, verifiable, installable Python environment boxes for scientific models.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    "./contract": "./src/contract/index.mjs",
+    "./build": "./src/build/index.mjs",
+    "./contract/schema/*.json": "./src/contract/schema/*.json",
+    "./contract/fixtures/*.json": "./src/contract/fixtures/*.json",
+    "./sign": "./src/sign/index.mjs"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run --config tests/unit/vitest.config.mjs"
+  },
+  "dependencies": {
+    "tar": "7.5.20",
+    "yauzl": "3.4.0",
+    "yazl": "3.3.1"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "vitest": "^4.1.9"
+  },
+  "bin": {
+    "scrollcase": "./src/cli.mjs"
+  }
+}

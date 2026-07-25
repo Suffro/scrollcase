@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scrollcase.dev/schema/recipe.schema.json",
+  "title": "Box recipe",
+  "description": "The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A recipe is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recipeId",
+    "recipeVersion",
+    "boxId",
+    "modelId",
+    "runtimeId",
+    "version",
+    "sourceRevision",
+    "target",
+    "compatibility",
+    "pythonVersion",
+    "pythonEntryPoint",
+    "modelCacheSubdir",
+    "assets",
+    "selfTest",
+    "pixiVersion"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "recipeId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must equal the name of the directory holding this file, so a recipe cannot quietly claim an identity other than the one being built."
+    },
+    "recipeVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boxId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "modelId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version of the box this recipe produces, as it will appear in the release manifest."
+    },
+    "sourceRevision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Upstream revision of the packaged source, recorded verbatim into provenance."
+    },
+    "target": {
+      "$ref": "https://scrollcase.dev/schema/target.schema.json"
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "minHostAppVersion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Lowest version of the installing application this box supports."
+        },
+        "maxHostAppVersionExclusive": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minMacosVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minRamGb": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minNvidiaDriverVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "description": "Constraints the installing host must satisfy. Copied through into the release manifest verbatim and never interpreted by the builder, so a project may declare its own alongside these."
+    },
+    "pythonVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pixiVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pins the pixi release used to solve and install the conda-forge environment from the committed pixi.lock."
+    },
+    "condaDependencyLicenseAudit": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the reviewed licence inventory derived from pixi.lock, which carries an SPDX licence per package. The build fails if the lock no longer matches what was reviewed."
+    },
+    "pythonEntryPoint": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Interpreter path relative to the box root. Must match the target adapter's layout."
+    },
+    "modelCacheSubdir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assetBaseUrl": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Base URL of the mirror the built archive and its objects are published under."
+    },
+    "assets": {
+      "type": "array",
+      "description": "Files fetched during the build. Every entry is size- and hash-checked before use, so a moved or replaced upstream file fails the build instead of silently changing the box. May be empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "relativePath",
+          "sizeBytes",
+          "sha256"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relativePath": {
+            "$ref": "#/$defs/payloadPath"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "assetArchives": {
+      "type": "array",
+      "description": "Downloaded archives to expand into the payload. Extraction preserves files already present in the destination and refuses to overwrite them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "relativePath",
+          "format",
+          "destination"
+        ],
+        "properties": {
+          "relativePath": {
+            "$ref": "#/$defs/payloadPath"
+          },
+          "format": {
+            "enum": [
+              "zip",
+              "tar.gz"
+            ]
+          },
+          "destination": {
+            "$ref": "#/$defs/payloadPath"
+          },
+          "stripComponents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removeAfterExtract": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "localFiles": {
+      "type": "array",
+      "description": "Files copied from the consumer's own repository into the payload, each verified against a declared hash so a licence notice or runtime shim cannot drift from what was reviewed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourcePath",
+          "relativePath",
+          "sha256"
+        ],
+        "properties": {
+          "sourcePath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relativePath": {
+            "$ref": "#/$defs/payloadPath"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "prunePaths": {
+      "type": "array",
+      "description": "Payload paths deleted before packing, to keep the box to what it actually needs at run time. Pruning a distribution the lock requires is rejected.",
+      "items": {
+        "$ref": "#/$defs/payloadPath"
+      }
+    },
+    "selfTest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "imports",
+        "files"
+      ],
+      "description": "Run with the payload's own interpreter before the box is archived. It doubles as the check a consumer repeats after installing.",
+      "properties": {
+        "imports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "files": {
+          "type": "array",
+          "description": "Files that must still exist after pruning, which is what stops an over-aggressive prune from shipping a broken box.",
+          "items": {
+            "$ref": "#/$defs/payloadPath"
+          }
+        },
+        "pythonCode": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Extra Python executed after the imports succeed, for checks a bare import cannot make."
+        }
+      }
+    },
+    "weights": {
+      "enum": [
+        "embed",
+        "on-demand"
+      ],
+      "default": "embed",
+      "description": "Whether assets are packed into the archive (embed, the default: the box installs with no network and works air-gapped) or fetched by the consumer at install time from the descriptors in the signed release (on-demand). A build may override this."
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "script",
+        "accelerators",
+        "tolerances"
+      ],
+      "description": "An optional numerical gate: run a check inside the box on more than one accelerator and require the results to agree. This catches a mis-solved environment \u2014 CPU-only wheels shipped as CUDA, a broken BLAS \u2014 on the build machine rather than on a user's. The tool runs the check and enforces the thresholds; what the check computes, and what closeness is acceptable, belong to the project.",
+      "properties": {
+        "script": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path inside the box, run with the box's own interpreter. It must print a JSON array of numbers, or an object with a \"values\" array."
+        },
+        "accelerators": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "enum": [
+              "cpu",
+              "metal",
+              "cuda"
+            ]
+          },
+          "description": "Accelerators to run under, each with its target's validation environment. The first is the reference the others are compared against \u2014 conventionally cpu, being the one available everywhere."
+        },
+        "tolerances": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "At least one bound. Absolute guards entries near zero, where relative error is meaningless; cosine similarity catches a result that drifted in direction rather than magnitude.",
+          "properties": {
+            "absolute": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "relative": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minimumCosine": {
+              "type": "number",
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payloadPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "description": "A path inside the box payload: always relative, and never escaping the payload root."
+    }
+  }
+}

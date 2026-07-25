@@ -4,7 +4,7 @@ import { withBase } from 'vitepress'
 
 // Key under which the acceptance flag is stored. Bump the suffix if the
 // privacy terms change and consent needs to be re-collected.
-const STORAGE_KEY = 'liatir-cookie-consent-v1'
+const STORAGE_KEY = 'scrollcase-cookie-consent-v1'
 
 // Hidden during SSR and until we can confirm (client-side) that consent
 // hasn't already been given — this prevents a flash of the banner on every

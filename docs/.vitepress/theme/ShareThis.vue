@@ -16,7 +16,7 @@
   padding-left: 12px;
   border-left: 1px solid var(--vp-c-divider);
 }
-/* Nascondi su mobile se troppo ingombrante */
+/* Hide on mobile where the buttons crowd the nav bar. */
 @media (max-width: 768px) {
   .nav-share-container { display: none; }
 }
