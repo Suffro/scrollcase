@@ -6,7 +6,3 @@ compatibility_date = "2024-11-01"
 
 # VitePress build output, relative to this file.
 pages_build_output_dir = ".vitepress/dist"
-
-# TURNSTILE_SECRET is a secret, NOT stored here. Set it with:
-#   npx wrangler pages secret put TURNSTILE_SECRET
-# (or in the Cloudflare dashboard → Pages → Settings → Environment variables)
