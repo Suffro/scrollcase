@@ -1,0 +1,211 @@
+
+
+/* ── Hide scrollbars ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  scrollbar-width: none !important;
+}
+
+::-webkit-scrollbar { display: none !important; } 
+
+/* ── Brand colors ──────────────────────────────────────────────── */
+:root {
+  --vp-c-brand-1: #f5b70b;
+  --vp-c-brand-2: #f5b70bcb;
+  --vp-c-brand-3: #f5b70b88;
+  --vp-c-brand-soft: #f5b70b12;
+}
+
+/* ── Nav ───────────────────────────────────────────────────────── */
+.VPNavBarMenuLink.active {
+  color: var(--vp-c-brand-1) !important;
+}
+
+/* Balance the tall logo mark against the "Liatir" wordmark. */
+.VPNavBarTitle .logo {
+  height: 24px;
+  width: auto;
+  margin-right: 9px;
+}
+
+.VPNavBarTitle .title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────── */
+.VPSidebarItem.is-active > .item .indicator {
+  background-color: var(--vp-c-brand-1);
+}
+
+.VPSidebarItem.is-active > .item .link .text {
+  color: var(--vp-c-brand-1);
+  font-weight: 500;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.VPButton.brand {
+  background-color: var(--vp-c-brand-1) !important;
+  border-color: var(--vp-c-brand-1) !important;
+  color: var(--vp-c-bg) !important;
+  font-weight: 500 !important;
+}
+
+.VPButton.brand:hover {
+  background-color: var(--vp-c-brand-2) !important;
+  border-color: var(--vp-c-brand-2) !important;
+}
+
+/* ── Content ───────────────────────────────────────────────────── */
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+}
+
+.vp-doc h2 {
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 24px;
+  margin-top: 40px;
+}
+
+.liatir-architecture-figure {
+  width: 100%;
+  max-width: 100%;
+  margin: 32px 0 40px;
+}
+
+.liatir-architecture-figure img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 16px;
+  background: var(--vp-c-bg-soft);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.floating-share {
+  cursor: pointer !important;
+  background-color: var(--vp-c-brand-1) !important;
+  position: fixed;
+  right: 20px; /* Distanza dal bordo destro */
+  bottom: 5px;    /* Centrato verticalmente */
+  border-radius: 5px !important;
+  transform: translateY(-50%);
+  z-index: 1000; /* Sempre sopra tutto */
+  overflow: hidden !important;
+}
+
+.floating-share:hover {
+  opacity: 0.9;
+}
+
+.floating-share .st-btn {
+  background-color: var(--vp-c-brand-1) !important;
+  border-radius: 5px !important;
+}
+
+
+.floating-share .st-total {
+  display: none !important;
+}
+
+body:has(.cookie-backdrop) {
+  overflow: hidden !important;
+}
+
+.vp-tabs {
+  margin: 24px 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--vp-c-bg);
+}
+
+.vp-tabs .header-anchor {
+  display: none !important;
+}
+
+.vp-tabs__nav {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  overflow-x: auto;
+}
+
+.vp-tabs__button {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vp-tabs__button:hover {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-default-soft);
+}
+
+.vp-tabs__button.is-active {
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.vp-tabs__content {
+  padding: 20px;
+}
+
+.vp-tabs__panel > :first-child {
+  margin-top: 0;
+}
+
+.vp-tabs__panel > :last-child {
+  margin-bottom: 0;
+}
+
+
+.VPSidebarItem:has(.VPSidebarItem-monospace):not(:has(.VPSidebarItem .VPSidebarItem-monospace)) .text:not(:has(.VPSidebarItem-monospace)) {
+  font-family: "Roboto Mono", monospace !important;
+  font-optical-sizing: auto !important;
+  font-weight: 450 !important;
+  font-style: normal !important;
+}
+
+.VPSidebarItem:has(.VPSidebarItem-monospace):not(:has(.VPSidebarItem .VPSidebarItem-monospace)) .text:not(:has(.VPSidebarItem-monospace)):hover {
+  color: var(--vp-c-brand-1) !important;
+}
+
+/* Layout di base per schermi grandi (2 colonne uguali) */
+.VPNavBarMenuGroup .items {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* Layout per schermi piccoli (Smartphone) */
+@media (max-width: 600px) {
+  .VPNavBarMenuGroup .items {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .liatir-architecture-figure {
+    margin: 24px 0;
+  }
+}
+
+/* Nascondi su schermi molto piccoli per non coprire il testo */
+@media (max-width: 768px) {
+  .floating-share {
+    display: none;
+  }
+}
