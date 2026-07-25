@@ -9,27 +9,37 @@ import { readRecipe } from '../../src/build/recipe.mjs';
 import { verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
 import { generateSigningKey } from '../../src/sign/index.mjs';
-import { decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
+import { boxTargetAdapters, decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
+
+// The pipeline is the same on every platform, but the native-host gate (rightly) refuses to build
+// a box for any other one — so the test recipe targets whatever host the suite is running on.
+// `cpu` is the one accelerator every target supports without extra declarations.
+const HOST_ADAPTER = boxTargetAdapters().find((adapter) =>
+  adapter.host.platform === process.platform && adapter.host.arch === process.arch)
+  ?? (() => { throw new Error(`No box target adapter for this host: ${process.platform}/${process.arch}`); })();
 
 const RECIPE = {
   schemaVersion: 1,
-  recipeId: 'example-model-macos-arm64-metal',
+  recipeId: 'example-model-native-cpu',
   recipeVersion: '1.0.0',
   boxId: 'example-model',
   modelId: 'example-org-example-model',
   runtimeId: 'example-model-runtime',
   version: '1.0.0',
   sourceRevision: 'a'.repeat(40),
-  target: { platform: 'macos', arch: 'aarch64', accelerator: 'metal' },
+  target: { platform: HOST_ADAPTER.platform, arch: HOST_ADAPTER.arch, accelerator: 'cpu' },
   compatibility: { minHostAppVersion: '1.0.0' },
   pythonVersion: '3.11.15',
   pixiVersion: '0.73.0',
-  pythonEntryPoint: 'venv/bin/python',
+  pythonEntryPoint: HOST_ADAPTER.python.entryPoint,
   modelCacheSubdir: 'model-cache/example-model',
   assetBaseUrl: 'https://assets.example.org/boxes',
   assets: [],
   selfTest: { imports: ['json'], files: [] },
 };
+
+// The interpreter's path inside the payload, split for platform-correct joins.
+const ENTRY_SEGMENTS = HOST_ADAPTER.python.entryPoint.split('/');
 
 function writeDeep(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
@@ -60,13 +70,15 @@ function fakeToolchain(payloadDir) {
       return '';
     }
     if (command === 'tar') {
+      // The entry point is target-relative (venv/bin/python or venv/python.exe); the tarball is
+      // extracted into venv itself, so drop the leading segment.
       const venvDir = args[args.indexOf('-C') + 1];
-      writeDeep(join(venvDir, 'bin', 'python'), '#!/bin/sh\nexit 0\n');
+      writeDeep(join(venvDir, ...ENTRY_SEGMENTS.slice(1)), '#!/bin/sh\nexit 0\n');
       writeDeep(join(venvDir, 'conda-meta', 'history'), '');
       return '';
     }
     // Anything else is the box's own interpreter, running the self-test.
-    expect(command).toBe(join(payloadDir, 'venv', 'bin', 'python'));
+    expect(command).toBe(join(payloadDir, ...ENTRY_SEGMENTS));
     return '';
   };
   // Tool discovery probes `pixi --version` and `conda-pack --help` before anything is installed.
@@ -120,7 +132,9 @@ describe('the build pipeline', () => {
     await makeProject({ ...RECIPE, pixiVersion: undefined }, { commit: false });
     await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/does not declare a pixiVersion/);
     resetWorkspace();
-    await makeProject({ ...RECIPE, pythonEntryPoint: 'venv/python.exe' }, { commit: false });
+    // An entry point belonging to any *other* target must be refused on this one.
+    const foreignEntryPoint = HOST_ADAPTER.platform === 'windows' ? 'venv/bin/python' : 'venv/python.exe';
+    await makeProject({ ...RECIPE, pythonEntryPoint: foreignEntryPoint }, { commit: false });
     await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/entry point/);
   });
 
