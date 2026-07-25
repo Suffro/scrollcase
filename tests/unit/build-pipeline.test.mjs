@@ -52,7 +52,11 @@ function fakeToolchain(payloadDir) {
       return '';
     }
     if (command === 'conda-pack') {
-      writeDeep(args[args.indexOf('--output') + 1], 'fake-tarball');
+      // conda-pack takes -p <prefix> -o <output>; reading the wrong flag would write the tarball to
+      // whatever happened to be argument zero, which is how this fake once littered the repo root.
+      const output = args[args.indexOf('-o') + 1];
+      expect(output).toMatch(/pixi-env\.tar\.gz$/);
+      writeDeep(output, 'fake-tarball');
       return '';
     }
     if (command === 'tar') {
