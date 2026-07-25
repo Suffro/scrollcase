@@ -1,11 +1,15 @@
 {
-  "devDependencies": {
-    "vitepress": "^2.0.0-alpha.18"
-  },
+  "name": "scrollcase",
+  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
+    "deploy": "npm run build && npx wrangler pages deploy",
     "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^2.0.0-alpha.18"
   },
   "dependencies": {
     "wrangler": "^4.114.0"

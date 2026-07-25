@@ -1,4 +1,4 @@
-# Cloudflare Pages config for the Liatir docs site + waitlist function.
+# Cloudflare Pages config for the Scrollcase docs site.
 # The Pages project root is this `docs/` directory.
 
 name = "scrollcase"
