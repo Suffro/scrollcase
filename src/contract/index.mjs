@@ -8,7 +8,7 @@
  * implementation can validate itself against.
  *
  * A consumer written in another language does not import this code; it mirrors the rules and proves
- * the mirror against the fixtures. That is how the Rust and TypeScript clients stay honest.
+ * the mirror against the fixtures. That is how clients in other languages stay honest.
  */
 
 export {

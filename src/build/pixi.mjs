@@ -1,18 +1,16 @@
 /**
- * pixi + conda-forge builder helpers for the box migration.
+ * pixi + conda-forge builder helpers.
  *
- * This module is the pixi-substrate counterpart of the uv helpers in python.mjs/targets.mjs. It
- * owns only the deterministic, side-effect-free pieces (tool discovery and exact argument vectors)
- * so they can be unit-tested; the orchestration that actually installs and packs a prefix lives in
- * runtime-box.mjs, which composes these with process.run.
+ * This module owns the deterministic, side-effect-free pieces (tool discovery and exact argument
+ * vectors) so they can be unit-tested; the orchestration that actually installs and packs a
+ * prefix lives below in installAndPackPixiEnvironment, composed with an injected runner.
  *
- * Relocation model (Phase 0 spike + the Phase 2 measurement, see project-knowledge-base/roadmap/
- * runtime-box-pixi-phase0-spike.md): build the env with pixi from the committed pixi.lock, pack it
- * with conda-pack, and extract it into the box as `venv/`. conda-pack already rewrites the build
- * prefix to a neutral placeholder, and a conda-forge prefix imports and runs from any location with
- * **no activation environment and no relocation fixer** (proven cold on macOS and Windows,
+ * Relocation model: build the env with pixi from the committed pixi.lock, pack it with
+ * conda-pack, and extract it into the box as `venv/`. conda-pack already rewrites the build
+ * prefix to a neutral placeholder, and a conda-forge prefix imports and runs from any location
+ * with **no activation environment and no relocation fixer** (proven cold on macOS and Windows,
  * CPU + GPU). So conda-unpack is deliberately never run: doing so would bake the build machine's
- * path into the shipped box. Nothing in the Rust install flow needs a relocation step.
+ * path into the shipped box. A box needs no relocation step at install time.
  */
 
 import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, stat } from 'node:fs/promises';
@@ -42,7 +40,7 @@ export function findPixi({ requiredVersion, path = null, runResult = defaultRunR
  * `lock` — resolves a recipe's pixi.toml into its committed pixi.lock without installing anything.
  * Run by a human when dependencies change; the lock is committed and reviewed, and `build` then
  * only installs from it. The manifest itself pins the channels and the single target platform, so
- * resolution is host-independent without any per-invocation platform flag (unlike uv).
+ * resolution is host-independent without any per-invocation platform flag.
  */
 export function pixiLockArguments(manifestPath) {
   return ['lock', '--manifest-path', manifestPath];
@@ -51,7 +49,7 @@ export function pixiLockArguments(manifestPath) {
 /**
  * `build` install — materializes the env from the committed lock, never re-resolving. `--frozen`
  * installs exactly the locked packages without touching or re-checking the lock, so what ships is
- * byte-for-byte what was reviewed (the pixi analogue of uv's install-from-lock, never-resolve).
+ * byte-for-byte what was reviewed: install-from-lock, never-resolve.
  * Lock freshness against the manifest is a separate CI `check` concern, not a build-time resolve.
  */
 export function pixiInstallArguments(manifestPath) {
@@ -59,9 +57,9 @@ export function pixiInstallArguments(manifestPath) {
 }
 
 /**
- * conda-pack arguments to pack an installed conda prefix into a relocatable tarball that carries a
- * self-contained conda-unpack. Extracted into the box as `venv/`, then fixed in place by running
- * the embedded conda-unpack with the box's own interpreter (no external binary at install time).
+ * conda-pack arguments to pack an installed conda prefix into a relocatable tarball. The tarball
+ * is extracted into the box as `venv/`; the embedded conda-unpack fixer is deliberately removed
+ * rather than run (see installAndPackPixiEnvironment).
  */
 export function condaPackArguments(prefix, outputPath) {
   return ['-p', prefix, '-o', outputPath, '--format', 'tar.gz'];
@@ -85,9 +83,9 @@ export function findCondaPack({ path = null, runResult = defaultRunResult } = {}
  * contains only regular files and directories.
  *
  * The box archive layer rejects links outright (collectFiles/normalizeTree/the ZIP writer). A conda
- * prefix is dense with symlinks (versioned dylibs, `bin` aliases), so they are materialized here,
- * *after* conda-unpack has rewritten in-prefix paths against the final location. Links that dangle
- * or resolve outside the prefix are dropped rather than pulling host files into the box.
+ * prefix is dense with symlinks (versioned dylibs, `bin` aliases), so they are materialized here
+ * before the launcher repair walks the tree. Links that dangle or resolve outside the prefix are
+ * dropped rather than pulling host files into the box.
  */
 async function dereferenceSymlinksInPlace(root, current = root) {
   const canonicalRoot = await realpath(root);
@@ -132,14 +130,14 @@ async function dereferenceSymlinksInPlace(root, current = root) {
 /**
  * Builds the box's `venv/` prefix from a recipe's committed pixi.lock and packs it for relocation.
  *
- * Flow (decided by the Phase 0 spike): install the exact locked env into an isolated workspace so
- * pixi's `.pixi/envs` never lands in the tracked recipe dir; conda-pack the prefix into a
- * relocatable tarball with an embedded conda-unpack; extract it into `payloadDir/venv`; run the
- * embedded conda-unpack with the box's own interpreter to fix in-prefix paths against the final
- * location; then dereference every symlink so the payload is link-free for the archive layer. The
- * multi-gigabyte workspace and tarball are removed before the payload is archived.
+ * Flow: install the exact locked env into an isolated workspace so pixi's `.pixi/envs` never
+ * lands in the tracked recipe dir; conda-pack the prefix into a relocatable tarball; extract it
+ * into `payloadDir/venv`; remove the service files that carry the build prefix (conda-unpack is
+ * never run — see below); then dereference every symlink so the payload is link-free for the
+ * archive layer. The multi-gigabyte workspace and tarball are removed before the payload is
+ * archived.
  *
- * `run` is injected (process.run) so this composes with the orchestrator's logging and error model.
+ * `run` is injected so this composes with the orchestrator's logging and error model.
  */
 export async function installAndPackPixiEnvironment({
   pixi,
@@ -174,8 +172,8 @@ export async function installAndPackPixiEnvironment({
 
   const interpreter = join(payloadDir, ...adapter.python.entryPoint.split('/'));
   // Deliberately do NOT run conda-unpack. conda-pack already replaces the build prefix with a
-  // neutral placeholder, and the box imports and runs fine that way (Phase 0 proved a cold import
-  // from a moved prefix, before any fixer). Running the fixer here would stamp the *build machine's*
+  // neutral placeholder, and the box imports and runs fine that way (a cold import from a moved
+  // prefix was proven before any fixer). Running the fixer here would stamp the *build machine's*
   // absolute path into dozens of files that then ship to users — measured on a probe env: 0 files
   // carry the prefix before, 36 after — leaking a developer path while still being wrong at the
   // user's install location. Instead drop the few service files that do carry the build prefix.
@@ -192,8 +190,8 @@ export async function installAndPackPixiEnvironment({
   // which rejects symbolic links outright (venv/bin ships aliases such as `2to3`).
   await dereferenceSymlinksInPlace(venvDir);
   // conda console scripts (tqdm, isympy, …) embed the absolute build interpreter in a shell
-  // trampoline shebang. Rewrite them to resolve Python next to themselves, using the same repair
-  // the uv path already applies, so no build path ships inside the box.
+  // trampoline shebang. Rewrite them to resolve Python next to themselves, so no build path
+  // ships inside the box.
   await repairPosixLaunchers(adapter, payloadDir, [prefix, workspace, payloadDir]);
 
   await rm(workspace, { recursive: true, force: true });

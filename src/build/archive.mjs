@@ -1,3 +1,15 @@
+/**
+ * Deterministic archive creation and defensive extraction.
+ *
+ * Writing: every box ships as a ZIP whose bytes depend only on its contents — fixed timestamps,
+ * stable file ordering, and modes derived from the target adapter — so rebuilding the same commit
+ * reproduces the archive bit for bit.
+ *
+ * Reading: nothing from inside an archive is trusted before it is validated. Entry names are
+ * checked against path traversal, links and special entries are rejected outright, and both ZIP
+ * and TAR are handled by pinned Node implementations rather than whatever tools the host happens
+ * to have — an archive behaves the same on every machine that opens it.
+ */
 import { constants, createWriteStream } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -114,7 +126,7 @@ export async function readZipEntry(archivePath, wantedPath, maximumBytes = 1024 
   fail(`ZIP archive does not contain ${safePath}`);
 }
 
-/** Extracts a prevalidated ZIP without shelling out to runner-provided tools. */
+/** Extracts a prevalidated ZIP without shelling out to whatever unzip the host provides. */
 export async function extractZipArchive(archivePath, destination) {
   await listZipEntries(archivePath);
   await mkdir(destination, { recursive: true });

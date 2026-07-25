@@ -3,8 +3,9 @@
  *
  * A box is only worth as much as the signature over its release document, so the tool ships a
  * working signer out of the box: `keygen` produces an ed25519 pair, and every document it emits can
- * be verified with the matching public key. Production key custody is a separate concern — see
- * `external.mjs` — but verification always lives here, because a signature nobody checks is theatre.
+ * be verified with the matching public key. Production key custody is a separate concern — see the
+ * external signer in `index.mjs` — but verification always lives here, because a signature nobody
+ * checks is theatre.
  */
 
 import {

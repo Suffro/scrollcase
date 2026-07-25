@@ -1,3 +1,10 @@
+/**
+ * Error and subprocess primitives for the whole tool.
+ *
+ * Every validation failure funnels through `fail`, and every external command through `run` /
+ * `runResult` — which is also the seam the tests use: injecting a fake runner is how the pipeline
+ * suite builds boxes without pixi or conda-pack installed.
+ */
 import { spawnSync } from 'node:child_process';
 
 /** Throws a consistent CLI error from validation helpers. */

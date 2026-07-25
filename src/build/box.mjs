@@ -61,6 +61,12 @@ async function writeLicenceAudit({ recipe, lockPath, payloadDir, projectRoot }) 
   await writeFile(auditPath, `${JSON.stringify(actual, null, 2)}\n`);
 }
 
+/**
+ * Builds, self-tests, archives, and signs the box a recipe describes — the whole pipeline the
+ * module header narrates. `name` is the recipe directory under the workspace's recipes root;
+ * options override signing, channel, weights mode, namespace, and toolchain paths, and `run` /
+ * `runResult` are the injection seams the tests use to substitute the toolchain.
+ */
 export async function buildBox(name, options = {}) {
   const {
     allowDirty = false,

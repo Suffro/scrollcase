@@ -38,7 +38,7 @@ export function parseCondaPackageReference(url) {
  *
  * The `packages:` section is a YAML list of `- conda: <url>` / `- pypi: <url>` items, each followed
  * by indented `key: value` fields. This scans that regular, machine-generated structure directly
- * (the uv audit likewise regex-parses requirements.lock) rather than taking a transitive YAML dep.
+ * rather than taking a transitive YAML dependency.
  */
 export function lockedCondaDistributions(lockBytes) {
   const lines = lockBytes.toString('utf8').split(/\r?\n/);
@@ -54,9 +54,8 @@ export function lockedCondaDistributions(lockBytes) {
     if (!current.license || current.license.toUpperCase() === 'UNKNOWN') {
       fail(`${name}==${version} lacks a declared license in pixi.lock`);
     }
-    // conda/pypi filenames already carry the canonical name; unlike the uv path (which reconciles
-    // .dist-info vs requirements.lock separators) this audit is self-consistent, so keep raw names
-    // — normalizing would mangle legitimate leading-underscore conda names like `_openmp_mutex`.
+    // conda/pypi filenames already carry the canonical name, so keep raw names — normalizing
+    // would mangle legitimate leading-underscore conda names like `_openmp_mutex`.
     distributions.push({ name, version, declaredLicense: current.license, source: current.source });
     current = null;
   };

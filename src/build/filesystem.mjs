@@ -1,9 +1,22 @@
+/**
+ * Filesystem primitives shared by the build, archive, and verify layers.
+ *
+ * Two invariants live here. Determinism: payload files are always enumerated in one stable order
+ * and stamped with one fixed timestamp, so hashing and archiving the same tree twice produces the
+ * same bytes. Safety: every relative path that will be joined to a directory is screened against
+ * traversal, and trees that will enter a box are refused if they contain links or special nodes.
+ */
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, readdir, stat, utimes } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { fail } from './process.mjs';
 
+/**
+ * The single mtime every archived file carries. Any fixed instant works — what matters is that it
+ * never varies between builds; this one is simply a recognisable round date safely past the 1980
+ * floor of DOS/ZIP timestamps.
+ */
 export const FIXED_ARCHIVE_TIME = new Date('2000-01-01T00:00:00.000Z');
 
 /** Returns whether a filesystem entry exists without exposing platform-specific error codes. */

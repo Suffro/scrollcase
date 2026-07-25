@@ -20,6 +20,13 @@ import { fileExists, payloadSize, safeRelativePath, sha256File } from './filesys
 import { boxReleaseStem } from './identity.mjs';
 import { fail, run as runProcess } from './process.mjs';
 
+/**
+ * Verifies a signed release document and the archive it commits to.
+ *
+ * `publicPath` names the trusted key file; `archive` overrides the convention of the archive
+ * sitting next to its release document; `selfTest` additionally extracts the box and runs its own
+ * interpreter, which only works on a matching native host. Returns a summary of what was checked.
+ */
 export async function verifyBox(releaseDocumentPath, options = {}) {
   const {
     publicPath,

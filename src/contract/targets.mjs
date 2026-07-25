@@ -157,7 +157,7 @@ export function assertPythonEntryPoint(adapter, entryPoint) {
   }
 }
 
-/** Lists all adapters for contract tests and future catalog validation. */
+/** Lists every adapter, for contract tests and for consumers enumerating supported targets. */
 export function boxTargetAdapters() {
   return [...TARGET_ADAPTERS];
 }

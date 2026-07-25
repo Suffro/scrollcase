@@ -94,19 +94,19 @@ describe('the document namespace belongs to the publishing project', () => {
 
   it('lets a project keep the namespace its published boxes already carry', () => {
     // A project with clients in the field cannot have the tool rename its documents underneath it.
-    const kinds = documentKinds('acme.runtime-box');
-    expect(kinds.release).toBe('acme.runtime-box.release');
+    const kinds = documentKinds('acme.model-pack');
+    expect(kinds.release).toBe('acme.model-pack.release');
     for (const [type, kind] of Object.entries(kinds)) {
-      expect(parseDocumentKind(kind), type).toEqual({ namespace: 'acme.runtime-box', type });
+      expect(parseDocumentKind(kind), type).toEqual({ namespace: 'acme.model-pack', type });
     }
   });
 
   it('accepts any namespaced kind in the schemas, and nothing else', () => {
     const release = example('release-manifest');
-    for (const kind of ['acme.runtime-box.release', 'scrollcase.box.release', 'x.release']) {
+    for (const kind of ['acme.model-pack.release', 'scrollcase.box.release', 'x.release']) {
       expectValid('release-manifest', { ...release, kind }, kind);
     }
-    for (const kind of ['release', 'acme.runtime-box.channel', 'Acme.Release', '']) {
+    for (const kind of ['release', 'acme.model-pack.channel', 'Acme.Release', '']) {
       expect(validatorFor('release-manifest')({ ...release, kind }), kind).toBe(false);
     }
   });
@@ -115,7 +115,7 @@ describe('the document namespace belongs to the publishing project', () => {
     for (const namespace of ['', 'Acme', 'acme..box', '.acme', 42, null]) {
       expect(() => documentKinds(namespace), String(namespace)).toThrow(TypeError);
     }
-    expect(parseDocumentKind('acme.runtime-box.unknown')).toBeNull();
+    expect(parseDocumentKind('acme.model-pack.unknown')).toBeNull();
     expect(parseDocumentKind('release')).toBeNull();
   });
 });
