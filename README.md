@@ -1,6 +1,8 @@
 
 <p align="center">
-  <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="42">
+  <a href="https://scrollcase.dev" target="_blank">
+    <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="42">
+  </a>
 </p>
 
 <center>
@@ -19,6 +21,8 @@ dependency licence inventory.
 It is built on exactly one substrate: [pixi](https://pixi.sh) solves a committed `pixi.lock`
 against [conda-forge](https://conda-forge.org), [conda-pack](https://conda.github.io/conda-pack/)
 relocates the resulting prefix, and the tree ships inside the box as `venv/`.
+
+Find out more [here](https://scrollcase.dev).
 
 ## What you get
 
