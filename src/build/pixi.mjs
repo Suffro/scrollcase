@@ -104,6 +104,9 @@ export function probeCondaPack({ path = null, runResult = defaultRunResult } = {
  * Run by a human when dependencies change; the lock is committed and reviewed, and `build` then
  * only installs from it. The manifest itself pins the channels and the single target platform, so
  * resolution is host-independent without any per-invocation platform flag.
+ *
+ * @param {string} manifestPath
+ * @returns {string[]}
  */
 export function pixiLockArguments(manifestPath) {
   return ['lock', '--manifest-path', manifestPath];
@@ -114,6 +117,9 @@ export function pixiLockArguments(manifestPath) {
  * installs exactly the locked packages without touching or re-checking the lock, so what ships is
  * byte-for-byte what was reviewed: install-from-lock, never-resolve.
  * Lock freshness against the manifest is a separate CI `check` concern, not a build-time resolve.
+ *
+ * @param {string} manifestPath
+ * @returns {string[]}
  */
 export function pixiInstallArguments(manifestPath) {
   return ['install', '--manifest-path', manifestPath, '--frozen'];
@@ -123,6 +129,10 @@ export function pixiInstallArguments(manifestPath) {
  * conda-pack arguments to pack an installed conda prefix into a relocatable tarball. The tarball
  * is extracted into the box as `venv/`; the embedded conda-unpack fixer is deliberately removed
  * rather than run (see installAndPackPixiEnvironment).
+ *
+ * @param {string} prefix
+ * @param {string} outputPath
+ * @returns {string[]}
  */
 export function condaPackArguments(prefix, outputPath) {
   return ['-p', prefix, '-o', outputPath, '--format', 'tar.gz'];
@@ -204,6 +214,18 @@ async function dereferenceSymlinksInPlace(root, current = root) {
  * archived.
  *
  * `run` is injected so this composes with the orchestrator's logging and error model.
+ *
+ * @param {{
+ *   pixi: string,
+ *   condaPack: string,
+ *   manifestPath: string,
+ *   lockPath: string,
+ *   buildDir: string,
+ *   payloadDir: string,
+ *   adapter: import('../contract/targets.mjs').BoxTargetAdapter,
+ *   run: typeof import('./process.mjs').run,
+ * }} options
+ * @returns {Promise<{ interpreter: string, prefix: string }>}
  */
 export async function installAndPackPixiEnvironment({
   pixi,

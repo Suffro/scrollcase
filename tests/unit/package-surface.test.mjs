@@ -1,16 +1,18 @@
 /**
  * What a consumer of the published package actually gets.
  *
- * Two failures this catches that nothing else does. First, an `exports` map that names a file which
+ * Three failures this catches that nothing else does. First, an `exports` map that names a file which
  * moved or was never shipped: every other test imports by relative path, so the package could be
  * broken for everyone installing it while the suite stayed green. Second, generated types drifting
  * from the schemas they are a projection of — the schemas are the source of truth, and a type that
- * disagrees with them is worse than no type at all.
+ * disagrees with them is worse than no type at all. Third, runtime declarations that exist but
+ * silently widen the JavaScript API to `any`.
  */
 
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeGeneratedText } from '../../scripts/normalize-generated-text.mjs';
@@ -18,24 +20,22 @@ import { normalizeGeneratedText } from '../../scripts/normalize-generated-text.m
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
 const repoRoot = new URL('../../', import.meta.url);
+const repoRootPath = fileURLToPath(repoRoot);
 
 describe('the package surface', () => {
-  /**
-   * Resolves a subpath the way Node does for an installed dependency, so a stale or misspelled
-   * target in the exports map fails here rather than in a consumer's install.
-   */
-  const resolveSubpath = (subpath) => {
+  const subpathTargets = (subpath) => {
     const entry = packageJson.exports[subpath];
-    return typeof entry === 'string' ? entry : entry.types ?? entry.default;
+    return typeof entry === 'string' ? [entry] : Object.values(entry);
   };
 
   it('exports every subpath it advertises, and each one resolves to a file that exists', async () => {
     const subpaths = Object.keys(packageJson.exports).filter((subpath) => !subpath.includes('*'));
     expect(subpaths).toEqual(['./contract', './contract/types', './build', './sign']);
     for (const subpath of subpaths) {
-      const target = resolveSubpath(subpath);
-      // Reading it is the check: a path that no longer exists throws here.
-      await expect(readFile(new URL(target, repoRoot), 'utf8')).resolves.toBeTruthy();
+      for (const target of subpathTargets(subpath)) {
+        // Reading it is the check: a path that no longer exists throws here.
+        await expect(readFile(new URL(target, repoRoot), 'utf8')).resolves.toBeTruthy();
+      }
     }
   });
 
@@ -43,11 +43,10 @@ describe('the package surface', () => {
     // `files` decides what npm publishes; an export outside it resolves for us and 404s for a user.
     const shipped = new Set(packageJson.files);
     for (const subpath of Object.keys(packageJson.exports)) {
-      const target = typeof packageJson.exports[subpath] === 'string'
-        ? packageJson.exports[subpath]
-        : resolveSubpath(subpath);
-      const top = target.replace(/^\.\//, '').split('/')[0];
-      expect(shipped.has(top), `${subpath} resolves outside "files"`).toBe(true);
+      for (const target of subpathTargets(subpath)) {
+        const top = target.replace(/^\.\//, '').split('/')[0];
+        expect(shipped.has(top), `${subpath} resolves outside "files"`).toBe(true);
+      }
     }
   });
 
@@ -67,6 +66,15 @@ describe('the package surface', () => {
     expect(contract.documentKinds().release).toBe('scrollcase.box.release');
     expect(typeof build.sha256File).toBe('function');
     expect(typeof sign.verifySignedDocument).toBe('function');
+  });
+
+  it('type-checks every public entry point in a strict TypeScript consumer', () => {
+    const tsc = require.resolve('typescript/bin/tsc');
+    const project = join(repoRootPath, 'tests/fixtures/typescript-consumer/tsconfig.json');
+    expect(() => execFileSync(process.execPath, [tsc, '--project', project], {
+      cwd: dirname(project),
+      stdio: 'pipe',
+    })).not.toThrow();
   });
 
   it('resolves the schema and fixture wildcards a mirror implementation relies on', async () => {
@@ -103,5 +111,12 @@ describe('the generated contract types', () => {
     ]) {
       expect(committed).toMatch(new RegExp(`^export (?:interface|type) ${name}\\b`, 'm'));
     }
+  });
+});
+
+describe('the generated runtime declarations', () => {
+  it('match the typed JavaScript implementation', () => {
+    const generator = fileURLToPath(new URL('../../scripts/generate-runtime-types.mjs', import.meta.url));
+    expect(() => execFileSync(process.execPath, [generator, '--check'], { stdio: 'pipe' })).not.toThrow();
   });
 });

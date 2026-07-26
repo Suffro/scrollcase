@@ -46,9 +46,12 @@ The schemas are the source of truth; these types are a projection of them, never
 definition. A schema change that is not accompanied by `npm run types` fails the test suite, so
 the two cannot drift — the same discipline that makes the licence audit a function of the lock.
 
-This subpath is **types only**: there is nothing to import at runtime, so use `import type`. The
-runtime entry points below carry typed JSDoc, which is what gives you hover documentation and
-completion in an editor without any build step on your side.
+This subpath is **types only**: there is nothing to import at runtime, so use `import type`.
+`scrollcase/contract`, `scrollcase/build`, and `scrollcase/sign` also ship declarations generated
+from the typed JSDoc beside their JavaScript implementations. Strict TypeScript consumers therefore
+get checked parameters, return values, narrowing guards, hover documentation, and completion
+without a build step or a separate types package. `npm run types:check` fails if either the
+schema-derived format types or the runtime declarations drift from their source.
 
 ::: info The pipeline verbs are CLI-only
 `build`, `verify`, `audit`, `lock`, `init` and `doctor` are not part of the exported surface.

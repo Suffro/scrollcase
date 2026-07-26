@@ -1,6 +1,6 @@
 {
   "name": "scrollcase",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Build signed, verifiable, installable Python environment boxes for scientific models.",
   "license": "Apache-2.0",
   "author": "Lorenzo S. (https://github.com/suffro)",
@@ -33,14 +33,23 @@
     "node": ">=20"
   },
   "exports": {
-    "./contract": "./src/contract/index.mjs",
+    "./contract": {
+      "types": "./src/contract/index.d.mts",
+      "import": "./src/contract/index.mjs"
+    },
     "./contract/types": {
       "types": "./src/contract/types/index.d.ts"
     },
-    "./build": "./src/build/index.mjs",
+    "./build": {
+      "types": "./src/build/index.d.mts",
+      "import": "./src/build/index.mjs"
+    },
     "./contract/schema/*.json": "./src/contract/schema/*.json",
     "./contract/fixtures/*.json": "./src/contract/fixtures/*.json",
-    "./sign": "./src/sign/index.mjs"
+    "./sign": {
+      "types": "./src/sign/index.d.mts",
+      "import": "./src/sign/index.mjs"
+    }
   },
   "files": [
     "src",
@@ -51,8 +60,8 @@
   ],
   "scripts": {
     "test": "vitest run --config tests/unit/vitest.config.mjs",
-    "types": "node scripts/generate-contract-types.mjs",
-    "types:check": "node scripts/generate-contract-types.mjs --check",
+    "types": "node scripts/generate-contract-types.mjs && node scripts/generate-runtime-types.mjs",
+    "types:check": "node scripts/generate-contract-types.mjs --check && node scripts/generate-runtime-types.mjs --check",
     "prepublishOnly": "npm test && npm run types:check"
   },
   "dependencies": {
@@ -61,9 +70,11 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
+    "@types/node": "^24.13.3",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "json-schema-to-typescript": "^15.0.4",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.9"
   },
   "bin": {

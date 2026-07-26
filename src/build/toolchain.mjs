@@ -29,6 +29,15 @@ const PIXI_RELEASES = 'https://github.com/prefix-dev/pixi/releases';
 const PIXI_LATEST_API = 'https://api.github.com/repos/prefix-dev/pixi/releases/latest';
 const SHA256_TOKEN = /\b[a-f0-9]{64}\b/;
 
+/**
+ * One host-specific archive published by pixi.
+ *
+ * @typedef {object} PixiReleaseAsset
+ * @property {string} asset
+ * @property {'zip' | 'tar.gz'} format
+ * @property {string} binary
+ */
+
 // conda-pack changes the bytes staged into a box, so letting the resolver select a newer release
 // would make the same Scrollcase version produce a different payload over time. Keep the pin with
 // the implementation that relies on its output; changing it is a reviewed Scrollcase release.
@@ -39,6 +48,7 @@ export const CONDA_PACK_VERSION = '0.9.2';
  * reports them. A host outside this table is not a failure of the project — it just means the
  * toolchain has to be installed by hand.
  */
+/** @type {Readonly<Record<string, Readonly<PixiReleaseAsset>>>} */
 export const PIXI_RELEASE_ASSETS = Object.freeze({
   'darwin/arm64': Object.freeze({ asset: 'pixi-aarch64-apple-darwin.tar.gz', format: 'tar.gz', binary: 'pixi' }),
   'darwin/x64': Object.freeze({ asset: 'pixi-x86_64-apple-darwin.tar.gz', format: 'tar.gz', binary: 'pixi' }),
@@ -48,7 +58,12 @@ export const PIXI_RELEASE_ASSETS = Object.freeze({
   'win32/arm64': Object.freeze({ asset: 'pixi-aarch64-pc-windows-msvc.zip', format: 'zip', binary: 'pixi.exe' }),
 });
 
-/** Where the project keeps the tools it installed for itself. */
+/**
+ * Where the project keeps the tools it installed for itself.
+ *
+ * @param {string} toolchainDir
+ * @returns {{ binDir: string, pixi: string, condaPack: string }}
+ */
 export function toolchainPaths(toolchainDir) {
   const binDir = join(toolchainDir, 'bin');
   const suffix = process.platform === 'win32' ? '.exe' : '';
@@ -59,25 +74,46 @@ export function toolchainPaths(toolchainDir) {
   };
 }
 
-/** Returns the release asset for this host, or null when pixi publishes no build for it. */
+/**
+ * Returns the release asset for this host, or null when pixi publishes no build for it.
+ *
+ * @param {{ platform: string, arch: string }} [host]
+ * @returns {Readonly<PixiReleaseAsset> | null}
+ */
 export function pixiReleaseAsset(host = process) {
   return PIXI_RELEASE_ASSETS[`${host.platform}/${host.arch}`] ?? null;
 }
 
-/** The archive and checksum URLs for one pixi release. */
+/**
+ * The archive and checksum URLs for one pixi release.
+ *
+ * @param {string} version
+ * @param {string} asset
+ * @returns {{ archiveUrl: string, checksumUrl: string }}
+ */
 export function pixiAssetUrls(version, asset) {
   const base = `${PIXI_RELEASES}/download/v${version}/${asset}`;
   return { archiveUrl: base, checksumUrl: `${base}.sha256` };
 }
 
-/** Reads the digest out of a published checksum file, which may or may not name the file beside it. */
+/**
+ * Reads the digest out of a published checksum file, which may or may not name the file beside it.
+ *
+ * @param {unknown} text
+ * @returns {string}
+ */
 export function parseChecksumFile(text) {
   const match = SHA256_TOKEN.exec(String(text).toLowerCase());
   if (!match) fail('Published pixi checksum file does not contain a SHA-256 digest.');
   return match[0];
 }
 
-/** Resolves the newest pixi release, for a project that has not pinned a version yet. */
+/**
+ * Resolves the newest pixi release, for a project that has not pinned a version yet.
+ *
+ * @param {{ fetchImpl?: typeof fetch }} [options]
+ * @returns {Promise<string>}
+ */
 export async function latestPixiVersion({ fetchImpl = fetch } = {}) {
   const response = await fetchImpl(PIXI_LATEST_API, { headers: { accept: 'application/vnd.github+json' } });
   if (!response.ok) fail(`Could not look up the latest pixi release (${response.status}).`);
@@ -104,6 +140,16 @@ async function fetchToFile(url, destination, fetchImpl) {
  * `expectedSha256` is the digest the project has already reviewed, when it has one; without it the
  * checksum published beside the archive is used and returned, so the caller can pin it. Either way
  * the bytes on disk are hashed and compared before anything is installed.
+ *
+ * @param {{
+ *   version: string,
+ *   toolchainDir: string,
+ *   expectedSha256?: string | null,
+ *   host?: { platform: string, arch: string },
+ *   fetchImpl?: typeof fetch,
+ *   log?: (message: string) => void,
+ * }} options
+ * @returns {Promise<{ path: string, version: string, sha256: string, asset: string }>}
  */
 export async function installPixi({
   version,
@@ -154,6 +200,14 @@ export async function installPixi({
  * `PIXI_HOME` points pixi at the toolchain directory, so the result lands beside pixi instead of in
  * the user's home. Integrity here is conda-forge's to provide: the package is resolved and verified
  * by pixi exactly as any other dependency is.
+ *
+ * @param {{
+ *   pixi: string,
+ *   toolchainDir: string,
+ *   run?: typeof defaultRun,
+ *   log?: (message: string) => void,
+ * }} options
+ * @returns {Promise<{ path: string, version: typeof CONDA_PACK_VERSION }>}
  */
 export async function installCondaPack({ pixi, toolchainDir, run = defaultRun, log = console.log }) {
   log(`Installing conda-pack ${CONDA_PACK_VERSION} with pixi`);

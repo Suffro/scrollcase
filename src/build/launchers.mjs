@@ -28,7 +28,14 @@ function posixLauncherBody(text) {
   return lines.slice(1).join('\n');
 }
 
-/** Makes generated POSIX console scripts resolve Python relative to their own installed path. */
+/**
+ * Makes generated POSIX console scripts resolve Python relative to their own installed path.
+ *
+ * @param {import('../contract/targets.mjs').BoxTargetAdapter} adapter
+ * @param {string} payloadDir
+ * @param {readonly string[]} forbiddenPaths
+ * @returns {Promise<void>}
+ */
 export async function repairPosixLaunchers(adapter, payloadDir, forbiddenPaths) {
   const scriptsRoot = join(payloadDir, ...adapter.python.scriptsDirectory.split('/'));
   if (!await fileExists(scriptsRoot)) return;

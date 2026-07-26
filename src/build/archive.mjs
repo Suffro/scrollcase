@@ -41,7 +41,14 @@ function archiveFileMode(adapter, relativePath) {
     : 0o100644;
 }
 
-/** Streams a deterministic, Zip64-capable box archive using the pinned Node backend. */
+/**
+ * Streams a deterministic, Zip64-capable box archive using the pinned Node backend.
+ *
+ * @param {string} payloadDir
+ * @param {string} archivePath
+ * @param {import('../contract/targets.mjs').BoxTargetAdapter} adapter
+ * @returns {Promise<void>}
+ */
 export async function createDeterministicZip(payloadDir, archivePath, adapter) {
   await rm(archivePath, { force: true });
   await mkdir(dirname(archivePath), { recursive: true });
@@ -89,7 +96,17 @@ async function openZip(archivePath) {
   });
 }
 
-/** Lists and validates all entries before any ZIP data is trusted or extracted. */
+/**
+ * Lists and validates all entries before any ZIP data is trusted or extracted.
+ *
+ * @param {string} archivePath
+ * @returns {Promise<Array<{
+ *   path: string,
+ *   kind: 'directory' | 'file',
+ *   size: number,
+ *   mode: number,
+ * }>>}
+ */
 export async function listZipEntries(archivePath) {
   const zip = await openZip(archivePath);
   const entries = [];
@@ -101,7 +118,14 @@ export async function listZipEntries(archivePath) {
   return entries;
 }
 
-/** Reads one small ZIP metadata entry without extracting the surrounding archive. */
+/**
+ * Reads one small ZIP metadata entry without extracting the surrounding archive.
+ *
+ * @param {string} archivePath
+ * @param {string} wantedPath
+ * @param {number} [maximumBytes]
+ * @returns {Promise<string>}
+ */
 export async function readZipEntry(archivePath, wantedPath, maximumBytes = 1024 * 1024) {
   const safePath = safeRelativePath(wantedPath);
   const zip = await openZip(archivePath);
@@ -126,7 +150,13 @@ export async function readZipEntry(archivePath, wantedPath, maximumBytes = 1024 
   fail(`ZIP archive does not contain ${safePath}`);
 }
 
-/** Extracts a prevalidated ZIP without shelling out to whatever unzip the host provides. */
+/**
+ * Extracts a prevalidated ZIP without shelling out to whatever unzip the host provides.
+ *
+ * @param {string} archivePath
+ * @param {string} destination
+ * @returns {Promise<void>}
+ */
 export async function extractZipArchive(archivePath, destination) {
   await listZipEntries(archivePath);
   await mkdir(destination, { recursive: true });
@@ -174,7 +204,15 @@ async function validateTarArchive(archivePath) {
   if (violation) fail(violation);
 }
 
-/** Extracts recipe assets using only pinned Node archive implementations. */
+/**
+ * Extracts recipe assets using only pinned Node archive implementations.
+ *
+ * @param {string} archivePath
+ * @param {'zip' | 'tar.gz'} format
+ * @param {string} destination
+ * @param {number} [stripComponents]
+ * @returns {Promise<void>}
+ */
 export async function extractRecipeArchive(archivePath, format, destination, stripComponents = 0) {
   const tempRoot = await mkdtemp(join(tmpdir(), 'scrollcase-extract-'));
   try {

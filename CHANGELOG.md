@@ -4,6 +4,17 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-07-26
+
+### Fixed
+
+- Ship source-derived TypeScript declarations for the public `scrollcase/contract`,
+  `scrollcase/build`, and `scrollcase/sign` runtime modules. The package export map now routes
+  TypeScript to those declarations while Node keeps executing the same JavaScript, and a strict
+  consumer regression covers all public entry points.
+- Extend `npm run types` and the prepublish gate to regenerate and verify runtime declarations
+  alongside the schema-derived box-format types.
+
 ## [0.1.0] — 2026-07-26
 
 First public release. Scrollcase was extracted from the runtime packaging builder of a private

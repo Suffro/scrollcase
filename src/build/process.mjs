@@ -7,12 +7,35 @@
  */
 import { spawnSync } from 'node:child_process';
 
-/** Throws a consistent CLI error from validation helpers. */
+/**
+ * Subprocess options shared by the library surface and its injected test seams.
+ *
+ * @typedef {object} RunOptions
+ * @property {string} [cwd]
+ * @property {NodeJS.ProcessEnv} [env]
+ * @property {string | Uint8Array} [input]
+ * @property {number} [maxBuffer]
+ * @property {boolean} [capture]
+ */
+
+/**
+ * Throws a consistent CLI error from validation helpers.
+ *
+ * @param {unknown} message
+ * @returns {never}
+ */
 export function fail(message) {
   throw new Error(message);
 }
 
-/** Runs a subprocess without interpreting its result. */
+/**
+ * Runs a subprocess without interpreting its result.
+ *
+ * @param {string} command
+ * @param {readonly string[]} args
+ * @param {RunOptions} [options]
+ * @returns {import('node:child_process').SpawnSyncReturns<string>}
+ */
 export function runResult(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: options.cwd,
@@ -24,7 +47,14 @@ export function runResult(command, args, options = {}) {
   });
 }
 
-/** Runs a subprocess and throws when it cannot start or exits unsuccessfully. */
+/**
+ * Runs a subprocess and throws when it cannot start or exits unsuccessfully.
+ *
+ * @param {string} command
+ * @param {readonly string[]} args
+ * @param {RunOptions} [options]
+ * @returns {string}
+ */
 export function run(command, args, options = {}) {
   const result = runResult(command, args, options);
   if (result.error) fail(`${command} failed to start: ${result.error.message}`);

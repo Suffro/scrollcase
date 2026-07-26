@@ -122,7 +122,12 @@ function readWorkspaceConfig(configPath) {
   return { ...config, paths };
 }
 
-/** Collects workspace overrides from an already-parsed CLI flag map. */
+/**
+ * Collects workspace overrides from an already-parsed CLI flag map.
+ *
+ * @param {ReadonlyMap<string, unknown> | null | undefined} flags
+ * @returns {WorkspaceOverrides}
+ */
 export function workspaceOverridesFromFlags(flags) {
   const overrides = {};
   const stringFlag = (name) => {
@@ -146,6 +151,9 @@ export function workspaceOverridesFromFlags(flags) {
  * Collects workspace overrides directly from raw arguments, for entry points that parse the rest of
  * their command line themselves. Only the workspace flags are read, in `--name value` or
  * `--name=value` form; anything else is left untouched for the caller's own parser.
+ *
+ * @param {readonly string[]} values
+ * @returns {WorkspaceOverrides}
  */
 export function workspaceOverridesFromArgv(values) {
   const flags = new Map();

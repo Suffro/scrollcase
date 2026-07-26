@@ -34,7 +34,13 @@ export async function fileExists(path) {
   }
 }
 
-/** Compares machine-facing identifiers by code unit, independent of host locale and ICU data. */
+/**
+ * Compares machine-facing identifiers by code unit, independent of host locale and ICU data.
+ *
+ * @param {string} left
+ * @param {string} right
+ * @returns {-1 | 0 | 1}
+ */
 export function compareStableStrings(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -58,7 +64,13 @@ export function safeRelativePath(value) {
   return normalized;
 }
 
-/** Lists payload files in the stable order used by hashing and archive creation. */
+/**
+ * Lists payload files in the stable order used by hashing and archive creation.
+ *
+ * @param {string} root
+ * @param {string} [current]
+ * @returns {Promise<string[]>}
+ */
 export async function collectFiles(root, current = root) {
   const entries = await readdir(current, { withFileTypes: true });
   const files = [];
@@ -72,7 +84,12 @@ export async function collectFiles(root, current = root) {
   return files;
 }
 
-/** Sums the logical size of the exact regular files in a box tree. */
+/**
+ * Sums the logical size of the exact regular files in a box tree.
+ *
+ * @param {string} root
+ * @returns {Promise<number>}
+ */
 export async function payloadSize(root) {
   let total = 0;
   for (const file of await collectFiles(root)) {
@@ -82,7 +99,13 @@ export async function payloadSize(root) {
   return total;
 }
 
-/** Rejects links and special nodes before an extracted tree is copied. */
+/**
+ * Rejects links and special nodes before an extracted tree is copied.
+ *
+ * @param {string} root
+ * @param {string} [current]
+ * @returns {Promise<void>}
+ */
 export async function validateExtractedTree(root, current = root) {
   for (const entry of await readdir(current, { withFileTypes: true })) {
     const fullPath = join(current, entry.name);
@@ -94,14 +117,24 @@ export async function validateExtractedTree(root, current = root) {
   }
 }
 
-/** Applies the archive timestamp to every payload file. */
+/**
+ * Applies the archive timestamp to every payload file.
+ *
+ * @param {string} root
+ * @returns {Promise<void>}
+ */
 export async function normalizeTree(root) {
   for (const file of await collectFiles(root)) {
     await utimes(join(root, ...file.split('/')), FIXED_ARCHIVE_TIME, FIXED_ARCHIVE_TIME);
   }
 }
 
-/** Streams a file into SHA-256 without buffering large boxes in memory. */
+/**
+ * Streams a file into SHA-256 without buffering large boxes in memory.
+ *
+ * @param {string} path
+ * @returns {Promise<string>}
+ */
 export async function sha256File(path) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(path)) hash.update(chunk);
