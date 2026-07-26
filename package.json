@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "Build signed, verifiable, installable Python environment boxes for scientific models.",
   "license": "Apache-2.0",
-  "author": "Lorenzo S. (https://github.com/Suffro)",
+  "author": "Lorenzo S. (https://github.com/suffro)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Suffro/scrollcase.git"
+    "url": "git+https://github.com/suffro/scrollcase.git"
   },
   "homepage": "https://scrollcase.dev",
   "bugs": {
-    "url": "https://github.com/Suffro/scrollcase/issues"
+    "url": "https://github.com/suffro/scrollcase/issues"
   },
   "keywords": [
     "packaging",

@@ -7,7 +7,7 @@
 
 ---
 
-  [![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
+  [![CI](https://github.com/suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/suffro/scrollcase/actions/workflows/ci.yml)
 
 
 Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
@@ -60,7 +60,7 @@ npm install -g scrollcase
 Otherwise from a checkout:
 
 ```sh
-git clone https://github.com/Suffro/scrollcase.git
+git clone https://github.com/suffro/scrollcase.git
 cd scrollcase && npm install && npm link
 ```
 

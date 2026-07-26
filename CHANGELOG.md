@@ -69,3 +69,4 @@ namespaces are configurable, and the tool carries no consumer's name.
 - Exercise hostile ZIP/TAR entries, verified and resumed asset downloads, and external-signer
   payload substitution and signature failures with dedicated regressions.
 - Update the direct `tar` dependency to 7.5.22.
+- Use GitHub's canonical repository URL in npm metadata, documentation, and status links.

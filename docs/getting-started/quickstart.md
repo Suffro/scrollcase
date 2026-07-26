@@ -140,5 +140,5 @@ the check that proves the environment runs somewhere other than where it was bui
 - See how the whole pipeline fits together: [Architecture](/concepts/architecture).
 
 The repository also ships a proven example,
-[`examples/hello-box-macos-arm64-metal`](https://github.com/Suffro/scrollcase/tree/main/examples),
+[`examples/hello-box-macos-arm64-metal`](https://github.com/suffro/scrollcase/tree/main/examples),
 with a committed lock — the same walkthrough with nothing left to fill in.
