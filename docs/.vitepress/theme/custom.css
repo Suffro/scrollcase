@@ -161,6 +161,31 @@ body:has(.cookie-backdrop) {
   gap: 12px;
 }
 
+.floating-share {
+  cursor: pointer !important;
+  background-color: var(--vp-c-brand-1) !important;
+  position: fixed;
+  right: 20px; /* Distanza dal bordo destro */
+  bottom: 5px;    /* Centrato verticalmente */
+  border-radius: 5px !important;
+  transform: translateY(-50%);
+  z-index: 1000; /* Sempre sopra tutto */
+  overflow: hidden !important;
+}
+
+.floating-share .st-total {
+  display: none !important;
+}
+
+.floating-share:hover {
+  opacity: 0.9;
+}
+
+.floating-share .st-btn {
+  background-color: var(--vp-c-brand-1) !important;
+  border-radius: 5px !important;
+}
+
 /* One column on narrow screens. */
 @media (max-width: 600px) {
   .VPNavBarMenuGroup .items {
@@ -171,5 +196,12 @@ body:has(.cookie-backdrop) {
 @media (max-width: 768px) {
   .scrollcase-architecture-figure {
     margin: 24px 0;
+  }
+}
+
+/* Nascondi su schermi molto piccoli per non coprire il testo */
+@media (max-width: 768px) {
+  .floating-share {
+    display: none;
   }
 }

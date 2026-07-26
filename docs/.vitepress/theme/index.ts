@@ -3,6 +3,7 @@ import { useData } from 'vitepress'
 import { h, nextTick, watch } from 'vue'
 import { createMermaidRenderer } from 'vitepress-mermaid-renderer'
 import 'vitepress-mermaid-renderer/css'
+import ShareThis from './ShareThis.vue'
 import HomePage from './HomePage.vue'
 import CookieBanner from './CookieBanner.vue'
 import Tabs from './tabs-component/Tabs.vue'
@@ -25,6 +26,7 @@ export default {
 
     return h(DefaultTheme.Layout, null, {
       'layout-bottom': () => h(CookieBanner),
+      'nav-bar-content-after': () => h(ShareThis),
     })
   },
   enhanceApp({ app }) {

@@ -33,6 +33,7 @@ export default defineConfig({
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-dark.svg', media: '(prefers-color-scheme: light)' }],
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-light.svg', media: '(prefers-color-scheme: dark)' }]
 
+    ['script', { src: "https://platform-api.sharethis.com/js/sharethis.js", async: "true" }],
     ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-QY4HT9GE1P' }],
     ['script', {}, `
       window.dataLayer = window.dataLayer || [];
@@ -117,8 +118,6 @@ export default defineConfig({
     outline: {
       level: [2, 3]
     },
-
-    packageVersion,
 
     footer: {
       message: `Scrollcase v${packageVersion} · schema version 1 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md">Changelog</a>`,
