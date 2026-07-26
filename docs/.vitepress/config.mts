@@ -12,6 +12,14 @@ export default defineConfig({
     ['link', { rel: 'icon', href: '/static/icon.ico', sizes: '256x256' }],
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-dark.svg', media: '(prefers-color-scheme: light)' }],
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-light.svg', media: '(prefers-color-scheme: dark)' }]
+
+    ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-QY4HT9GE1P' }],
+    ['script', {}, `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-QY4HT9GE1P');
+    `],
   ],
 
   themeConfig: {
