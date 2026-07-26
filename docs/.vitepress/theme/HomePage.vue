@@ -67,7 +67,7 @@ const capabilities = [
         <p class="headline">Pack AI and scientific models<br>as self-contained boxes.</p>
 
         <p class="tagline">
-          No docker, pinned, validated, signed, and installable offline on<br>macOS metal, Linux and Windows (CPU and CUDA).
+          Pinned, validated, signed, no docker, and installable offline on<br>macOS metal, Linux and Windows (CPU and CUDA).
         </p>
 
         <div class="actions">
