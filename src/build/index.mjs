@@ -25,6 +25,7 @@ export {
   pixiLockArguments,
 } from './pixi.mjs';
 export { fail, run, runResult } from './process.mjs';
+export { CONDA_PACK_VERSION } from './toolchain.mjs';
 export {
   DEFAULT_WORKSPACE_PATHS,
   SCROLLCASE_CONFIG_FILENAME,

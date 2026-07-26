@@ -64,8 +64,9 @@ async function writeLicenceAudit({ recipe, lockPath, payloadDir, projectRoot }) 
 /**
  * Builds, self-tests, archives, and signs the box a recipe describes — the whole pipeline the
  * module header narrates. `name` is the recipe directory under the workspace's recipes root;
- * options override signing, channel, weights mode, namespace, and toolchain paths, and `run` /
- * `runResult` are the injection seams the tests use to substitute the toolchain.
+ * options override signing, channel, weights mode, namespace, and toolchain paths. `run`,
+ * `runResult`, and `fetchImpl` are the injection seams the tests use to substitute the toolchain
+ * and asset transport.
  */
 export async function buildBox(name, options = {}) {
   const {
@@ -81,6 +82,7 @@ export async function buildBox(name, options = {}) {
     condaPackPath = null,
     run = runProcess,
     runResult = null,
+    fetchImpl = fetch,
     log = console.log,
   } = options;
   // Tool discovery probes with its own runner; a caller may substitute one to drive a build without
@@ -141,7 +143,10 @@ export async function buildBox(name, options = {}) {
   const embedded = weightsMode === 'embed';
   for (const asset of embedded ? recipe.assets : []) {
     log(`Downloading ${asset.relativePath}`);
-    await downloadVerified(asset, join(payloadDir, safeRelativePath(asset.relativePath)));
+    await downloadVerified(asset, join(payloadDir, safeRelativePath(asset.relativePath)), {
+      fetchImpl,
+      log,
+    });
   }
   const deferredAssets = new Set(embedded ? [] : recipe.assets.map((asset) => asset.relativePath));
   for (const file of recipe.localFiles ?? []) {

@@ -14,7 +14,7 @@ box for real additionally needs `pixi` and `conda-pack` on the machine that buil
 | You want to… | You need |
 | --- | --- |
 | Run the CLI (`init`, `keygen`, `audit`, `verify`) | Node.js ≥ 20 |
-| Resolve a lock (`lock`) or build a box (`build`) | Node.js ≥ 20, `pixi` at the version the recipe pins, `conda-pack` — installable by `init` |
+| Resolve a lock (`lock`) or build a box (`build`) | Node.js ≥ 20, `pixi` at the version the recipe pins, `conda-pack` 0.9.2 — installable by `init` |
 | Verify with `--self-test` | The same OS and architecture the box targets |
 
 Locking, auditing, signing, and verifying an existing archive need no toolchain at all — only
@@ -100,8 +100,13 @@ pixi.
 relocatable tree. The recommended install is through pixi itself:
 
 ```sh
-pixi global install conda-pack
+pixi global install "conda-pack==0.9.2"
 ```
+
+Scrollcase's managed installer uses this exact release. `conda-pack --version` currently reports
+`0.0.0` regardless of the installed package release, so Scrollcase can pin what it installs but
+cannot reliably validate the version of an executable supplied through a flag, environment
+variable, or `PATH`.
 
 ## Point Scrollcase at the toolchain
 
@@ -119,7 +124,8 @@ export SCROLLCASE_PIXI=/opt/toolchain/bin/pixi
 export SCROLLCASE_CONDA_PACK=/opt/toolchain/bin/conda-pack
 ```
 
-A `--pixi` / `--conda-pack` flag wins over the environment variable, which wins over `PATH`.
+A `--pixi` / `--conda-pack` flag wins over the environment variable, which wins over the
+project-local toolchain, which wins over `PATH`.
 
 ## Check the machine
 

@@ -29,6 +29,11 @@ const PIXI_RELEASES = 'https://github.com/prefix-dev/pixi/releases';
 const PIXI_LATEST_API = 'https://api.github.com/repos/prefix-dev/pixi/releases/latest';
 const SHA256_TOKEN = /\b[a-f0-9]{64}\b/;
 
+// conda-pack changes the bytes staged into a box, so letting the resolver select a newer release
+// would make the same Scrollcase version produce a different payload over time. Keep the pin with
+// the implementation that relies on its output; changing it is a reviewed Scrollcase release.
+export const CONDA_PACK_VERSION = '0.9.2';
+
 /**
  * The release asset for each host pixi publishes a build for, keyed by `platform/arch` as Node
  * reports them. A host outside this table is not a failure of the project — it just means the
@@ -151,11 +156,13 @@ export async function installPixi({
  * by pixi exactly as any other dependency is.
  */
 export async function installCondaPack({ pixi, toolchainDir, run = defaultRun, log = console.log }) {
-  log('Installing conda-pack with pixi');
-  run(pixi, ['global', 'install', 'conda-pack'], { env: { PIXI_HOME: toolchainDir } });
+  log(`Installing conda-pack ${CONDA_PACK_VERSION} with pixi`);
+  run(pixi, ['global', 'install', `conda-pack==${CONDA_PACK_VERSION}`], {
+    env: { PIXI_HOME: toolchainDir },
+  });
   const { condaPack } = toolchainPaths(toolchainDir);
   if (!await fileExists(condaPack)) {
     fail(`pixi reported success but ${condaPack} is missing.`);
   }
-  return { path: condaPack };
+  return { path: condaPack, version: CONDA_PACK_VERSION };
 }

@@ -1,7 +1,7 @@
 
 <p align="center">
   <a align="center" href="https://scrollcase.dev" target="_blank">
-    <img src="docs/public/static/png/labeled/neutral-colored.png" alt="Scrollcase logo" width="220">
+    <img src="https://scrollcase.dev/static/png/labeled/neutral-colored.png" alt="Scrollcase logo" width="220">
   </a>
 </p>
 
@@ -45,9 +45,10 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 ## Requirements
 
 - Node.js ≥ 20 for the CLI.
-- For real builds: `pixi` (at the version the recipe pins) and `conda-pack`. Point Scrollcase at
-  them with `--pixi` / `--conda-pack` or `SCROLLCASE_PIXI` / `SCROLLCASE_CONDA_PACK` if they are
-  not on `PATH`. `scrollcase doctor` reports exactly what is missing and how to install it.
+- For real builds: `pixi` at the version the recipe pins and `conda-pack` 0.9.2. Point Scrollcase
+  at them with `--pixi` / `--conda-pack` or `SCROLLCASE_PIXI` /
+  `SCROLLCASE_CONDA_PACK` if they are not on `PATH`. `scrollcase doctor` reports exactly what is
+  missing and how to install it. `init` installs the pinned conda-pack release automatically.
 - Locking, auditing, signing and verifying an existing archive need no toolchain at all.
 
 ## Install
@@ -60,7 +61,7 @@ Otherwise from a checkout:
 
 ```sh
 git clone https://github.com/Suffro/scrollcase.git
-cd Scrollcase && npm install && npm link
+cd scrollcase && npm install && npm link
 ```
 
 ## Quickstart

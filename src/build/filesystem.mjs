@@ -34,6 +34,11 @@ export async function fileExists(path) {
   }
 }
 
+/** Compares machine-facing identifiers by code unit, independent of host locale and ICU data. */
+export function compareStableStrings(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 /**
  * Rejects paths that could escape a box staging directory.
  *
@@ -57,7 +62,7 @@ export function safeRelativePath(value) {
 export async function collectFiles(root, current = root) {
   const entries = await readdir(current, { withFileTypes: true });
   const files = [];
-  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of entries.sort((a, b) => compareStableStrings(a.name, b.name))) {
     if (entry.name === '__pycache__' || entry.name === '.DS_Store' || entry.name.endsWith('.pyc')) continue;
     const fullPath = join(current, entry.name);
     if (entry.isDirectory()) files.push(...await collectFiles(root, fullPath));

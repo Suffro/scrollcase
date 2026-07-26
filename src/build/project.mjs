@@ -17,7 +17,13 @@ import { boxTargetAdapters, condaSubdir } from '../contract/targets.mjs';
 import { fileExists } from './filesystem.mjs';
 import { findCondaPack, findPixi, probeCondaPack, probePixi } from './pixi.mjs';
 import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
-import { installCondaPack, installPixi, latestPixiVersion, pixiReleaseAsset } from './toolchain.mjs';
+import {
+  CONDA_PACK_VERSION,
+  installCondaPack,
+  installPixi,
+  latestPixiVersion,
+  pixiReleaseAsset,
+} from './toolchain.mjs';
 import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace.mjs';
 
 // Written into a project's .gitignore and matched on re-run to stay idempotent. Changing the text
@@ -107,6 +113,16 @@ async function readConfig(configPath) {
   return JSON.parse(await readFile(configPath, 'utf8'));
 }
 
+/** Pins a scaffolded recipe to the pixi it will use, without overwriting an explicit choice. */
+async function pinRecipePixiVersion(recipePath, version) {
+  if (!recipePath || !version || !await fileExists(recipePath)) return false;
+  const recipe = JSON.parse(await readFile(recipePath, 'utf8'));
+  if (recipe.pixiVersion) return false;
+  recipe.pixiVersion = version;
+  await writeFile(recipePath, `${JSON.stringify(recipe, null, 2)}\n`);
+  return true;
+}
+
 /**
  * Installs the build toolchain into the project, if it is missing and only if allowed.
  *
@@ -118,9 +134,10 @@ async function readConfig(configPath) {
  * already present, and otherwise the newest release — resolved once and then written into the
  * recipe, because a toolchain nobody pinned is a box nobody can reproduce.
  *
- * The archive's verified digest is recorded under `toolchain` in the project config. The first
- * install trusts the checksum published beside the release; every later one is checked against the
- * value the project committed, so a teammate or a CI runner cannot silently receive different bytes.
+ * The archive's verified digest and managed conda-pack version are recorded under `toolchain` in
+ * the project config. The first pixi install trusts the checksum published beside the release;
+ * every later one is checked against the value the project committed, so a teammate or a CI runner
+ * cannot silently receive different bytes.
  */
 export async function ensureToolchain({
   workspace,
@@ -133,11 +150,24 @@ export async function ensureToolchain({
   runResult = defaultRunResult,
   log = console.log,
 }) {
-  const pixi = probePixi({ runResult });
+  const discoveredPixi = probePixi({ runResult });
+  // A present but different pixi is still missing for this project: resolver versions are part of
+  // the recipe's reproducibility contract, so `init --pixi-version` must install what it promises.
+  const pixi = discoveredPixi && (!pixiVersion || discoveredPixi.version === pixiVersion)
+    ? discoveredPixi
+    : null;
   const condaPack = probeCondaPack({ runResult });
   const missing = [!pixi && 'pixi', !condaPack && 'conda-pack'].filter(Boolean);
   if (missing.length === 0) {
-    return { installed: [], missing: [], pixiVersion: pixi.version, declined: false };
+    const pinnedRecipe = await pinRecipePixiVersion(recipePath, pixi.version);
+    return {
+      installed: [],
+      missing: [],
+      pixiVersion: pixi.version,
+      condaPackVersion: CONDA_PACK_VERSION,
+      pinnedRecipe,
+      declined: false,
+    };
   }
   if (!pixiReleaseAsset(host)) {
     return { installed: [], missing, declined: false, unsupportedHost: `${host.platform}/${host.arch}` };
@@ -182,21 +212,26 @@ export async function ensureToolchain({
   if (!condaPack) {
     if (!pixiPath) fail('conda-pack is installed with pixi, but no pixi is available.');
     await installCondaPack({ pixi: pixiPath, toolchainDir: workspace.toolchainDir, run, log });
-    installed.push('conda-pack');
+    installed.push(`conda-pack ${CONDA_PACK_VERSION}`);
+    config.toolchain = {
+      ...config.toolchain,
+      condaPack: { version: CONDA_PACK_VERSION },
+    };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   }
 
   // A recipe scaffolded without a pin gets the version that was just installed, so `lock` and
   // `build` agree with the toolchain sitting next to them.
-  let pinnedRecipe = false;
-  if (recipePath && version && await fileExists(recipePath)) {
-    const recipe = JSON.parse(await readFile(recipePath, 'utf8'));
-    if (!recipe.pixiVersion) {
-      recipe.pixiVersion = version;
-      await writeFile(recipePath, `${JSON.stringify(recipe, null, 2)}\n`);
-      pinnedRecipe = true;
-    }
-  }
-  return { installed, missing: [], declined: false, pixiVersion: version, pinnedRecipe, configPath };
+  const pinnedRecipe = await pinRecipePixiVersion(recipePath, version);
+  return {
+    installed,
+    missing: [],
+    declined: false,
+    pixiVersion: version,
+    condaPackVersion: CONDA_PACK_VERSION,
+    pinnedRecipe,
+    configPath,
+  };
 }
 
 /**
@@ -237,7 +272,7 @@ export async function diagnose({ workspace, pixiVersion = null, pixiPath = null,
     record('conda-pack', true, condaPack);
   } catch (error) {
     record('conda-pack', false, error.message,
-      'Install it with `pixi global install conda-pack`, or pass --conda-pack <path>.');
+      `Install conda-pack ${CONDA_PACK_VERSION} with \`scrollcase init --install-toolchain\`, or pass --conda-pack <path>.`);
   }
 
   return { checks, ok: checks.every((check) => check.ok) };

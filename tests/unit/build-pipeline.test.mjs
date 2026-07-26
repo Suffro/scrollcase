@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
 import { readRecipe } from '../../src/build/recipe.mjs';
 import { verifyBox } from '../../src/build/verify.mjs';
@@ -47,7 +48,7 @@ function writeDeep(path, contents) {
 }
 
 /**
- * Stands in for pixi, conda-pack and tar.
+ * Stands in for pixi and conda-pack.
  *
  * Solving the environment is the one step that needs real external tools and a network, so it is
  * simulated by materialising the files each step is contracted to produce. Everything after it —
@@ -58,7 +59,9 @@ function fakeToolchain(payloadDir) {
   const run = function run(command, args = []) {
     if (command === 'pixi' && args[0] === 'install') {
       const manifest = args[args.indexOf('--manifest-path') + 1];
-      mkdirSync(join(dirname(manifest), '.pixi', 'envs', 'default', 'bin'), { recursive: true });
+      const prefix = join(dirname(manifest), '.pixi', 'envs', 'default');
+      writeDeep(join(prefix, ...ENTRY_SEGMENTS.slice(1)), '#!/bin/sh\nexit 0\n');
+      writeDeep(join(prefix, 'conda-meta', 'history'), '');
       return '';
     }
     if (command === 'conda-pack') {
@@ -66,15 +69,8 @@ function fakeToolchain(payloadDir) {
       // whatever happened to be argument zero, which is how this fake once littered the repo root.
       const output = args[args.indexOf('-o') + 1];
       expect(output).toMatch(/pixi-env\.tar\.gz$/);
-      writeDeep(output, 'fake-tarball');
-      return '';
-    }
-    if (command === 'tar') {
-      // The entry point is target-relative (venv/bin/python or venv/python.exe); the tarball is
-      // extracted into venv itself, so drop the leading segment.
-      const venvDir = args[args.indexOf('-C') + 1];
-      writeDeep(join(venvDir, ...ENTRY_SEGMENTS.slice(1)), '#!/bin/sh\nexit 0\n');
-      writeDeep(join(venvDir, 'conda-meta', 'history'), '');
+      const prefix = args[args.indexOf('-p') + 1];
+      tar.c({ file: output, cwd: prefix, gzip: true, sync: true }, ['.']);
       return '';
     }
     // Anything else is the box's own interpreter, running the self-test.

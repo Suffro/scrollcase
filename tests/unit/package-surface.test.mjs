@@ -9,10 +9,10 @@
  */
 
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { generateContractTypes } from '../../scripts/generate-contract-types.mjs';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
@@ -50,6 +50,11 @@ describe('the package surface', () => {
     }
   });
 
+  it('ships the executable under the canonical command name without npm normalization', () => {
+    expect(packageJson.bin).toEqual({ scrollcase: 'src/cli.mjs' });
+    expect(packageJson.files).toContain('src');
+  });
+
   it('imports each runtime entry point the way a dependent would', async () => {
     const contract = await import('scrollcase/contract');
     const build = await import('scrollcase/build');
@@ -72,11 +77,12 @@ describe('the package surface', () => {
 });
 
 describe('the generated contract types', () => {
-  it('match the schemas they are generated from', async () => {
-    const committed = await readFile(new URL('src/contract/types/index.d.ts', repoRoot), 'utf8');
-    const regenerated = await generateContractTypes();
-    // A schema change without `npm run types` fails here, so the types cannot drift from the format.
-    expect(regenerated).toBe(committed);
+  it('match the schemas they are generated from', () => {
+    // Run the generator under Node itself instead of loading its CommonJS toolchain through
+    // Vitest's transformer. Besides matching how contributors invoke it, this keeps collection
+    // portable on Windows, where transforming that dependency graph failed before any test ran.
+    const generator = fileURLToPath(new URL('../../scripts/generate-contract-types.mjs', import.meta.url));
+    expect(() => execFileSync(process.execPath, [generator, '--check'], { stdio: 'pipe' })).not.toThrow();
   });
 
   it('declares a type for every document the format defines', async () => {

@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/Suffro/scrollcase.git"
   },
-  "homepage": "https://github.com/Suffro/scrollcase#readme",
+  "homepage": "https://scrollcase.dev",
   "bugs": {
     "url": "https://github.com/Suffro/scrollcase/issues"
   },
@@ -44,16 +44,19 @@
   },
   "files": [
     "src",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE",
     "README.md"
   ],
   "scripts": {
     "test": "vitest run --config tests/unit/vitest.config.mjs",
-    "types": "node scripts/generate-contract-types.mjs"
+    "types": "node scripts/generate-contract-types.mjs",
+    "types:check": "node scripts/generate-contract-types.mjs --check",
+    "prepublishOnly": "npm test && npm run types:check"
   },
   "dependencies": {
-    "tar": "7.5.20",
+    "tar": "7.5.22",
     "yauzl": "3.4.0",
     "yazl": "3.3.1"
   },
@@ -64,6 +67,6 @@
     "vitest": "^4.1.9"
   },
   "bin": {
-    "scrollcase": "./src/cli.mjs"
+    "scrollcase": "src/cli.mjs"
   }
 }

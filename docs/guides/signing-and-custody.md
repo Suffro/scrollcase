@@ -85,6 +85,14 @@ scrollcase build my-model --signer-command "./tools/kms-sign.sh" \
                           --public-key ./trust/production-keys.json
 ```
 
+When the command itself needs arguments, pass the whole value as one shell argument; quoted groups
+inside it are preserved, including executable and argument paths containing spaces:
+
+```sh
+scrollcase build my-model \
+  --signer-command '"/opt/signing tools/kms-sign" --key "production release"'
+```
+
 The contract is the simplest thing that composes with anything:
 
 1. The command receives the **payload bytes on stdin**.

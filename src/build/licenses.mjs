@@ -9,6 +9,7 @@
 
 import { createHash } from 'node:crypto';
 import { DEFAULT_DOCUMENT_NAMESPACE } from '../contract/documents.mjs';
+import { compareStableStrings } from './filesystem.mjs';
 
 /**
  * One package as the lock declares it.
@@ -99,7 +100,7 @@ export function lockedCondaDistributions(lockBytes) {
   }
   flush();
   return distributions.sort((left, right) =>
-    left.name.localeCompare(right.name) || left.version.localeCompare(right.version));
+    compareStableStrings(left.name, right.name) || compareStableStrings(left.version, right.version));
 }
 
 /**

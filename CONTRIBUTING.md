@@ -32,7 +32,7 @@ The suite (vitest) needs no network and no pixi/conda-pack toolchain: the enviro
 stubbed, and everything after the solve is the real implementation. CI runs it on macOS, Linux
 and Windows.
 
-Building for real additionally needs `pixi` at the version a recipe pins, plus `conda-pack`;
+Building for real additionally needs `pixi` at the version a recipe pins, plus `conda-pack` 0.9.2;
 `scrollcase doctor` reports what is missing.
 
 ## Tests

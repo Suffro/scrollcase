@@ -12,8 +12,7 @@
  * the build rather than producing a box nobody can install.
  */
 
-import { spawnSync } from 'node:child_process';
-import { fail } from '../build/process.mjs';
+import { fail, runResult as defaultRunResult } from '../build/process.mjs';
 import { readSigningKey, signWithLocalKey, verifySignedDocument } from './keys.mjs';
 
 export {
@@ -30,10 +29,64 @@ export {
  * the payload bytes on stdin and writes the complete signed document as JSON on stdout. Any language,
  * any credential mechanism, no plugin API to keep compatible.
  */
-function signWithCommand(payloadBytes, command) {
-  const [executable, ...args] = Array.isArray(command) ? command : command.split(/\s+/).filter(Boolean);
+function commandArguments(command) {
+  if (Array.isArray(command)) {
+    if (!command.every((part) => typeof part === 'string')) {
+      fail('External signer command array must contain only strings.');
+    }
+    return command;
+  }
+  const source = String(command);
+  const args = [];
+  let current = '';
+  let quote = null;
+  let tokenStarted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote === "'") {
+      if (character === quote) quote = null;
+      else current += character;
+    } else if (quote === '"') {
+      if (character === quote) {
+        quote = null;
+      } else if (character === '\\' && ['\\', '"'].includes(source[index + 1])) {
+        current += source[index + 1];
+        index += 1;
+      } else {
+        current += character;
+      }
+    } else if (character === '"' || character === "'") {
+      quote = character;
+      tokenStarted = true;
+    } else if (/\s/.test(character)) {
+      if (tokenStarted) {
+        args.push(current);
+        current = '';
+        tokenStarted = false;
+      }
+    } else if (character === '\\' && source[index + 1]
+      && (/[\s'"\\]/).test(source[index + 1])) {
+      current += source[index + 1];
+      tokenStarted = true;
+      index += 1;
+    } else {
+      current += character;
+      tokenStarted = true;
+    }
+  }
+  if (quote) fail('External signer command has an unmatched quote.');
+  if (tokenStarted) args.push(current);
+  return args;
+}
+
+function signWithCommand(payloadBytes, command, runResult) {
+  const [executable, ...args] = commandArguments(command);
   if (!executable) fail('External signer command is empty.');
-  const result = spawnSync(executable, args, { input: payloadBytes, maxBuffer: 16 * 1024 * 1024 });
+  const result = runResult(executable, args, {
+    input: payloadBytes,
+    capture: true,
+    maxBuffer: 16 * 1024 * 1024,
+  });
   if (result.error) fail(`External signer failed to start: ${result.error.message}`);
   if (result.status !== 0) {
     const stderr = (result.stderr?.toString() || '').trim();
@@ -53,15 +106,21 @@ function signWithCommand(payloadBytes, command) {
  * byte-for-byte what gets published.
  *
  * @param {unknown} payload the manifest to wrap; serialised once and signed exactly as serialised
- * @param {{ signerCommand?: string | string[] | null, privatePath?: string, publicPath: string }} signing
+ * @param {{ signerCommand?: string | string[] | null, privatePath?: string, publicPath: string,
+ *   runResult?: typeof defaultRunResult }} signing
  * @returns {Promise<import('../contract/types/index.d.ts').SignedBoxDocument>}
  * @throws {Error} when an external signer fails, alters the payload, or returns an unverifiable
  *   signature
  */
-export async function signDocument(payload, { signerCommand = null, privatePath, publicPath }) {
+export async function signDocument(payload, {
+  signerCommand = null,
+  privatePath,
+  publicPath,
+  runResult = defaultRunResult,
+}) {
   const payloadBytes = Buffer.from(`${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   if (signerCommand) {
-    const document = signWithCommand(payloadBytes, signerCommand);
+    const document = signWithCommand(payloadBytes, signerCommand, runResult);
     if (document?.payloadBase64 !== payloadBytes.toString('base64')) {
       fail('External signer returned a different payload than the one it was given.');
     }

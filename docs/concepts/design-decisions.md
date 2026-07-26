@@ -111,7 +111,10 @@ at all: silence is not consent.
 The download is verified before use. The release archive's SHA-256 is checked against the checksum
 the publisher ships beside it, and the verified digest is then recorded in the project's config, so
 every later install is checked against a value the project committed rather than against whatever
-the server offers that day. A mismatch aborts before anything is installed.
+the server offers that day. A mismatch aborts before anything is installed. The conda-pack
+dependency is installed as the exact `conda-pack==0.9.2` match specification and that version is
+recorded beside the pixi pin; floating it would let the same Scrollcase release produce different
+payload bytes over time.
 
 **Rejected:** installing silently, and the `curl | sh` convention it would imitate. A packaging tool
 whose whole product is verified artefacts cannot begin by running unverified bytes it fetched

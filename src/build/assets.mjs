@@ -26,7 +26,12 @@ const MAX_DOWNLOAD_ATTEMPTS = 5;
  * the `.part` file is renamed into place only *after* the hash matches, so an interrupted or
  * corrupted transfer can never masquerade as a finished asset.
  */
-export async function downloadVerified(asset, destination) {
+export async function downloadVerified(asset, destination, options = {}) {
+  const {
+    fetchImpl = fetch,
+    log = console.error,
+    wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  } = options;
   const expectedPath = safeRelativePath(asset.relativePath).split('/').join(sep);
   if (!destination.endsWith(expectedPath)) fail(`Unexpected asset destination: ${destination}`);
   await mkdir(dirname(destination), { recursive: true });
@@ -40,7 +45,7 @@ export async function downloadVerified(asset, destination) {
   for (let attempt = 1; ; attempt += 1) {
     const resumeAt = await fileExists(partPath) ? (await stat(partPath)).size : 0;
     try {
-      const response = await fetch(asset.url, {
+      const response = await fetchImpl(asset.url, {
         headers: resumeAt > 0 ? { Range: `bytes=${resumeAt}-` } : undefined,
         redirect: 'follow',
       });
@@ -54,13 +59,19 @@ export async function downloadVerified(asset, destination) {
       // A failed status is a hard error, not a transient network drop — do not retry it.
       const message = error instanceof Error ? error.message : String(error);
       if (message.startsWith('Asset download failed') || attempt >= MAX_DOWNLOAD_ATTEMPTS) throw error;
-      console.error(`scrollcase: asset ${asset.relativePath} attempt ${attempt} failed (${message}); retrying.`);
-      await new Promise((wait) => setTimeout(wait, 2000 * attempt));
+      log(`scrollcase: asset ${asset.relativePath} attempt ${attempt} failed (${message}); retrying.`);
+      await wait(2000 * attempt);
     }
   }
   const downloaded = await stat(partPath);
   if (downloaded.size !== asset.sizeBytes) fail(`Asset size mismatch for ${asset.relativePath}.`);
-  if (await sha256File(partPath) !== asset.sha256) fail(`Asset SHA-256 mismatch for ${asset.relativePath}.`);
+  if (await sha256File(partPath) !== asset.sha256) {
+    // A full-size partial with the wrong digest cannot be resumed: asking for bytes after its end
+    // would either fail forever or append unrelated data. Remove it so the next build starts from
+    // byte zero and has a chance to recover from a corrupt mirror response.
+    await rm(partPath, { force: true });
+    fail(`Asset SHA-256 mismatch for ${asset.relativePath}.`);
+  }
   await rename(partPath, destination);
 }
 

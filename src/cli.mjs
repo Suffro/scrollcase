@@ -140,7 +140,7 @@ async function init(flags) {
     console.log(`\nInstalled ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
     console.log('Nothing was added to PATH; scrollcase finds them there on its own.');
     if (toolchain.pinnedRecipe) console.log(`Pinned pixi ${toolchain.pixiVersion} in ${result.recipeDir}/recipe.json`);
-    if (toolchain.configPath) console.log(`Recorded the verified checksum in ${toolchain.configPath}`);
+    if (toolchain.configPath) console.log(`Recorded the toolchain pins in ${toolchain.configPath}`);
   } else if (toolchain.unsupportedHost) {
     console.log(`\npixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
   } else if (toolchain.missing.length > 0) {
@@ -247,7 +247,7 @@ Build options:
   --namespace <ns>           Document kind namespace (default scrollcase.box)
   --allow-dirty              Permit a build from an uncommitted source tree
   --pixi <path>              Use this pixi executable
-  --conda-pack <path>        Use this conda-pack executable
+  --conda-pack <path>        Use this conda-pack executable (managed installs pin 0.9.2)
 
 Verify options:
   --archive <path>           Archive to check, if not beside the release document

@@ -13,7 +13,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { boxTargetId } from '../contract/targets.mjs';
-import { fileExists, safeRelativePath } from './filesystem.mjs';
+import { compareStableStrings, fileExists, safeRelativePath } from './filesystem.mjs';
 import { createCondaDependencyLicenseAudit, validateCondaDependencyLicenseAudit } from './licenses.mjs';
 import { fail } from './process.mjs';
 import { readRecipe } from './recipe.mjs';
@@ -47,7 +47,7 @@ export async function auditRecipe(name, { write = false, namespace } = {}) {
     targetId: inventory.targetId,
     packageCount: inventory.packages.length,
     licenses: [...licences]
-      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .sort((left, right) => right[1] - left[1] || compareStableStrings(left[0], right[0]))
       .map(([license, count]) => ({ license, count })),
   };
 

@@ -4,7 +4,7 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — Unreleased
+## [0.1.0] — 2026-07-26
 
 First public release. Scrollcase was extracted from the runtime packaging builder of a private
 application and made project-agnostic: paths are declared by the consuming project, document
@@ -49,4 +49,21 @@ namespaces are configurable, and the tool carries no consumer's name.
   environment override, the project's toolchain, then `PATH`.
 - A working example, `examples/hello-box-macos-arm64-metal`, proven end-to-end against a real
   pixi + conda-pack toolchain.
-- CI running the test suite on macOS, Linux and Windows.
+- CI running the test suite on macOS, Linux and Windows across Node.js 20, 22 and 24, plus
+  independent package-surface, generated-type, audit, and documentation gates.
+
+### Fixed
+
+- Use the pinned Node TAR implementation when unpacking the conda environment, removing an
+  undeclared dependency on the host's `tar` executable.
+- Pin managed toolchains to conda-pack 0.9.2 and use locale-independent ordering for every file and
+  licence record that can affect deterministic archive bytes.
+- Keep generated-type drift checks portable on Windows by running the generator under Node rather
+  than through the test transform.
+- Pin a newly scaffolded recipe when the requested pixi is already available, and install the
+  requested resolver when a different pixi version is present.
+- Preserve quoted external-signer arguments, including empty values and paths containing spaces or
+  backslashes, while keeping all subprocesses behind the injectable process runner.
+- Exercise hostile ZIP/TAR entries, verified and resumed asset downloads, and external-signer
+  payload substitution and signature failures with dedicated regressions.
+- Update the direct `tar` dependency to 7.5.22.

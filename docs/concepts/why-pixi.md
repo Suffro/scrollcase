@@ -99,8 +99,9 @@ Being honest about the trade-offs:
   [Managing Model Weights](/guides/managing-weights).
 - **Builds are native.** No cross-building: a Windows box is built on Windows. The self-test runs
   the box's own interpreter, and that only proves anything on matching hardware.
-- **Two tools must be present.** `pixi` at the pinned version, and `conda-pack`. `scrollcase
-  doctor` reports exactly what is missing and how to install it.
+- **Two tools must be present.** `pixi` at the recipe's pinned version, and `conda-pack` 0.9.2.
+  Scrollcase installs that exact conda-pack release itself; for externally managed executables,
+  `doctor` can confirm only that conda-pack runs because its version output is unreliable.
 
 ## Not a container
 

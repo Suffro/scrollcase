@@ -1,12 +1,15 @@
 import { createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
 import { fileExists } from '../../src/build/filesystem.mjs';
 import { ensureToolchain, initProject } from '../../src/build/project.mjs';
 import {
+  CONDA_PACK_VERSION,
+  installCondaPack,
   installPixi,
   parseChecksumFile,
   pixiAssetUrls,
@@ -144,6 +147,31 @@ describe('installing pixi', () => {
   });
 });
 
+describe('installing conda-pack', () => {
+  it('pins the packer version that this Scrollcase release was verified against', async () => {
+    const toolchainDir = await scratch('scrollcase-conda-pack-');
+    const expected = toolchainPaths(toolchainDir).condaPack;
+    const calls = [];
+    const result = await installCondaPack({
+      pixi: '/tools/pixi',
+      toolchainDir,
+      run(command, args, options) {
+        calls.push({ command, args, options });
+        mkdirSync(dirname(expected), { recursive: true });
+        writeFileSync(expected, 'stand-in');
+      },
+      log: () => {},
+    });
+
+    expect(calls).toEqual([{
+      command: '/tools/pixi',
+      args: ['global', 'install', `conda-pack==${CONDA_PACK_VERSION}`],
+      options: { env: { PIXI_HOME: toolchainDir } },
+    }]);
+    expect(result).toEqual({ path: expected, version: CONDA_PACK_VERSION });
+  });
+});
+
 describe('offering the toolchain during init', () => {
   const presentTools = (available) => (command, args = []) => {
     if (command.endsWith('pixi') || command === 'pixi') {
@@ -173,11 +201,12 @@ describe('offering the toolchain during init', () => {
     expect(await fileExists(join(root, '.scrollcase', 'toolchain'))).toBe(false);
   });
 
-  it('asks only for what is missing, and not at all when both are present', async () => {
-    const { workspace } = await project();
+  it('asks only for what is missing, and pins the recipe without asking when both are present', async () => {
+    const { workspace, recipeDir } = await project();
     const asked = [];
     const outcome = await ensureToolchain({
       workspace,
+      recipePath: join(recipeDir, 'recipe.json'),
       confirm: async (missing) => { asked.push(missing); return false; },
       runResult: presentTools({ pixi: '0.73.0', condaPack: true }),
       fetchImpl: async () => { throw new Error('the network must not be touched'); },
@@ -186,30 +215,65 @@ describe('offering the toolchain during init', () => {
     expect(asked).toEqual([]);
     expect(outcome.missing).toEqual([]);
     expect(outcome.pixiVersion).toBe('0.73.0');
+    expect(outcome.pinnedRecipe).toBe(true);
+    const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
+    expect(recipe.pixiVersion).toBe('0.73.0');
   });
 
-  it('records the verified digest and pins the recipe once pixi is installed', async () => {
+  it('records both managed toolchain pins and pins the recipe after installation', async () => {
     const { workspace, root, recipeDir } = await project();
     const { bytes } = await fakePixiRelease();
+    const condaPackPath = toolchainPaths(workspace.toolchainDir).condaPack;
     const outcome = await ensureToolchain({
       workspace,
       pixiVersion: '0.73.0',
       recipePath: join(recipeDir, 'recipe.json'),
       confirm: async () => true,
       host: HOST,
-      runResult: presentTools({ pixi: null, condaPack: true }),
+      runResult: presentTools({ pixi: null, condaPack: false }),
+      run(command, args, options) {
+        expect(command).toBe(toolchainPaths(workspace.toolchainDir).pixi);
+        expect(args).toEqual(['global', 'install', `conda-pack==${CONDA_PACK_VERSION}`]);
+        expect(options).toEqual({ env: { PIXI_HOME: workspace.toolchainDir } });
+        mkdirSync(dirname(condaPackPath), { recursive: true });
+        writeFileSync(condaPackPath, 'stand-in');
+      },
+      fetchImpl: servedBy({ bytes, digest: sha256(bytes) }),
+      log: () => {},
+    });
+
+    expect(outcome.installed).toEqual(['pixi 0.73.0', `conda-pack ${CONDA_PACK_VERSION}`]);
+    const config = JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'));
+    expect(config.toolchain.pixi.version).toBe('0.73.0');
+    expect(config.toolchain.pixi.assets['pixi-aarch64-apple-darwin.tar.gz']).toBe(sha256(bytes));
+    expect(config.toolchain.condaPack).toEqual({ version: CONDA_PACK_VERSION });
+    // The scaffolded recipe carried no pin; it now names the pixi that was actually installed.
+    const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
+    expect(recipe.pixiVersion).toBe('0.73.0');
+    expect(outcome.pinnedRecipe).toBe(true);
+  });
+
+  it('installs the requested pixi when a different resolver version is already present', async () => {
+    const { workspace, recipeDir } = await project();
+    const { bytes } = await fakePixiRelease();
+    const outcome = await ensureToolchain({
+      workspace,
+      pixiVersion: '0.73.0',
+      recipePath: join(recipeDir, 'recipe.json'),
+      confirm: async (missing) => {
+        expect(missing).toEqual(['pixi']);
+        return true;
+      },
+      host: HOST,
+      runResult: presentTools({ pixi: '0.72.0', condaPack: true }),
       fetchImpl: servedBy({ bytes, digest: sha256(bytes) }),
       log: () => {},
     });
 
     expect(outcome.installed).toEqual(['pixi 0.73.0']);
-    const config = JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'));
-    expect(config.toolchain.pixi.version).toBe('0.73.0');
-    expect(config.toolchain.pixi.assets['pixi-aarch64-apple-darwin.tar.gz']).toBe(sha256(bytes));
-    // The scaffolded recipe carried no pin; it now names the pixi that was actually installed.
+    expect(outcome.pixiVersion).toBe('0.73.0');
     const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
     expect(recipe.pixiVersion).toBe('0.73.0');
-    expect(outcome.pinnedRecipe).toBe(true);
   });
 
   it('reports an unsupported host instead of downloading a guessed URL', async () => {

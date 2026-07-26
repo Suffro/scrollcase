@@ -16,9 +16,10 @@
 import { existsSync } from 'node:fs';
 import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, stat } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import * as tar from 'tar';
 import { fail, runResult as defaultRunResult } from './process.mjs';
 import { repairPosixLaunchers } from './launchers.mjs';
-import { toolchainPaths } from './toolchain.mjs';
+import { CONDA_PACK_VERSION, toolchainPaths } from './toolchain.mjs';
 import { getWorkspace } from './workspace.mjs';
 
 /**
@@ -138,7 +139,7 @@ export function condaPackArguments(prefix, outputPath) {
 export function findCondaPack({ path = null, runResult = defaultRunResult } = {}) {
   const found = probeCondaPack({ path, runResult });
   if (!found) {
-    fail('conda-pack is required. Install it with `scrollcase init --install-toolchain` or `pixi global install conda-pack`, or pass --conda-pack <path>.');
+    fail(`conda-pack ${CONDA_PACK_VERSION} is required. Install it with \`scrollcase init --install-toolchain\` or \`pixi global install "conda-pack==${CONDA_PACK_VERSION}"\`, or pass --conda-pack <path>.`);
   }
   return found.path;
 }
@@ -232,8 +233,17 @@ export async function installAndPackPixiEnvironment({
   await rm(venvDir, { recursive: true, force: true });
   await mkdir(venvDir, { recursive: true });
   // conda-pack emits the prefix contents at the tar root, so extracting into `venv` yields the
-  // conda layout (bin/, lib/, conda-meta/) directly under it.
-  run('tar', ['-xzf', packPath, '-C', venvDir]);
+  // conda layout (bin/, lib/, conda-meta/) directly under it. Use the pinned Node implementation
+  // rather than a host `tar`: builds then have exactly the dependencies `doctor` reports, and the
+  // archive behaves the same on macOS, Linux and Windows. Symlinks are expected in a conda prefix
+  // and are deliberately handled by dereferenceSymlinksInPlace immediately below.
+  await tar.x({
+    file: packPath,
+    cwd: venvDir,
+    gzip: true,
+    preservePaths: false,
+    strict: true,
+  });
 
   const interpreter = join(payloadDir, ...adapter.python.entryPoint.split('/'));
   // Deliberately do NOT run conda-unpack. conda-pack already replaces the build prefix with a

@@ -9,15 +9,15 @@
  * audit is derived from the lock rather than maintained beside it.
  *
  * The output is committed, so the package needs no build step and `npm publish` still ships only
- * reviewed files. `tests/unit/contract-types.test.mjs` regenerates and compares, so a schema change
- * that was not accompanied by a regeneration fails the suite instead of shipping stale types.
+ * reviewed files. The package-surface test runs this script in check mode, so a schema change that
+ * was not accompanied by a regeneration fails the suite instead of shipping stale types.
  *
- * Run with `npm run types`.
+ * Run with `npm run types`, or `npm run types:check` to verify without writing.
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compile } from 'json-schema-to-typescript';
 
 const SCHEMA_DIR = fileURLToPath(new URL('../src/contract/schema/', import.meta.url));
@@ -87,8 +87,16 @@ export async function generateContractTypes() {
   return `${BANNER}\n\n${deduped.join('\n').trim()}\n`;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const types = await generateContractTypes();
-  await writeFile(OUTPUT_PATH, types);
-  console.log(`Wrote ${OUTPUT_PATH}`);
+  if (process.argv.includes('--check')) {
+    const committed = await readFile(OUTPUT_PATH, 'utf8');
+    if (committed !== types) {
+      throw new Error('Generated contract types are out of date. Run `npm run types`.');
+    }
+    console.log('Generated contract types are current.');
+  } else {
+    await writeFile(OUTPUT_PATH, types);
+    console.log(`Wrote ${OUTPUT_PATH}`);
+  }
 }

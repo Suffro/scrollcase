@@ -122,7 +122,7 @@ for (const { target } of cases.invalid) {
 | --- | --- | --- |
 | `generateSigningKey` | `({ privatePath, publicPath, keyId, force }) => Promise<{ keyId, privatePath, publicPath }>` | What `keygen` runs. Refuses to overwrite without `force` |
 | `readSigningKey` | `({ privatePath, publicPath }) => Promise<{ privateKey, metadata }>` | Loads the private key and cross-checks it against the published public key |
-| `signDocument` | `(payload, { signerCommand, privatePath, publicPath }) => Promise<Document>` | Wraps a payload in the signed envelope, locally or through an external signer |
+| `signDocument` | `(payload, { signerCommand, privatePath, publicPath, runResult }) => Promise<Document>` | Wraps a payload in the signed envelope, locally or through an external signer; `runResult` is an optional process seam |
 | `verifySignedDocument` | `(document, publicKeyPath) => Promise<object>` | Verifies against a trusted key file and returns the payload. Throws otherwise |
 | `decodeSignedDocument` | `(document) => { bytes, payload }` | Unwraps and checks the payload hash. Does **not** check the signature |
 
@@ -174,6 +174,7 @@ Details in [Workspace Configuration](/reference/configuration).
 | `builderVersionFields(source)` | The builder-identity fields recorded in provenance |
 | `findPixi({ requiredVersion, path, runResult })` | Locate pixi and enforce the recipe's pin |
 | `findCondaPack({ path, runResult })` | Locate conda-pack |
+| `CONDA_PACK_VERSION` | The exact conda-pack release installed by Scrollcase (`0.9.2`) |
 | `pixiLockArguments`, `pixiInstallArguments`, `condaPackArguments` | The exact argument vectors the build uses |
 | `installAndPackPixiEnvironment({ … })` | Install from the lock, pack, relocate into `venv/` |
 | `repairPosixLaunchers(adapter, payloadDir, forbiddenPaths)` | Rewrite console scripts to resolve Python next to themselves |

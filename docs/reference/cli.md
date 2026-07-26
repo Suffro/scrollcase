@@ -58,9 +58,10 @@ When you agree, `init`:
 2. downloads the release for this host and checks its SHA-256 against the checksum pixi publishes
    beside it. **A mismatch aborts and installs nothing**;
 3. installs pixi into the workspace's toolchain directory, then uses it to run
-   `pixi global install conda-pack` with `PIXI_HOME` pointing there, so both land in the project;
-4. records the verified digest under `toolchain` in `scrollcase.config.json`, so later installs
-   are checked against the committed value rather than the published one — see
+   `pixi global install "conda-pack==0.9.2"` with `PIXI_HOME` pointing there, so both land in the
+   project;
+4. records the verified pixi digest and the conda-pack version under `toolchain` in
+   `scrollcase.config.json`, so later pixi installs are checked against the committed digest — see
    [Workspace Configuration](/reference/configuration#toolchain);
 5. writes the installed version into the recipe's `pixiVersion` if it had none.
 
@@ -83,7 +84,9 @@ scrollcase doctor [--recipe <name>] [--pixi-version <version>]
 
 Checks: the workspace resolution, the recipes directory, being inside a git checkout, pixi at the
 required version (from `--pixi-version` or `--recipe`; skipped when neither is given), and
-conda-pack. Exits non-zero if any check fails.
+conda-pack. The managed installer pins conda-pack 0.9.2; because its `--version` output is not
+reliable, `doctor` can only prove that an externally supplied conda-pack executable runs. Exits
+non-zero if any check fails.
 
 ## `keygen`
 

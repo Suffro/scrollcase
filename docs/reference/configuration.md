@@ -116,15 +116,19 @@ block recording the digest it verified:
       "assets": {
         "pixi-aarch64-apple-darwin.tar.gz": "63e7cc91ef10eda71765c42e951362a084b2cbcbc93fb55c375c4f3acbfd7d00"
       }
+    },
+    "condaPack": {
+      "version": "0.9.2"
     }
   }
 }
 ```
 
-**Commit this block.** The first install trusts the checksum published beside the release; every
-install after it is checked against the value recorded here, so a teammate or a CI runner cannot
-silently receive different bytes under the same version. One entry accumulates per host asset, so
-a team on mixed platforms ends up with a pin for each.
+**Commit this block.** The pixi entry records the release digest: the first install trusts the
+checksum published beside the release, and every install after it is checked against the value
+recorded here. One pixi asset entry accumulates per host, so a mixed-platform team gets one digest
+per host asset. The conda-pack entry records the exact package release the managed installer asks
+pixi to install.
 
 Scrollcase writes the block itself; you never have to author it. Changing the pinned version means
 deleting the entry (or the `.scrollcase/toolchain/` directory) and re-running `init`.
