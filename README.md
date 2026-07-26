@@ -1,4 +1,13 @@
-# scrollcase
+
+<p align="center">
+  <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="42">
+</p>
+
+<center>
+
+# Scrollcase
+
+</center>
 
 [![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
 
