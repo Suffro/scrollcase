@@ -12,6 +12,27 @@
  * the box, the archive backend, how native libraries are inspected, and the environment a validation
  * run gets. They are part of the format because a consumer unpacking a box relies on that layout.
  */
+/**
+ * What a target implies for the built payload. Part of the format rather than an implementation
+ * detail: a consumer unpacking a box relies on this layout.
+ *
+ * @typedef {object} BoxTargetAdapter
+ * @property {string} id canonical adapter id, e.g. `macos-aarch64`
+ * @property {'macos' | 'linux' | 'windows'} platform
+ * @property {'aarch64' | 'x86_64'} arch
+ * @property {{ platform: string, arch: string }} host the Node platform/arch a build must run on
+ * @property {'osx-arm64' | 'linux-64' | 'win-64'} condaSubdir the recipe's pixi `platforms` value
+ * @property {{ payloadRoot: string, entryPoint: string, scriptsDirectory: string,
+ *   executableSuffix: string, launcherKind: string }} python layout of the interpreter in the box
+ * @property {{ format: 'zip', writer: string, reader: string, assetTarReader: string,
+ *   zip64: boolean }} archive the pinned archive backend
+ * @property {{ command: string, argsPrefix: readonly string[],
+ *   extensions: readonly string[] }} nativeLibraryInspection
+ * @property {Readonly<Record<string, Readonly<Record<string, string>>>>} validationEnvironments
+ *   the environment that forces a run onto one accelerator, keyed by accelerator
+ * @property {string} selfTestPython the platform assertion prepended to every self-test
+ */
+
 const TARGET_ACCELERATORS = {
   macos: { aarch64: ['metal', 'cpu'] },
   linux: { x86_64: ['cpu', 'cuda'] },
@@ -106,7 +127,14 @@ const TARGET_ADAPTERS = Object.freeze([
   }),
 ]);
 
-/** Returns the canonical target slug used in box filenames, object keys, and routes. */
+/**
+ * Returns the canonical target slug used in box filenames, object keys, and routes.
+ *
+ * @param {import('./types/index.d.ts').BoxTarget} target
+ * @returns {string} the canonical slug, e.g. `linux-x86_64-cuda12.4`
+ * @throws {TypeError} when the target is outside the supported matrix, or its CUDA version is
+ *   missing on a CUDA target or present on any other
+ */
 export function boxTargetId(target) {
   if (!target || typeof target !== 'object') {
     throw new TypeError('Box target must be an object');
@@ -129,7 +157,13 @@ export function boxTargetId(target) {
   return `${target.platform}-${target.arch}-${target.accelerator}`;
 }
 
-/** Returns the native builder adapter for a validated box target. */
+/**
+ * Returns the native builder adapter for a validated box target.
+ *
+ * @param {import('./types/index.d.ts').BoxTarget} target
+ * @returns {BoxTargetAdapter}
+ * @throws {TypeError} when the target is unsupported
+ */
 export function boxTargetAdapter(target) {
   boxTargetId(target);
   const adapter = TARGET_ADAPTERS.find((candidate) =>
@@ -138,7 +172,14 @@ export function boxTargetAdapter(target) {
   return adapter;
 }
 
-/** Ensures a build or target lock runs on the OS and architecture it will ship for. */
+/**
+ * Ensures a build or target lock runs on the OS and architecture it will ship for.
+ *
+ * @param {BoxTargetAdapter} adapter
+ * @param {{ platform: string, arch: string }} [host] defaults to the current process
+ * @returns {void}
+ * @throws {TypeError} when the host is not the OS and architecture the box ships for
+ */
 export function assertNativeHost(adapter, host = process) {
   if (host.platform !== adapter.host.platform || host.arch !== adapter.host.arch) {
     throw new TypeError(
@@ -148,7 +189,14 @@ export function assertNativeHost(adapter, host = process) {
   }
 }
 
-/** Ensures the recipe entry point agrees with the adapter's standalone Python layout. */
+/**
+ * Ensures the recipe entry point agrees with the adapter's standalone Python layout.
+ *
+ * @param {BoxTargetAdapter} adapter
+ * @param {string} entryPoint
+ * @returns {void}
+ * @throws {TypeError} when the entry point does not match the adapter's layout
+ */
 export function assertPythonEntryPoint(adapter, entryPoint) {
   if (entryPoint !== adapter.python.entryPoint) {
     throw new TypeError(
@@ -157,12 +205,21 @@ export function assertPythonEntryPoint(adapter, entryPoint) {
   }
 }
 
-/** Lists every adapter, for contract tests and for consumers enumerating supported targets. */
+/**
+ * Lists every adapter, for contract tests and for consumers enumerating supported targets.
+ *
+ * @returns {BoxTargetAdapter[]} every supported adapter, as a fresh array
+ */
 export function boxTargetAdapters() {
   return [...TARGET_ADAPTERS];
 }
 
-/** Maps a validated box target to its conda platform subdir (the pixi `platforms` value). */
+/**
+ * Maps a validated box target to its conda platform subdir (the pixi `platforms` value).
+ *
+ * @param {import('./types/index.d.ts').BoxTarget} target
+ * @returns {'osx-arm64' | 'linux-64' | 'win-64'} the pixi `platforms` value for the target
+ */
 export function condaSubdir(target) {
   const adapter = boxTargetAdapter(target);
   return adapter.condaSubdir;
@@ -172,6 +229,10 @@ export function condaSubdir(target) {
  * Returns the conda accelerator descriptor a recipe selects, rejecting target drift. `metal` and
  * `cpu` need no extra conda knobs (osx-arm64 ships MPS in the pytorch build; cpu is the default build); `cuda` pins a
  * `cuda-version` and declares a CUDA system requirement so the solver picks the GPU pytorch build.
+ *
+ * @param {Pick<import('./types/index.d.ts').BoxRecipe, 'target'>} recipe
+ * @returns {{ accelerator: 'cpu' | 'metal' | 'cuda', cudaVersion: string | null }}
+ * @throws {TypeError} when the accelerator is unsupported, or a CUDA target lacks a version
  */
 export function pixiAccelerator(recipe) {
   const accelerator = recipe?.target?.accelerator;

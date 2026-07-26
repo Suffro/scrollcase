@@ -1,0 +1,96 @@
+/**
+ * What a consumer of the published package actually gets.
+ *
+ * Two failures this catches that nothing else does. First, an `exports` map that names a file which
+ * moved or was never shipped: every other test imports by relative path, so the package could be
+ * broken for everyone installing it while the suite stayed green. Second, generated types drifting
+ * from the schemas they are a projection of — the schemas are the source of truth, and a type that
+ * disagrees with them is worse than no type at all.
+ */
+
+import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { generateContractTypes } from '../../scripts/generate-contract-types.mjs';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json');
+const repoRoot = new URL('../../', import.meta.url);
+
+describe('the package surface', () => {
+  /**
+   * Resolves a subpath the way Node does for an installed dependency, so a stale or misspelled
+   * target in the exports map fails here rather than in a consumer's install.
+   */
+  const resolveSubpath = (subpath) => {
+    const entry = packageJson.exports[subpath];
+    return typeof entry === 'string' ? entry : entry.types ?? entry.default;
+  };
+
+  it('exports every subpath it advertises, and each one resolves to a file that exists', async () => {
+    const subpaths = Object.keys(packageJson.exports).filter((subpath) => !subpath.includes('*'));
+    expect(subpaths).toEqual(['./contract', './contract/types', './build', './sign']);
+    for (const subpath of subpaths) {
+      const target = resolveSubpath(subpath);
+      // Reading it is the check: a path that no longer exists throws here.
+      await expect(readFile(new URL(target, repoRoot), 'utf8')).resolves.toBeTruthy();
+    }
+  });
+
+  it('ships everything the exports map points at', () => {
+    // `files` decides what npm publishes; an export outside it resolves for us and 404s for a user.
+    const shipped = new Set(packageJson.files);
+    for (const subpath of Object.keys(packageJson.exports)) {
+      const target = typeof packageJson.exports[subpath] === 'string'
+        ? packageJson.exports[subpath]
+        : resolveSubpath(subpath);
+      const top = target.replace(/^\.\//, '').split('/')[0];
+      expect(shipped.has(top), `${subpath} resolves outside "files"`).toBe(true);
+    }
+  });
+
+  it('imports each runtime entry point the way a dependent would', async () => {
+    const contract = await import('scrollcase/contract');
+    const build = await import('scrollcase/build');
+    const sign = await import('scrollcase/sign');
+
+    // A representative export from each, so a module that resolves but fails to evaluate is caught.
+    expect(contract.boxTargetId({ platform: 'macos', arch: 'aarch64', accelerator: 'metal' }))
+      .toBe('macos-aarch64-metal');
+    expect(contract.documentKinds().release).toBe('scrollcase.box.release');
+    expect(typeof build.sha256File).toBe('function');
+    expect(typeof sign.verifySignedDocument).toBe('function');
+  });
+
+  it('resolves the schema and fixture wildcards a mirror implementation relies on', async () => {
+    const schema = await import('scrollcase/contract/schema/target.schema.json', { with: { type: 'json' } });
+    const fixture = await import('scrollcase/contract/fixtures/target-id-contract.json', { with: { type: 'json' } });
+    expect(schema.default.$id).toMatch(/target\.schema\.json$/);
+    expect(fixture.default.valid.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the generated contract types', () => {
+  it('match the schemas they are generated from', async () => {
+    const committed = await readFile(new URL('src/contract/types/index.d.ts', repoRoot), 'utf8');
+    const regenerated = await generateContractTypes();
+    // A schema change without `npm run types` fails here, so the types cannot drift from the format.
+    expect(regenerated).toBe(committed);
+  });
+
+  it('declares a type for every document the format defines', async () => {
+    const committed = await readFile(new URL('src/contract/types/index.d.ts', repoRoot), 'utf8');
+    for (const name of [
+      'BoxTarget',
+      'BoxRecipe',
+      'BoxManifest',
+      'BoxReleaseManifest',
+      'BoxChannelManifest',
+      'BoxRevocationsManifest',
+      'SignedBoxDocument',
+    ]) {
+      expect(committed).toMatch(new RegExp(`^export (?:interface|type) ${name}\\b`, 'm'));
+    }
+  });
+});

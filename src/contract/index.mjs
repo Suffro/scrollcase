@@ -33,12 +33,23 @@ export {
   parseDocumentKind,
 } from './documents.mjs';
 
-/** Absolute URL of a shipped JSON Schema, for consumers that validate documents themselves. */
+/**
+ * Absolute URL of a shipped JSON Schema, for consumers that validate documents themselves.
+ *
+ * @param {'target' | 'recipe' | 'box-manifest' | 'release-manifest' | 'channel-manifest'
+ *   | 'revocations-manifest' | 'signed-document'} name
+ * @returns {URL}
+ */
 export function schemaUrl(name) {
   return new URL(`./schema/${name}.schema.json`, import.meta.url);
 }
 
-/** Absolute URL of a shipped fixture file, for consumers proving a mirror implementation. */
+/**
+ * Absolute URL of a shipped fixture file, for consumers proving a mirror implementation.
+ *
+ * @param {string} name fixture file name without its extension
+ * @returns {URL}
+ */
 export function fixtureUrl(name) {
   return new URL(`./fixtures/${name}.json`, import.meta.url);
 }

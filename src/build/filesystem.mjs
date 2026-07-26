@@ -19,7 +19,12 @@ import { fail } from './process.mjs';
  */
 export const FIXED_ARCHIVE_TIME = new Date('2000-01-01T00:00:00.000Z');
 
-/** Returns whether a filesystem entry exists without exposing platform-specific error codes. */
+/**
+ * Returns whether a filesystem entry exists without exposing platform-specific error codes.
+ *
+ * @param {string} path
+ * @returns {Promise<boolean>}
+ */
 export async function fileExists(path) {
   try {
     await access(path);
@@ -29,7 +34,13 @@ export async function fileExists(path) {
   }
 }
 
-/** Rejects paths that could escape a box staging directory. */
+/**
+ * Rejects paths that could escape a box staging directory.
+ *
+ * @param {unknown} value
+ * @returns {string} the path, normalised to forward slashes
+ * @throws {Error} when the path is absolute, empty, contains `..`, a drive letter or a NUL
+ */
 export function safeRelativePath(value) {
   const normalized = String(value).replaceAll('\\', '/');
   if (!normalized || normalized.startsWith('/') || normalized.includes('\0')) {

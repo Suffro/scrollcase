@@ -36,6 +36,10 @@ const NAMESPACE_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
  *
  * Pass the namespace a project has already published under to keep its documents byte-compatible;
  * omit it for a new project.
+ *
+ * @param {string} [namespace] defaults to `scrollcase.box`
+ * @returns {Readonly<{ release: string, channel: string, revocations: string }>}
+ * @throws {TypeError} when the namespace is not a dotted lowercase identifier
  */
 export function documentKinds(namespace = DEFAULT_DOCUMENT_NAMESPACE) {
   if (typeof namespace !== 'string' || !NAMESPACE_PATTERN.test(namespace)) {
@@ -46,7 +50,13 @@ export function documentKinds(namespace = DEFAULT_DOCUMENT_NAMESPACE) {
   ));
 }
 
-/** Splits a `kind` back into its namespace and document type, or returns null if it is not one. */
+/**
+ * Splits a `kind` back into its namespace and document type, or returns null if it is not one.
+ *
+ * @param {unknown} kind
+ * @returns {{ namespace: string, type: 'release' | 'channel' | 'revocations' } | null} null when
+ *   the value is not a document kind at all
+ */
 export function parseDocumentKind(kind) {
   if (typeof kind !== 'string') return null;
   const separator = kind.lastIndexOf('.');
@@ -66,6 +76,10 @@ export const CHANNELS = Object.freeze(['development', 'beta', 'stable']);
  * This is a shape check, not a verification: it says the document is worth attempting to verify,
  * never that its signature is good. Callers must still verify the payload hash and at least one
  * signature against a trusted key before acting on the contents.
+ *
+ * @param {unknown} value
+ * @returns {value is import('./types/index.d.ts').SignedBoxDocument} true when the envelope is
+ *   well formed and therefore worth verifying — never that its signature is valid
  */
 export function isSignedBoxDocument(value) {
   if (!value || typeof value !== 'object') return false;
@@ -85,6 +99,11 @@ export function isSignedBoxDocument(value) {
  *
  * Throws when the envelope is malformed or when the embedded payload hash does not match the bytes,
  * which catches a truncated or edited document before its contents are ever read.
+ *
+ * @param {import('./types/index.d.ts').SignedBoxDocument} document
+ * @returns {unknown} the decoded payload, still unverified
+ * @throws {TypeError} when the envelope is malformed
+ * @throws {Error} when the embedded payload hash does not match the bytes
  */
 export function decodeDocumentPayload(document) {
   if (!isSignedBoxDocument(document)) {

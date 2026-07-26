@@ -38,6 +38,12 @@ namespaces are configurable, and the tool carries no consumer's name.
   `--no-install-toolchain`, and never at all without a terminal). The release archive is verified
   against its published SHA-256, and the verified digest is recorded in `scrollcase.config.json`
   so later installs are checked against the committed value.
+- TypeScript types for the box format, generated from the JSON Schemas and exported as
+  `scrollcase/contract/types`. Generated rather than hand-written so they cannot drift from the
+  format; `npm run types` regenerates them and the suite fails if the committed output disagrees
+  with the schemas. Types only — there is no build step and no runtime change.
+- Typed JSDoc across the exported surface, so an editor gives hover documentation and completion
+  for `scrollcase/contract`, `scrollcase/build` and `scrollcase/sign` with no types package.
 - Workspace discovery via `scrollcase.config.json`, with per-invocation overrides, including the
   `toolchain` path and `--toolchain-dir`. Tool discovery prefers, in order: an explicit flag, the
   environment override, the project's toolchain, then `PATH`.

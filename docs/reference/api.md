@@ -22,6 +22,34 @@ import recipeSchema from 'scrollcase/contract/schema/recipe.schema.json' with { 
 import targetCases from 'scrollcase/contract/fixtures/target-id-contract.json' with { type: 'json' };
 ```
 
+## TypeScript types
+
+The box format's types are **generated from the JSON Schemas** and shipped with the package:
+
+```ts
+import type {
+  BoxTarget,
+  BoxRecipe,
+  BoxManifest,
+  BoxReleaseManifest,
+  BoxChannelManifest,
+  BoxRevocationsManifest,
+  SignedBoxDocument,
+} from 'scrollcase/contract/types';
+
+const target: BoxTarget = {
+  platform: 'linux', arch: 'x86_64', accelerator: 'cuda', cudaVersion: '12.4',
+};
+```
+
+The schemas are the source of truth; these types are a projection of them, never a second
+definition. A schema change that is not accompanied by `npm run types` fails the test suite, so
+the two cannot drift — the same discipline that makes the licence audit a function of the lock.
+
+This subpath is **types only**: there is nothing to import at runtime, so use `import type`. The
+runtime entry points below carry typed JSDoc, which is what gives you hover documentation and
+completion in an editor without any build step on your side.
+
 ::: info The pipeline verbs are CLI-only
 `build`, `verify`, `audit`, `lock`, `init` and `doctor` are not part of the exported surface.
 They orchestrate a process — spawning pixi, writing a workspace, exiting non-zero — and are

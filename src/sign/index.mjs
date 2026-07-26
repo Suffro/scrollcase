@@ -51,6 +51,12 @@ function signWithCommand(payloadBytes, command) {
  *
  * The payload is serialised once and both hashed and signed as-is, so what gets signed is
  * byte-for-byte what gets published.
+ *
+ * @param {unknown} payload the manifest to wrap; serialised once and signed exactly as serialised
+ * @param {{ signerCommand?: string | string[] | null, privatePath?: string, publicPath: string }} signing
+ * @returns {Promise<import('../contract/types/index.d.ts').SignedBoxDocument>}
+ * @throws {Error} when an external signer fails, alters the payload, or returns an unverifiable
+ *   signature
  */
 export async function signDocument(payload, { signerCommand = null, privatePath, publicPath }) {
   const payloadBytes = Buffer.from(`${JSON.stringify(payload, null, 2)}\n`, 'utf8');

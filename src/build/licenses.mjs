@@ -10,6 +10,16 @@
 import { createHash } from 'node:crypto';
 import { DEFAULT_DOCUMENT_NAMESPACE } from '../contract/documents.mjs';
 
+/**
+ * One package as the lock declares it.
+ *
+ * @typedef {object} LockedDistribution
+ * @property {string} name
+ * @property {string} version
+ * @property {string} declaredLicense the SPDX expression carried by the lock
+ * @property {'conda' | 'pypi'} source
+ */
+
 function fail(message) {
   throw new Error(`box licence audit: ${message}`);
 }
@@ -21,7 +31,13 @@ function sha256(value) {
 /** conda ships packages as `.conda` or the older `.tar.bz2`; both encode name-version-build. */
 const CONDA_PACKAGE_FILE = /\.(?:conda|tar\.bz2)$/;
 
-/** Derives (name, version) from a conda package filename: `name-version-build.conda`. */
+/**
+ * Derives (name, version) from a conda package filename: `name-version-build.conda`.
+ *
+ * @param {string} url a conda package URL or filename
+ * @returns {{ name: string, version: string }}
+ * @throws {Error} when the filename is not `name-version-build.conda`
+ */
 export function parseCondaPackageReference(url) {
   const file = String(url).split('/').pop() ?? '';
   const stem = file.replace(CONDA_PACKAGE_FILE, '');
@@ -39,6 +55,10 @@ export function parseCondaPackageReference(url) {
  * The `packages:` section is a YAML list of `- conda: <url>` / `- pypi: <url>` items, each followed
  * by indented `key: value` fields. This scans that regular, machine-generated structure directly
  * rather than taking a transitive YAML dependency.
+ *
+ * @param {Buffer} lockBytes the committed `pixi.lock`
+ * @returns {LockedDistribution[]} sorted by name then version
+ * @throws {Error} when the lock is unparseable or a package lacks a licence
  */
 export function lockedCondaDistributions(lockBytes) {
   const lines = lockBytes.toString('utf8').split(/\r?\n/);
@@ -82,7 +102,14 @@ export function lockedCondaDistributions(lockBytes) {
     left.name.localeCompare(right.name) || left.version.localeCompare(right.version));
 }
 
-/** Builds the deterministic conda license audit bound to one pixi.lock and target. */
+/**
+ * Builds the deterministic conda license audit bound to one pixi.lock and target.
+ *
+ * @param {{ lockBytes: Buffer, targetId: string, namespace?: string }} options
+ * @returns {{ schemaVersion: 1, kind: string, targetId: string, dependencyLockSha256: string,
+ *   packages: LockedDistribution[] }}
+ * @throws {Error} when a locked package declares no licence
+ */
 export function createCondaDependencyLicenseAudit({ lockBytes, targetId, namespace = DEFAULT_DOCUMENT_NAMESPACE }) {
   return {
     schemaVersion: 1,
@@ -93,7 +120,14 @@ export function createCondaDependencyLicenseAudit({ lockBytes, targetId, namespa
   };
 }
 
-/** Ensures a reviewed conda audit still matches the current pixi.lock exactly. */
+/**
+ * Ensures a reviewed conda audit still matches the current pixi.lock exactly.
+ *
+ * @param {unknown} reviewed the audit committed to the repository
+ * @param {ReturnType<typeof createCondaDependencyLicenseAudit>} actual
+ * @returns {ReturnType<typeof createCondaDependencyLicenseAudit>} `actual`, when they agree
+ * @throws {Error} when the lock no longer matches what was reviewed
+ */
 export function validateCondaDependencyLicenseAudit(reviewed, actual) {
   if (reviewed?.schemaVersion !== 1 || reviewed.kind !== actual.kind) fail('reviewed conda audit contract is invalid');
   if (JSON.stringify(reviewed) !== JSON.stringify(actual)) {

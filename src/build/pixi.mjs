@@ -45,6 +45,10 @@ function toolCandidate({ path, environmentVariable, toolchainKey, name }) {
  * pinned against, never whatever happens to be on PATH: a different resolver version can select
  * different packages and silently change the box.
  * `runResult` is injectable so a caller can drive discovery without a real pixi on PATH.
+ *
+ * @param {{ requiredVersion: string, path?: string | null, runResult?: typeof defaultRunResult }} options
+ * @returns {string} the executable to invoke
+ * @throws {Error} when pixi is absent or is not the pinned version
  */
 export function findPixi({ requiredVersion, path = null, runResult = defaultRunResult }) {
   const found = probePixi({ path, runResult });
@@ -60,6 +64,9 @@ export function findPixi({ requiredVersion, path = null, runResult = defaultRunR
  *
  * `findPixi` answers "is the pinned pixi here?"; this answers "is there a pixi at all?", which is
  * what `init` needs before it can offer to install one. Returns null when nothing runs.
+ *
+ * @param {{ path?: string | null, runResult?: typeof defaultRunResult }} [options]
+ * @returns {{ path: string, version: string | null } | null} null when nothing runs
  */
 export function probePixi({ path = null, runResult = defaultRunResult } = {}) {
   const candidate = toolCandidate({
@@ -74,7 +81,12 @@ export function probePixi({ path = null, runResult = defaultRunResult } = {}) {
   return { path: candidate, version: String(result.stdout ?? '').trim().split(/\s+/)[1] ?? null };
 }
 
-/** Reports whether conda-pack is available, and where. Returns null when nothing runs. */
+/**
+ * Reports whether conda-pack is available, and where. Returns null when nothing runs.
+ *
+ * @param {{ path?: string | null, runResult?: typeof defaultRunResult }} [options]
+ * @returns {{ path: string } | null} null when nothing runs
+ */
 export function probeCondaPack({ path = null, runResult = defaultRunResult } = {}) {
   const candidate = toolCandidate({
     path,
@@ -118,6 +130,10 @@ export function condaPackArguments(prefix, outputPath) {
 /**
  * Verifies conda-pack is available. Its `--version` is unreliable (prints 0.0.0), so we only
  * confirm it runs; the exact version pin is recorded elsewhere (via the pixi global manifest).
+ *
+ * @param {{ path?: string | null, runResult?: typeof defaultRunResult }} [options]
+ * @returns {string} the executable to invoke
+ * @throws {Error} when conda-pack is absent
  */
 export function findCondaPack({ path = null, runResult = defaultRunResult } = {}) {
   const found = probeCondaPack({ path, runResult });

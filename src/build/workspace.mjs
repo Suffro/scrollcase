@@ -14,6 +14,33 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, parse as parsePath, resolve } from 'node:path';
 import { fail } from './process.mjs';
 
+/**
+ * The absolute layout a command works against. Every path is resolved and the object is frozen.
+ *
+ * @typedef {object} Workspace
+ * @property {string} root the project root the config was found in, and the git checkout provenance
+ *   is recorded from
+ * @property {string | null} configPath the config that produced it, or null when defaults applied
+ * @property {string} recipesDir
+ * @property {string} buildDir
+ * @property {string} distDir
+ * @property {string} keysDir
+ * @property {string} toolchainDir
+ */
+
+/**
+ * Per-invocation overrides, highest precedence in workspace resolution.
+ *
+ * @typedef {object} WorkspaceOverrides
+ * @property {string} [projectRoot]
+ * @property {string} [config]
+ * @property {string} [recipes]
+ * @property {string} [build]
+ * @property {string} [dist]
+ * @property {string} [keys]
+ * @property {string} [toolchain]
+ */
+
 export const SCROLLCASE_CONFIG_FILENAME = 'scrollcase.config.json';
 
 /**
@@ -47,7 +74,12 @@ const PATH_FLAGS = Object.freeze({
   'toolchain-dir': 'toolchain',
 });
 
-/** Walks up from `startDir` to the filesystem root looking for a workspace config. */
+/**
+ * Walks up from `startDir` to the filesystem root looking for a workspace config.
+ *
+ * @param {string} startDir
+ * @returns {string | null} the nearest config path, or null at the filesystem root
+ */
 export function findWorkspaceConfig(startDir) {
   let current = resolve(startDir);
   const { root } = parsePath(current);
@@ -136,6 +168,10 @@ export function workspaceOverridesFromArgv(values) {
  * Root selection, highest precedence first: `--project-root`, the directory of an explicit
  * `--config`, the nearest `scrollcase.config.json` above the working directory, and finally the
  * working directory itself.
+ *
+ * @param {{ cwd?: string, overrides?: WorkspaceOverrides }} [options]
+ * @returns {Workspace} frozen, with every path absolute
+ * @throws {Error} when a named config is missing or malformed
  */
 export function resolveWorkspace({ cwd = process.cwd(), overrides = {} } = {}) {
   const base = resolve(cwd);
@@ -175,6 +211,9 @@ let current = null;
 /**
  * Installs the workspace for this process. Entry points call this once, before any other work, so
  * every module downstream observes the same resolved layout.
+ *
+ * @param {{ cwd?: string, overrides?: WorkspaceOverrides }} [options]
+ * @returns {Workspace}
  */
 export function configureWorkspace(options = {}) {
   current = resolveWorkspace(options);
@@ -184,6 +223,8 @@ export function configureWorkspace(options = {}) {
 /**
  * Returns the process workspace, resolving a flag-free default on first use. Modules read paths
  * through this rather than at import time, so an entry point can still configure them from flags.
+ *
+ * @returns {Workspace} resolving a flag-free default on first use
  */
 export function getWorkspace() {
   if (!current) current = resolveWorkspace();
