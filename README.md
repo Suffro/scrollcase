@@ -3,7 +3,7 @@
   <a href="https://scrollcase.dev" target="_blank">
     <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="42">
   </a>
-  <h1>
+  <h1 style="margin-top: -8px;">
     Scrollcase
   </h1>
 </div>
