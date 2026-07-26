@@ -1,15 +1,27 @@
 
 <div align="center">
   <a href="https://scrollcase.dev" target="_blank">
-    <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="42">
+    <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="60">
   </a>
-  <h1 style="margin-top: -8px;">
+  <p style="font-size: 48px; font-weight: 600; margin-bottom: 5px;">
     Scrollcase
-  </h1>
+  </p>
+<br>
+
+---
+
+  <a href="https://scrollcase.dev" target="_blank" style="opacity: 0.7; position: inline;">
+    Documentation
+  </a>
+
 </div>
 
+---
 
-[![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
+<br>
+
+  [![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
+
 
 Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
@@ -19,8 +31,6 @@ dependency licence inventory.
 It is built on exactly one substrate: [pixi](https://pixi.sh) solves a committed `pixi.lock`
 against [conda-forge](https://conda-forge.org), [conda-pack](https://conda.github.io/conda-pack/)
 relocates the resulting prefix, and the tree ships inside the box as `venv/`.
-
-Find out more [here](https://scrollcase.dev).
 
 ## What you get
 
