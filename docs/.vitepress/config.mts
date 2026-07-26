@@ -4,6 +4,21 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Scrollcase",
   description: "Signed, self-contained Python environment boxes for scientific and AI models",
+  base: '/',
+
+  markdown: {
+    // Render mathematical notation in Markdown pages.
+    math: true
+  },
+
+  // Generate links without the .html suffix (Cloudflare Pages serves clean URLs).
+  cleanUrls: true,
+
+  // Generate sitemap.xml at build time so search engines can crawl every page.
+  // `hostname` must be the production domain — it prefixes every URL entry.
+  sitemap: {
+    hostname: 'https://scrollcase.dev',
+  },
 
   head: [
     // The tab icon is the bare mark, following the browser's colour scheme. icon.ico comes first
@@ -28,8 +43,12 @@ export default defineConfig({
     // background and the light mark on a dark one.
     logo: {
       light: '/static/svg/logo-dark.svg',
-      dark: '/static/svg/logo-light.svg'
+      dark: '/static/svg/logo-light.svg',
+      alt: 'Scrollcase Logo',
     },
+
+    siteTitle: 'Scrollcase',
+    search: { provider: 'local' },
 
     nav: [
       { text: 'Home', link: '/' },
@@ -85,10 +104,6 @@ export default defineConfig({
     socialLinks: [
       { icon: 'github', link: 'https://github.com/Suffro/scrollcase' }
     ],
-
-    search: {
-      provider: 'local'
-    },
 
     outline: {
       level: [2, 3]

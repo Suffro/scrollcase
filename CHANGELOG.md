@@ -51,6 +51,8 @@ namespaces are configurable, and the tool carries no consumer's name.
   pixi + conda-pack toolchain.
 - CI running the test suite on macOS, Linux and Windows across Node.js 20, 22 and 24, plus
   independent package-surface, generated-type, audit, and documentation gates.
+- The documentation site with clean production URLs, a generated sitemap, local search, Mermaid
+  diagrams, and MathJax equation rendering.
 
 ### Fixed
 
