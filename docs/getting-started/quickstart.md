@@ -1,5 +1,133 @@
 ---
-title: Loremipsum
-description: Loremipsum
+title: Quickstart
+description: From an empty directory to a signed, verified box in seven commands.
 ---
 
+# Quickstart
+
+This walkthrough goes from an empty directory to a signed, verified box on disk. It uses the
+example recipe `init` scaffolds — an environment containing nothing but Python — so it runs in
+about a minute and produces a ~48 MB archive you can inspect by hand.
+
+Prerequisites: the CLI and toolchain from [Installation](/getting-started/installation).
+
+## 1. Create a project
+
+A box records the commit it was built from, so a Scrollcase project **must be a git checkout** —
+building outside one fails rather than inventing a revision.
+
+```sh
+mkdir my-boxes && cd my-boxes
+git init
+```
+
+## 2. `init` — scaffold the project
+
+```sh
+scrollcase init
+```
+
+`init` writes three things and never overwrites anything that already exists:
+
+- `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where recipes
+  live and where builds, artefacts and keys go.
+- `recipes/example-box-<platform>-<arch>-<accelerator>/` — an example
+  [recipe](/reference/recipe) (`recipe.json`) and its pixi manifest (`pixi.toml`), targeting this
+  machine by default.
+- `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
+  committed.
+
+One thing is left for you: set `pixiVersion` in the recipe to the pixi release you build with
+(check `pixi --version`), or pass it up front with `--pixi-version`. Recipes pin their resolver
+deliberately — see [Installation](/getting-started/installation#pixi).
+
+## 3. `doctor` — check the machine
+
+```sh
+scrollcase doctor --recipe example-box-macos-aarch64-metal
+```
+
+Every failing check comes with a remedy. Fix what it names and re-run; `doctor` never modifies
+anything, so it is always safe.
+
+::: info Recipe names
+The recipe name on the command line is the name of its directory under `recipes/` — here
+`example-box-macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the name `init`
+printed on your machine throughout.
+:::
+
+## 4. `lock` — resolve dependencies, once
+
+```sh
+scrollcase lock example-box-macos-aarch64-metal
+```
+
+`lock` runs the pinned pixi against the recipe's `pixi.toml` and writes `pixi.lock` next to it.
+This is the only step that resolves anything: `build` later *installs* exactly what the lock
+pins, and never resolves. Commit the lock — it is what makes a build reproducible and what the
+licence audit reads.
+
+```sh
+git add . && git commit -m "Example box recipe and lock"
+```
+
+Committing now also matters for the next steps: `build` refuses a dirty tree without
+`--allow-dirty`, because an artefact built from uncommitted changes is reproducible by nobody.
+
+## 5. `keygen` — create a signing key
+
+```sh
+scrollcase keygen
+```
+
+This writes a private ed25519 key (`.scrollcase/keys/signing-private.pem`, owner-only
+permissions) and the matching public key file (`signing-public.json`). Every document the build
+emits is signed; `verify` checks signatures against the public key file. For production custody —
+a KMS, an HSM — see [Signing & Key Custody](/guides/signing-and-custody).
+
+## 6. `build` — install, self-test, archive, sign
+
+```sh
+scrollcase build example-box-macos-aarch64-metal
+```
+
+The pipeline, in order: install the locked environment, pack and relocate it with conda-pack,
+stage declared assets, prune, self-test **with the interpreter inside the box**, normalise
+timestamps, zip deterministically, and sign. The result lands in `.scrollcase/dist/`:
+
+```text
+.scrollcase/dist/
+├── example-box-1.0.0-macos-aarch64-metal.zip            # the box archive
+├── example-box-1.0.0-macos-aarch64-metal.release.json   # signed release document
+├── example-box-beta-macos-aarch64-metal.channel.json    # signed channel pointer
+└── objects/boxes/example-box/1.0.0/macos-aarch64-metal/ # content-addressed staging tree
+```
+
+Rebuilding the same commit produces a byte-identical archive — see
+[Architecture](/concepts/architecture#determinism) for what makes that true.
+
+## 7. `verify` — prove what you built
+
+```sh
+scrollcase verify .scrollcase/dist/example-box-1.0.0-macos-aarch64-metal.release.json --self-test
+```
+
+`verify` mirrors what an installing client does: signature against the trusted key, archive size
+and SHA-256, safe entry names, `box.json` inside the archive agreeing with the signed release,
+the declared interpreter present. With `--self-test` it goes further: it extracts the archive to
+a temporary directory and imports the recipe's declared modules **with the box's own Python** —
+the check that proves the environment runs somewhere other than where it was built.
+
+## Where to go next
+
+- Package something real: declare model weights and data files —
+  [Managing Model Weights](/guides/managing-weights).
+- Understand every field you just used: [The Recipe](/reference/recipe) and
+  [CLI Commands](/reference/cli).
+- Review dependency licences before building: run `scrollcase audit <recipe>` — see
+  [CLI Commands](/reference/cli#audit).
+- See how the whole pipeline fits together: [Architecture](/concepts/architecture).
+
+The repository also ships a proven example,
+[`examples/hello-box-macos-arm64-metal`](https://github.com/Suffro/scrollcase/tree/main/examples),
+with a committed lock — the same walkthrough with nothing left to fill in.

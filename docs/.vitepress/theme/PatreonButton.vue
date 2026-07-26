@@ -6,7 +6,7 @@ withDefaults(
   }>(),
   {
     href: 'https://www.patreon.com/16427094/join',
-    label: 'Support scrollcase on Patreon'
+    label: 'Support Scrollcase on Patreon'
   }
 )
 </script>

@@ -3,14 +3,32 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Scrollcase",
-  description: "Self-contained AI runtime packaging",
-  
+  description: "Signed, self-contained Python environment boxes for scientific and AI models",
+
+  head: [
+    // The tab icon is the bare mark, following the browser's colour scheme. icon.ico comes first
+    // as the universal fallback — it carries its own gold plate, so it stays legible on any tab
+    // in browsers that ignore `media` on icon links.
+    ['link', { rel: 'icon', href: '/static/icon.ico', sizes: '256x256' }],
+    // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-dark.svg', media: '(prefers-color-scheme: light)' }],
+    // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-light.svg', media: '(prefers-color-scheme: dark)' }]
+  ],
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    // In the site itself the mark is used bare, without the plate: the dark mark on a light
+    // background and the light mark on a dark one.
+    logo: {
+      light: '/static/svg/logo-dark.svg',
+      dark: '/static/svg/logo-light.svg'
+    },
+
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Quickstart', link: '/getting-started/quickstart' },
-      { text: 'CLI Reference', link: '/reference/cli' }
+      { text: 'Guides', link: '/guides/managing-weights', activeMatch: '/guides/' },
+      { text: 'Reference', link: '/reference/cli', activeMatch: '/reference/' },
+      { text: 'Concepts', link: '/concepts/architecture', activeMatch: '/concepts/' }
     ],
 
     sidebar: [
@@ -26,9 +44,12 @@ export default defineConfig({
         text: 'Guides',
         collapsed: false,
         items: [
-          { text: 'Packaging CUDA Models', link: '/guides/packaging-cuda' },
           { text: 'Managing Model Weights', link: '/guides/managing-weights' },
-          { text: 'Offline / Air-Gapped Setup', link: '/guides/offline-airgap' }
+          { text: 'Packaging CUDA Boxes', link: '/guides/packaging-cuda' },
+          { text: 'Accelerator Parity', link: '/guides/accelerator-parity' },
+          { text: 'Signing & Key Custody', link: '/guides/signing-and-custody' },
+          { text: 'Offline / Air-Gapped Installs', link: '/guides/offline-airgap' },
+          { text: 'Distributing Boxes', link: '/guides/distributing-boxes' }
         ]
       },
       {
@@ -36,25 +57,33 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'CLI Commands', link: '/reference/cli' },
-          { text: 'Configuration File', link: '/reference/configuration' }
+          { text: 'Workspace Configuration', link: '/reference/configuration' },
+          { text: 'The Recipe (recipe.json)', link: '/reference/recipe' },
+          { text: 'The Box Format', link: '/reference/box-format' },
+          { text: 'Node API', link: '/reference/api' }
         ]
       },
       {
         text: 'Concepts',
         collapsed: false,
         items: [
-          { text: 'Architecture & Design', link: '/concepts/architecture' },
-          { text: 'Why Pixi & Conda-Forge', link: '/concepts/why-pixi' }
+          { text: 'Architecture', link: '/concepts/architecture' },
+          { text: 'Why Pixi & Conda-Forge', link: '/concepts/why-pixi' },
+          { text: 'Design Decisions', link: '/concepts/design-decisions' }
         ]
       }
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/suffro/scrollcase' }
+      { icon: 'github', link: 'https://github.com/Suffro/scrollcase' }
     ],
 
     search: {
       provider: 'local'
+    },
+
+    outline: {
+      level: [2, 3]
     }
   }
 })

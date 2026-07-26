@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { withBase } from 'vitepress'
-import MailingListForm from './MailingListForm.vue'
 
 const pillars = [
   {
@@ -24,7 +23,7 @@ const capabilities = [
   {
     icon: 'terminal',
     title: 'Build from a recipe',
-    text: 'Describe the environment once. scrollcase resolves it against conda-forge with pixi and produces a box per target, fully pinned.',
+    text: 'Describe the environment once. Scrollcase resolves it against conda-forge with pixi and produces a box per target, fully pinned.',
   },
   {
     icon: 'flow',
@@ -63,33 +62,20 @@ const capabilities = [
       <div class="container hero-inner">
         <span class="status"><span class="status-dot" aria-hidden="true"></span>In active development · Coming soon</span>
 
-        <img class="hero-logo" :src="withBase('/static/svg/icon-colored.svg')" alt="" aria-hidden="true" />
+        <h1 class="name">Scrollcase</h1>
 
-        <h1 class="name">scrollcase</h1>
-
-        <p class="headline">Ship a scientific model<br>as a single signed box.</p>
+        <p class="headline">Pack AI and scientific models<br>as self-contained boxes.</p>
 
         <p class="tagline">
-          scrollcase builds self-contained Python environment boxes for AI and scientific models —
-          pinned, validated, signed, and installable offline on macOS, Linux, and Windows.
+          No docker, pinned, validated, signed, and installable offline on<br>macOS metal, Linux and Windows (CPU and CUDA).
         </p>
 
         <div class="actions">
-          <a class="btn btn-brand" href="#subscribe">Release updates</a>
-          <a class="btn btn-alt" :href="withBase('/getting-started/quickstart')">Read the docs</a>
+          <a class="btn btn-brand" :href="withBase('/getting-started/quickstart')">Read the docs</a>
+          <a class="btn btn-alt" href="https://github.com/Suffro/scrollcase">GitHub</a>
         </div>
 
-        <p class="trust">Apache-2.0 · No Docker · Offline-installable</p>
-      </div>
-
-      <!-- ── Mailing list ─────────────────────────────────────── -->
-      <div id="subscribe" class="container band">
-        <div class="cta">
-          <h2 style="font-size: 22px; margin-top: -10px;">Stay in the loop</h2>
-          <p style="font-size: 16px;">scrollcase is under active development. Subscribe to know when it launches:</p>
-          <MailingListForm />
-          <p style="font-size: 12px; opacity: 0.5;">No spam, unsubscribe anytime.</p>
-        </div>
+        <p class="trust">Apache-2.0</p>
       </div>
     </section>
 
@@ -272,18 +258,8 @@ const capabilities = [
   }
 }
 
-#subscribe {
-  scroll-margin-top: 90px;
-}
-
-.hero-logo {
-  height: 78px;
-  width: auto;
-  margin: 30px 0 0;
-}
-
 .name {
-  margin: 16px 0 0;
+  margin: 30px 0 0;
   font-size: clamp(3.25rem, 9vw, 5.5rem);
   line-height: 1;
   font-weight: 800;
@@ -335,7 +311,7 @@ const capabilities = [
 }
 
 .btn-brand {
-  color: #fff;
+  color: var(--vp-c-bg);
   background: var(--vp-c-brand-1);
   border: 1px solid var(--vp-c-brand-1);
 }
@@ -461,38 +437,6 @@ const capabilities = [
 .icon-chip.sm svg {
   width: 21px;
   height: 21px;
-}
-
-/* ── Closing CTA ───────────────────────────────────────── */
-.cta {
-  text-align: center;
-  padding: 56px 32px;
-  border-radius: 24px;
-  border: 1px solid var(--vp-c-divider);
-  background:
-    radial-gradient(
-      circle at 50% 0%,
-      var(--vp-c-brand-soft) 0%,
-      transparent 70%
-    ),
-    var(--vp-c-bg-soft);
-}
-
-.cta h2 {
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
-  font-weight: 750;
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-
-.cta p {
-  margin: 12px auto 0;
-  max-width: 460px;
-  color: var(--vp-c-text-2);
-}
-
-.cta .actions {
-  margin-top: 28px;
 }
 
 /* ── Responsive ────────────────────────────────────────── */

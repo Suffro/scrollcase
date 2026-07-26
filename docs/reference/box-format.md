@@ -1,0 +1,284 @@
+---
+title: The Box Format
+description: What a box is on disk and on the wire — targets, archive layout, box.json, signed documents.
+---
+
+# The Box Format
+
+The format is the product. This page is the contract a builder, a signer, and any client — in any
+language — must agree on. It is frozen at `schemaVersion: 1`.
+
+The normative artefacts ship inside the npm package:
+
+| Artefact | Where | What it is |
+| --- | --- | --- |
+| Reference implementation | `scrollcase/contract` | The rules as executable code |
+| JSON Schemas | `scrollcase/contract/schema/*.json` | The machine-readable spec |
+| Golden fixtures | `scrollcase/contract/fixtures/*.json` | What "agreeing" means, concretely |
+
+A client written in another language **does not import the code** — it mirrors the rules and
+proves the mirror against `fixtures/target-id-contract.json`. That is how implementations stay
+honest without sharing a runtime.
+
+## Targets
+
+A target is the `(platform, arch, accelerator)` triple a box is built for, plus a CUDA ABI
+version when the accelerator is CUDA. The supported matrix is closed:
+
+| `platform` | `arch` | `accelerator` | conda subdir | Interpreter |
+| --- | --- | --- | --- | --- |
+| `macos` | `aarch64` | `metal`, `cpu` | `osx-arm64` | `venv/bin/python` |
+| `linux` | `x86_64` | `cpu`, `cuda` | `linux-64` | `venv/bin/python` |
+| `windows` | `x86_64` | `cpu`, `cuda` | `win-64` | `venv/python.exe` |
+
+### Target identity
+
+`boxTargetId()` turns a target into the canonical slug that appears in archive names, object
+keys, and routes. Every implementation must produce it character for character:
+
+```text
+macos-aarch64-metal
+macos-aarch64-cpu
+linux-x86_64-cpu
+linux-x86_64-cuda12.4
+windows-x86_64-cpu
+windows-x86_64-cuda12.4
+```
+
+The rule: `<platform>-<arch>-<accelerator>`, except CUDA, which appends the version with no
+separator — `cuda12.4`. `cudaVersion` is **required for CUDA and forbidden for everything else**,
+so an identifier is never ambiguous.
+
+These, and the invalid cases that must be rejected, are the golden fixtures in
+`fixtures/target-id-contract.json`.
+
+### Target adapters
+
+Each target also carries what it implies for the built payload: the Python layout, the archive
+backend, how native libraries are inspected, the environment a validation run gets, and the
+platform assertion the self-test prepends. Consumers unpacking a box rely on that layout, so it
+is part of the format rather than an implementation detail.
+
+## The archive
+
+A box ships as a ZIP (ZIP64-capable) whose bytes depend only on its contents:
+
+```text
+example-model-1.0.0-macos-aarch64-metal.zip
+├── box.json                                 # the self-describing manifest
+├── venv/                                    # the packed, relocated conda-forge environment
+│   ├── bin/python                           # (venv/python.exe on Windows)
+│   ├── lib/…
+│   └── conda-meta/…
+├── model-cache/…                            # assets, when weights are embedded
+└── THIRD_PARTY_NOTICES/
+    └── conda-distributions.json             # the dependency licence inventory
+```
+
+Guarantees the archive layer enforces:
+
+- **Deterministic.** Fixed timestamps (`2000-01-01T00:00:00Z`), stable file ordering, and modes
+  derived from the target adapter. The same commit rebuilds to identical bytes.
+- **Link-free.** Symlinks are dereferenced before packing; the writer rejects links and special
+  entries outright.
+- **Safe to extract.** Entry names are validated against path traversal on the way out, by both
+  `verify` and any conforming client.
+- **Relocatable.** Nothing inside depends on the build machine's paths — see
+  [Architecture](/concepts/architecture#relocation).
+
+## `box.json`
+
+The manifest packed **inside** the archive, so an extracted box is self-describing: a consumer
+holding the directory but not the release document can still tell what it is and how it was
+built.
+
+```json
+{
+  "schemaVersion": 1,
+  "boxId": "example-model",
+  "modelId": "example-org-example-model",
+  "runtimeId": "example-model-runtime",
+  "version": "1.0.0",
+  "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/example",
+  "selfTest": { "pythonImports": ["json", "sqlite3"], "timeoutSeconds": 180 },
+  "provenance": { "…": "see below" }
+}
+```
+
+`verify` checks `box.json` field-for-field against the signed release — that agreement is what
+binds the archive's contents to its signed metadata.
+
+## Provenance
+
+Recorded by Scrollcase from observed state, never accepted from caller input, so the record
+cannot be dressed up after the fact:
+
+| Field | Meaning |
+| --- | --- |
+| `recipeId`, `recipeVersion` | Which recipe produced the box |
+| `builderRevision` | The 40-hex commit of the source tree that built it |
+| `sourceTreeDirty` | Whether that tree had uncommitted changes. `true` means the build is **not** reproducible from the recorded revision alone |
+| `sourceRevision` | Upstream revision of the packaged model source, as declared by the recipe |
+| `pythonVersion`, `pixiVersion` | The interpreter version, and the resolver that solved the environment |
+| `dependencyLockSha256` | Hash of the `pixi.lock` the environment was solved from |
+| `builtAt` | Taken from the HEAD commit, not the clock — the same commit rebuilds to the same timestamp |
+
+## Signed documents
+
+Every document a build emits travels in one envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "payloadEncoding": "base64-json-utf8",
+  "payloadBase64": "ewogICJzY2hlbWFWZXJzaW9uIjogMSwK…",
+  "payloadSha256": "7d2c9a41e8b350f6c174a9de20358bf41c6e97d05a8b3f2619e4c7081da5b3f2",
+  "signatures": [
+    { "algorithm": "ed25519", "keyId": "scrollcase-9f2b7c1e04a83d56", "signatureBase64": "…" }
+  ]
+}
+```
+
+The payload is **exact base64-encoded JSON, not canonicalised JSON**. Verifying a signature
+therefore means hashing the bytes as transmitted, so Node, Rust, a Worker and any future client
+agree without each maintaining a canonical-JSON implementation — historically the richest source
+of cross-language signature bugs.
+
+A verifier accepts the document when **any one** signature verifies against a trusted key, which
+is what lets a key rotate without reissuing every document. Passing the envelope schema means the
+document is well-formed and worth verifying — never that its signature is valid.
+
+### Document kinds and namespaces
+
+Three document types, each discriminated by a `kind` of `<namespace>.<type>`:
+
+| Type | `kind` | Emitted by |
+| --- | --- | --- |
+| Release | `<namespace>.release` | `scrollcase build` |
+| Channel | `<namespace>.channel` | `scrollcase build` |
+| Revocations | `<namespace>.revocations` | Defined by the format; published by whoever distributes boxes |
+
+The namespace **belongs to the publishing project**, and defaults to `scrollcase.box`. A project
+that already has boxes installed in the field keeps emitting the namespace its clients recognise,
+by passing `--namespace`. Scrollcase never hard-codes one, and carries nobody's brand.
+
+### Release manifest
+
+The immutable description of one built box: identity, target, compatibility, where the archive
+lives and what it hashes to, the self-test to repeat, and provenance. Never edited after signing
+— a correction ships as a new version.
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "scrollcase.box.release",
+  "boxId": "example-model",
+  "modelId": "example-org-example-model",
+  "runtimeId": "example-model-runtime",
+  "version": "1.0.0",
+  "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
+  "compatibility": { "minHostAppVersion": "1.0.0", "minMacosVersion": "13.0", "minRamGb": 8 },
+  "archive": {
+    "format": "zip",
+    "url": "https://assets.example.org/boxes/boxes/example-model/1.0.0/macos-aarch64-metal/7d2c….zip",
+    "sha256": "7d2c…f2",
+    "sizeBytes": 49812054
+  },
+  "installedSizeBytes": 132145920,
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/example",
+  "selfTest": { "pythonImports": ["json", "sqlite3"], "timeoutSeconds": 180 },
+  "provenance": { "…": "…" }
+}
+```
+
+`installedSizeBytes` is the sum of extracted payload file sizes, so a consumer can check free
+space **before** downloading. `weights: "on-demand"` and an `assets` array appear together, and
+only when the assets were deliberately left out of the archive; their absence means the box is
+self-contained.
+
+### Channel manifest
+
+A small mutable pointer from a channel to the releases it currently serves. Signed independently,
+so promoting a build never requires re-signing it.
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "scrollcase.box.channel",
+  "channel": "beta",
+  "boxId": "example-model",
+  "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
+  "updatedAt": "2026-07-25T10:14:03+02:00",
+  "cohortSalt": "9f2b7c1e04a83d5641b0e7c28a3d95f7",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "releaseManifestUrl": "https://assets.example.org/boxes/boxes/example-model/1.0.0/macos-aarch64-metal/4e81….release.json",
+      "rolloutPercentage": 100
+    }
+  ]
+}
+```
+
+Channels are `development`, `beta`, `stable`. A client takes the first entry whose rollout cohort
+it falls into. `cohortSalt` is mixed into that hash so assignment is stable per client and
+unpredictable across channels — a staged rollout cannot be gamed by reinstalling. Scrollcase
+derives it from `boxId` and `version` rather than randomly, so a rebuild does not reshuffle who
+receives the release. A freshly built channel goes out at 100%; a staged rollout is arranged by
+editing this document, not by Scrollcase.
+
+### Revocations manifest
+
+The signed list of releases that must no longer be installed or activated. A published release is
+immutable, so withdrawing one is an explicit statement rather than a deletion: clients keep
+honouring the list even when the archive is still reachable.
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "scrollcase.box.revocations",
+  "updatedAt": "2026-07-25T10:14:03Z",
+  "revocations": [
+    { "boxId": "example-model", "version": "1.0.0", "reason": "mis-solved CUDA build", "revokedAt": "2026-07-26T09:00:00Z" }
+  ]
+}
+```
+
+An empty `revocations` array is a positive statement that nothing is revoked, which a client can
+distinguish from a missing or withheld document. Scrollcase defines this document but does not
+emit it — revocation is a distribution concern, and
+[distribution is deliberately out of scope](/concepts/design-decisions).
+
+## Content addressing
+
+Names are derived from identity alone, so the archive, its release document and the staged
+objects agree without any of them recording the others' paths:
+
+```text
+stem          <boxId>-<version>-<targetId>
+object prefix boxes/<boxId>/<version>/<targetId>
+archive       <prefix>/<archive sha256>.zip
+release       <prefix>/<release document sha256>.release.json
+```
+
+The whole chain is content-addressed, and every link is a hash:
+
+```mermaid
+flowchart LR
+  C["channel document<br/><i>signed, mutable</i>"] -->|releaseManifestUrl<br/>= sha256 of the document| R["release document<br/><i>signed, immutable</i>"]
+  R -->|archive.sha256| A["archive .zip"]
+  A -->|packed inside| B["box.json"]
+  R -.->|verify: must agree field for field| B
+```
+
+Publishing is idempotent, and an object can never be replaced with different bytes under the same
+URL. See [Distributing Boxes](/guides/distributing-boxes).
+
+## Versioning {#versioning}
+
+`schemaVersion: 1` is frozen. Published boxes, deployed services and installed clients depend on
+it, so a breaking change gets a **new** `schemaVersion` — never a silent edit to a `kind` string,
+the payload encoding, the signature algorithm, or the golden fixtures.

@@ -1,6 +1,6 @@
 ---
 title: Design decisions
-description: Why scrollcase is shaped the way it is, and which alternatives were rejected.
+description: Why Scrollcase is shaped the way it is, and which alternatives were rejected.
 ---
 
 # Design decisions
@@ -10,17 +10,16 @@ alternative is just an assertion.
 
 ## One substrate: pixi + conda-pack + conda-forge
 
-scrollcase grew out of a builder that supported two dependency backends: `uv` with a standalone
-Python distribution, and `pixi` with conda-forge. Only the second came along.
+Scrollcase supports exactly one dependency backend.
 
 A packaging tool's product is its guarantees — this environment installs, relocates, self-tests, and
 is reproducible from a lock. Two backends means proving every guarantee twice, on every platform, for
-every release. The conda-forge path also solves the problem the other one could not: native
+every release. The conda-forge path also solves the problem a wheel-based one cannot: native
 libraries. Scientific stacks are mostly compiled code, and conda-forge distributes it as a coherent,
 licence-annotated package set rather than as wheels of varying provenance.
 
-**Rejected:** keeping a second backend for projects already on `uv`. Those projects convert their
-recipes once; the tool avoids a permanent double burden.
+**Rejected:** a second backend for projects already on `uv`. Those projects convert their recipes
+once; Scrollcase avoids a permanent double burden.
 
 ## conda-pack, and deliberately *not* running conda-unpack
 
@@ -33,7 +32,7 @@ files that do carry the prefix are removed, symlinks are dereferenced, and gener
 are rewritten to resolve Python next to themselves.
 
 **Rejected:** `pixi-pack`, which ships packages rather than a tree and needs a per-user install plus a
-bundled unpacker at the other end. The slow step (compression) is better paid once by the builder
+bundled unpacker at the other end. The slow step (compression) is better paid once by whoever builds
 than on every install.
 
 ## The document namespace belongs to the publishing project
@@ -46,12 +45,12 @@ its documents underneath it — its clients would stop recognising them. Making 
 project's own declaration means byte-compatibility for existing publishers and a tool that carries
 nobody's brand.
 
-**Rejected:** hard-coding the namespace of the project scrollcase was extracted from. Independence is
-not negotiable, and byte-compatibility turned out not to require it.
+**Rejected:** hard-coding a single namespace. Byte-compatibility for existing publishers turned out to
+cost nothing, and independence from any one consumer is not negotiable.
 
 ## Signing is built in; key custody is not
 
-The tool signs with a local ed25519 key out of the box, so anyone gets verifiable boxes without
+Scrollcase signs with a local ed25519 key out of the box, so anyone gets verifiable boxes without
 infrastructure. An operator with real key custody — a KMS, an HSM, a signing service — configures an
 external signer command instead: it receives the payload on stdin and returns the signed document on
 stdout. Any language, any credential mechanism, no plugin API to keep compatible.
@@ -85,33 +84,32 @@ unless a project explicitly trades it away, and it is the behaviour that surpris
 ## Accelerator parity is a packaging concern
 
 A recipe may declare a `parity` block: a check script inside the box, the accelerators to run it
-under, and tolerances (`absolute`, `relative`, `minimumCosine`). The tool runs the check once per
+under, and tolerances (`absolute`, `relative`, `minimumCosine`). Scrollcase runs the check once per
 accelerator using each target's validation environment, compares every run against the first, and
 fails the build on a breach.
 
 The question — *does this box compute the same thing on the GPU as on the CPU?* — sounds scientific
 but is not. It catches the failures a packaging tool is responsible for: the wrong wheels solved in, a
-CPU-only build shipped as CUDA, a broken BLAS. And half the mechanism already existed, since each
-target adapter knows the environment that forces a run onto one accelerator.
+CPU-only build shipped as CUDA, a broken BLAS.
 
-The division of labour is deliberate. The tool owns the mechanism and enforces the declared threshold;
-the project owns the check script, the fixture, and what closeness means for its model. Non-finite
-output is rejected explicitly, being the classic symptom of a broken accelerator build, and relative
-error is only counted where the reference has magnitude — the absolute bound guards entries near zero,
-where relative error is meaningless.
+The division of labour is deliberate. Scrollcase owns the mechanism and enforces the declared
+threshold; the project owns the check script, the fixture, and what closeness means for its model.
+Non-finite output is rejected explicitly, being the classic symptom of a broken accelerator build, and
+relative error is only counted where the reference has magnitude — the absolute bound guards entries
+near zero, where relative error is meaningless.
 
-**Rejected:** leaving tolerances hard-coded in each project's validator, which is where they were.
-Every model re-implemented the same comparison with its own constants buried in code.
+**Rejected:** hard-coding tolerances inside Scrollcase. What counts as close enough is a property of
+the model, not of the packaging step, so it is declared per recipe rather than assumed.
 
-## Paths come from the project, not from the tool
+## Paths come from the project, not from Scrollcase
 
 A workspace is declared by a `scrollcase.config.json` at the project root, discovered by walking up
 from the working directory, with per-invocation flag overrides. Defaults are `recipes/` and
 `.scrollcase/{build,dist,keys}`.
 
-The builder this grew from derived every path from its own location on disk, which works only while
-the tool lives inside the project it serves. Making the layout the project's declaration is what let
-the tool leave.
+A tool that derives its paths from its own location on disk only works while it lives inside the
+project it serves. Making the layout the project's declaration is what lets Scrollcase run from
+anywhere against any project that declares one.
 
 ## Provenance refuses to lie
 
@@ -135,13 +133,9 @@ dependency is a legal problem, not a reporting gap.
 ## Deliberately out of scope
 
 Publishing to object storage, serving or promoting a channel, revoking a release, allocating CI
-runners, and model-specific scientific validation all belong to whoever consumes the tool. scrollcase
-stops at a signed, verified box on disk. Every one of these was implemented in the builder scrollcase
-came from, and every one was left behind on purpose.
+runners, and model-specific scientific validation all belong to whoever consumes Scrollcase, which
+stops at a signed, verified box on disk.
 
-## Deferred, not forgotten
-
-Bootstrapping the toolchain — `init` downloading a pinned `pixi` and installing `conda-pack` — and a
-`--global` shared toolchain location. Doing it responsibly means pinning a release checksum per
-platform, which is release engineering rather than something to improvise. Until then `doctor` names
-the exact missing tool and how to install it.
+The boundary is what keeps the guarantees provable. A packaging tool that also serves a registry has
+to keep proving both sets of guarantees at once; one that stops at a file on disk composes with any
+distribution mechanism a project already has.

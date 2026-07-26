@@ -145,4 +145,7 @@ vite.config.ts.timestamp-*
 .vite/
 
 CLAUDE.md
+AGENTS.md
+
 .claude
+.codex

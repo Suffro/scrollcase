@@ -1,17 +1,23 @@
 /**
  * Setting a project up, and telling it what is wrong.
  *
- * `init` writes files and never touches the network; `doctor` inspects and never writes. Keeping
- * that line sharp is what makes `doctor` safe to run at any time, including inside CI, and what
- * stops `init` from being the command nobody dares re-run.
+ * `init` scaffolds files; `doctor` inspects and never writes. Keeping that line sharp is what makes
+ * `doctor` safe to run at any time, including inside CI, and what stops `init` from being the
+ * command nobody dares re-run.
+ *
+ * `init` may also install the build toolchain, but only after asking: scaffolding never reaches for
+ * the network on its own, and the download is verified against a pinned checksum. See
+ * `ensureToolchain` below and `toolchain.mjs` for why the consent and the pin are the design rather
+ * than a nicety.
  */
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { boxTargetAdapters, condaSubdir } from '../contract/targets.mjs';
 import { fileExists } from './filesystem.mjs';
-import { findCondaPack, findPixi } from './pixi.mjs';
-import { runResult as defaultRunResult } from './process.mjs';
+import { findCondaPack, findPixi, probeCondaPack, probePixi } from './pixi.mjs';
+import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
+import { installCondaPack, installPixi, latestPixiVersion, pixiReleaseAsset } from './toolchain.mjs';
 import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace.mjs';
 
 const GITIGNORE_MARKER = '# Scrollcase build state';

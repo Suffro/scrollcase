@@ -13,10 +13,32 @@
  * path into the shipped box. A box needs no relocation step at install time.
  */
 
+import { existsSync } from 'node:fs';
 import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, stat } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { fail, runResult as defaultRunResult } from './process.mjs';
 import { repairPosixLaunchers } from './launchers.mjs';
+import { toolchainPaths } from './toolchain.mjs';
+import { getWorkspace } from './workspace.mjs';
+
+/**
+ * Resolves a tool, highest precedence first: an explicit path, the environment override, a
+ * toolchain the project installed for itself, and finally the bare name on PATH. The project-local
+ * toolchain is looked up rather than configured so that `init --install-toolchain` is enough on its
+ * own: nothing has to be added to PATH for the next command to find what was just installed.
+ */
+function toolCandidate({ path, environmentVariable, toolchainKey, name }) {
+  if (path) return String(path);
+  const fromEnvironment = process.env[environmentVariable];
+  if (fromEnvironment) return String(fromEnvironment);
+  let installed = null;
+  try {
+    installed = toolchainPaths(getWorkspace().toolchainDir)[toolchainKey];
+  } catch {
+    // No resolvable workspace (an unusual cwd, a test): fall through to PATH.
+  }
+  return installed && existsSync(installed) ? installed : name;
+}
 
 /**
  * Verifies the pinned pixi is installed. `build` and `lock` must use the same pixi the recipe was
@@ -25,15 +47,43 @@ import { repairPosixLaunchers } from './launchers.mjs';
  * `runResult` is injectable so a caller can drive discovery without a real pixi on PATH.
  */
 export function findPixi({ requiredVersion, path = null, runResult = defaultRunResult }) {
-  const candidate = String(path || process.env.SCROLLCASE_PIXI || 'pixi');
-  const result = runResult(candidate, ['--version'], { capture: true });
-  if (result.error || result.status !== 0) {
-    fail(`pixi ${requiredVersion} is required. Install it from https://pixi.sh/ or pass --pixi <path>.`);
+  const found = probePixi({ path, runResult });
+  if (!found) {
+    fail(`pixi ${requiredVersion} is required. Install it from https://pixi.sh/, run \`scrollcase init --install-toolchain\`, or pass --pixi <path>.`);
   }
+  if (found.version !== requiredVersion) fail(`Recipe requires pixi ${requiredVersion}, found ${found.version}.`);
+  return found.path;
+}
+
+/**
+ * Reports which pixi is available and at what version, without requiring a particular one.
+ *
+ * `findPixi` answers "is the pinned pixi here?"; this answers "is there a pixi at all?", which is
+ * what `init` needs before it can offer to install one. Returns null when nothing runs.
+ */
+export function probePixi({ path = null, runResult = defaultRunResult } = {}) {
+  const candidate = toolCandidate({
+    path,
+    environmentVariable: 'SCROLLCASE_PIXI',
+    toolchainKey: 'pixi',
+    name: 'pixi',
+  });
+  const result = runResult(candidate, ['--version'], { capture: true });
+  if (result.error || result.status !== 0) return null;
   // `pixi --version` prints "pixi 0.x.y"; the version is the second token.
-  const actual = String(result.stdout ?? '').trim().split(/\s+/)[1];
-  if (actual !== requiredVersion) fail(`Recipe requires pixi ${requiredVersion}, found ${actual}.`);
-  return candidate;
+  return { path: candidate, version: String(result.stdout ?? '').trim().split(/\s+/)[1] ?? null };
+}
+
+/** Reports whether conda-pack is available, and where. Returns null when nothing runs. */
+export function probeCondaPack({ path = null, runResult = defaultRunResult } = {}) {
+  const candidate = toolCandidate({
+    path,
+    environmentVariable: 'SCROLLCASE_CONDA_PACK',
+    toolchainKey: 'condaPack',
+    name: 'conda-pack',
+  });
+  const result = runResult(candidate, ['--help'], { capture: true });
+  return result.error || result.status !== 0 ? null : { path: candidate };
 }
 
 /**
@@ -70,12 +120,11 @@ export function condaPackArguments(prefix, outputPath) {
  * confirm it runs; the exact version pin is recorded elsewhere (via the pixi global manifest).
  */
 export function findCondaPack({ path = null, runResult = defaultRunResult } = {}) {
-  const candidate = String(path || process.env.SCROLLCASE_CONDA_PACK || 'conda-pack');
-  const result = runResult(candidate, ['--help'], { capture: true });
-  if (result.error || result.status !== 0) {
-    fail('conda-pack is required. Install it (e.g. `pixi global install conda-pack`) or pass --conda-pack <path>.');
+  const found = probeCondaPack({ path, runResult });
+  if (!found) {
+    fail('conda-pack is required. Install it with `scrollcase init --install-toolchain` or `pixi global install conda-pack`, or pass --conda-pack <path>.');
   }
-  return candidate;
+  return found.path;
 }
 
 /**
