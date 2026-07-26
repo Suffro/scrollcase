@@ -1,9 +1,9 @@
 
 <h1 align="center">
 
-  <span align="center">
+  <a align="center" href="https://scrollcase.dev" target="_blank">
     <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="60">
-  </span>
+  </a>
   <br>
 
 Scrollcase
