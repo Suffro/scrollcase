@@ -6,14 +6,6 @@
   <p style="font-size: 48px; font-weight: 600; margin-bottom: 5px;">
     Scrollcase
   </p>
-<br>
-
----
-
-  <a href="https://scrollcase.dev" target="_blank" style="opacity: 0.7; position: inline;">
-    Documentation
-  </a>
-
 </div>
 
 ---
@@ -31,6 +23,8 @@ dependency licence inventory.
 It is built on exactly one substrate: [pixi](https://pixi.sh) solves a committed `pixi.lock`
 against [conda-forge](https://conda-forge.org), [conda-pack](https://conda.github.io/conda-pack/)
 relocates the resulting prefix, and the tree ships inside the box as `venv/`.
+
+> Checkout the official documentation [here](https://scrollcase.dev).
 
 ## What you get
 
