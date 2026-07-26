@@ -101,6 +101,22 @@ near zero, where relative error is meaningless.
 **Rejected:** hard-coding tolerances inside Scrollcase. What counts as close enough is a property of
 the model, not of the packaging step, so it is declared per recipe rather than assumed.
 
+## The toolchain is installed on request, and pinned once installed
+
+`init` can install `pixi` and `conda-pack`, but only after asking, and only into the project's own
+toolchain directory. Nothing is added to `PATH`, nothing is installed system-wide, and deleting the
+directory undoes it. Without a terminal to answer the question — CI, a pipe — nothing is installed
+at all: silence is not consent.
+
+The download is verified before use. The release archive's SHA-256 is checked against the checksum
+the publisher ships beside it, and the verified digest is then recorded in the project's config, so
+every later install is checked against a value the project committed rather than against whatever
+the server offers that day. A mismatch aborts before anything is installed.
+
+**Rejected:** installing silently, and the `curl | sh` convention it would imitate. A packaging tool
+whose whole product is verified artefacts cannot begin by running unverified bytes it fetched
+without being asked.
+
 ## Paths come from the project, not from Scrollcase
 
 A workspace is declared by a `scrollcase.config.json` at the project root, discovered by walking up

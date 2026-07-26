@@ -37,9 +37,20 @@ scrollcase init
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
 
-One thing is left for you: set `pixiVersion` in the recipe to the pixi release you build with
-(check `pixi --version`), or pass it up front with `--pixi-version`. Recipes pin their resolver
-deliberately — see [Installation](/getting-started/installation#pixi).
+Then, if `pixi` or `conda-pack` is missing, `init` **asks** whether to install it:
+
+```text
+This project needs pixi and conda-pack to build a box.
+Install them into /work/my-boxes/.scrollcase/toolchain? [y/N]
+```
+
+Answer yes and both land inside the project, checksum-verified, with the installed pixi version
+pinned into the recipe for you. Answer no and nothing is downloaded — install them yourself as
+described in [Installation](/getting-started/installation), and set `pixiVersion` in the recipe by
+hand. Either way `init` never downloads anything you did not agree to, which is what makes it safe
+to re-run.
+
+Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
 
 ## 3. `doctor` — check the machine
 

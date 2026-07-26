@@ -20,7 +20,9 @@ import { fail, run as defaultRun, runResult as defaultRunResult } from './proces
 import { installCondaPack, installPixi, latestPixiVersion, pixiReleaseAsset } from './toolchain.mjs';
 import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace.mjs';
 
-const GITIGNORE_MARKER = '# Scrollcase build state';
+// Written into a project's .gitignore and matched on re-run to stay idempotent. Changing the text
+// makes an already-scaffolded project look unmarked and append the rules a second time.
+const GITIGNORE_MARKER = '# scrollcase build state';
 
 /** The example a new project starts from: an environment with nothing in it but Python. */
 function exampleRecipe(recipeId, target) {
@@ -97,6 +99,104 @@ export async function initProject({ root, target, pixiVersion = null, recipeId =
     skipped.push(gitignorePath);
   }
   return { written, skipped, recipeId, recipeDir };
+}
+
+/** Reads the project config back, so a toolchain pin is added to it rather than replacing it. */
+async function readConfig(configPath) {
+  if (!await fileExists(configPath)) return { version: 1, paths: { ...DEFAULT_WORKSPACE_PATHS } };
+  return JSON.parse(await readFile(configPath, 'utf8'));
+}
+
+/**
+ * Installs the build toolchain into the project, if it is missing and only if allowed.
+ *
+ * `confirm` is the consent, injected rather than assumed: the CLI asks a human, a scripted setup
+ * passes a flag, and CI without a terminal answers no. Nothing is downloaded before it returns
+ * true, which is what keeps `init` a command that is always safe to run.
+ *
+ * The pixi version is the recipe's pin when there is one, the installed pixi's version when one is
+ * already present, and otherwise the newest release — resolved once and then written into the
+ * recipe, because a toolchain nobody pinned is a box nobody can reproduce.
+ *
+ * The archive's verified digest is recorded under `toolchain` in the project config. The first
+ * install trusts the checksum published beside the release; every later one is checked against the
+ * value the project committed, so a teammate or a CI runner cannot silently receive different bytes.
+ */
+export async function ensureToolchain({
+  workspace,
+  pixiVersion = null,
+  confirm,
+  recipePath = null,
+  host = process,
+  fetchImpl = fetch,
+  run = defaultRun,
+  runResult = defaultRunResult,
+  log = console.log,
+}) {
+  const pixi = probePixi({ runResult });
+  const condaPack = probeCondaPack({ runResult });
+  const missing = [!pixi && 'pixi', !condaPack && 'conda-pack'].filter(Boolean);
+  if (missing.length === 0) {
+    return { installed: [], missing: [], pixiVersion: pixi.version, declined: false };
+  }
+  if (!pixiReleaseAsset(host)) {
+    return { installed: [], missing, declined: false, unsupportedHost: `${host.platform}/${host.arch}` };
+  }
+  if (!await confirm(missing)) return { installed: [], missing, declined: true };
+
+  const configPath = join(workspace.root, SCROLLCASE_CONFIG_FILENAME);
+  const config = await readConfig(configPath);
+  const installed = [];
+  let pixiPath = pixi?.path ?? null;
+  let version = pixiVersion ?? pixi?.version ?? null;
+
+  if (!pixi) {
+    if (!version) {
+      version = await latestPixiVersion({ fetchImpl });
+      log(`Newest pixi release is ${version}; pinning the recipe to it.`);
+    }
+    const pinned = config.toolchain?.pixi?.version === version
+      ? config.toolchain?.pixi?.assets?.[pixiReleaseAsset(host).asset] ?? null
+      : null;
+    const result = await installPixi({
+      version,
+      toolchainDir: workspace.toolchainDir,
+      expectedSha256: pinned,
+      host,
+      fetchImpl,
+      log,
+    });
+    pixiPath = result.path;
+    installed.push(`pixi ${version}`);
+    // Record the digest that was actually verified, so the next machine checks against it.
+    config.toolchain = {
+      ...config.toolchain,
+      pixi: {
+        version,
+        assets: { ...config.toolchain?.pixi?.assets, [result.asset]: result.sha256 },
+      },
+    };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  }
+
+  if (!condaPack) {
+    if (!pixiPath) fail('conda-pack is installed with pixi, but no pixi is available.');
+    await installCondaPack({ pixi: pixiPath, toolchainDir: workspace.toolchainDir, run, log });
+    installed.push('conda-pack');
+  }
+
+  // A recipe scaffolded without a pin gets the version that was just installed, so `lock` and
+  // `build` agree with the toolchain sitting next to them.
+  let pinnedRecipe = false;
+  if (recipePath && version && await fileExists(recipePath)) {
+    const recipe = JSON.parse(await readFile(recipePath, 'utf8'));
+    if (!recipe.pixiVersion) {
+      recipe.pixiVersion = version;
+      await writeFile(recipePath, `${JSON.stringify(recipe, null, 2)}\n`);
+      pinnedRecipe = true;
+    }
+  }
+  return { installed, missing: [], declined: false, pixiVersion: version, pinnedRecipe, configPath };
 }
 
 /**

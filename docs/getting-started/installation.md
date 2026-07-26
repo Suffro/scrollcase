@@ -6,14 +6,15 @@ description: Install the Scrollcase CLI, and the pixi + conda-pack toolchain rea
 # Installation
 
 Scrollcase is a Node.js command line tool. The CLI itself has no native dependencies; building a
-box for real additionally needs `pixi` and `conda-pack` on the machine that builds.
+box for real additionally needs `pixi` and `conda-pack` on the machine that builds — and
+`scrollcase init` can install those for you, after asking.
 
 ## Requirements at a glance
 
 | You want to… | You need |
 | --- | --- |
 | Run the CLI (`init`, `keygen`, `audit`, `verify`) | Node.js ≥ 20 |
-| Resolve a lock (`lock`) or build a box (`build`) | Node.js ≥ 20, `pixi` at the version the recipe pins, `conda-pack` |
+| Resolve a lock (`lock`) or build a box (`build`) | Node.js ≥ 20, `pixi` at the version the recipe pins, `conda-pack` — installable by `init` |
 | Verify with `--self-test` | The same OS and architecture the box targets |
 
 Locking, auditing, signing, and verifying an existing archive need no toolchain at all — only
@@ -31,7 +32,49 @@ Check the install:
 scrollcase help
 ```
 
-## Install the toolchain
+## Let Scrollcase install the toolchain
+
+`scrollcase init` scaffolds a project and then **offers** to install what is missing:
+
+```text
+This project needs pixi and conda-pack to build a box.
+Install them into /work/my-project/.scrollcase/toolchain? [y/N]
+```
+
+Nothing is downloaded before you answer, and the default is no. Say yes and Scrollcase installs
+both **inside the project**, under `.scrollcase/toolchain/` — nothing is added to `PATH`, nothing
+is installed system-wide, and deleting the directory undoes it. Later commands find the tools
+there on their own.
+
+What you get is verified, not just fetched:
+
+- the release archive's SHA-256 is checked against the checksum pixi publishes beside it, and a
+  mismatch aborts before anything is installed;
+- the verified digest is recorded under `toolchain` in `scrollcase.config.json`, so the next
+  machine — a teammate's, a CI runner's — is checked against the value **your project committed**
+  rather than whatever the server offers that day;
+- if the recipe carries no `pixiVersion` yet, the version that was actually installed is written
+  into it, so `lock` and `build` agree with the toolchain sitting next to them.
+
+For unattended setups, answer up front:
+
+```sh
+scrollcase init --install-toolchain      # install without asking
+scrollcase init --no-install-toolchain   # never install; just report what is missing
+```
+
+With no terminal to prompt — CI, a pipe — Scrollcase never installs anything and simply reports
+what is missing. Silence is not consent.
+
+::: tip Pin the version you want
+`--pixi-version 0.73.0` installs exactly that release. Without it, the newest release is resolved
+once and then pinned into the recipe, so the choice is still recorded rather than floating.
+:::
+
+## Install the toolchain yourself
+
+If you would rather manage the toolchain — a shared machine, a company mirror, an existing pixi
+install — Scrollcase is happy to use it. Install both tools and skip the step above.
 
 ### pixi
 

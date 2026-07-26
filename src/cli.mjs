@@ -13,12 +13,13 @@
  * project that declares a scrollcase.config.json.
  */
 
+import { createInterface } from 'node:readline/promises';
 import { join, resolve } from 'node:path';
 import { auditRecipe } from './build/audit.mjs';
 import { buildBox } from './build/box.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
-import { diagnose, initProject } from './build/project.mjs';
+import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
 import { readRecipe } from './build/recipe.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { boxTargetAdapters } from './contract/targets.mjs';
@@ -83,28 +84,77 @@ async function lock(name, flags) {
   console.log(`Updated ${join(dir, 'pixi.lock')}`);
 }
 
-/** `init` — scaffold a project. Writes files; never touches the network. */
+/**
+ * Asks a yes/no question, defaulting to no.
+ *
+ * Only ever asks when both ends are a terminal. Without one — CI, a pipe — there is nobody to
+ * answer, and silence must not be read as consent, so the answer is no.
+ */
+async function confirm(question) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return /^y(es)?$/i.test((await readline.question(`${question} [y/N] `)).trim());
+  } finally {
+    readline.close();
+  }
+}
+
+/**
+ * `init` — scaffold a project, then offer to install the toolchain it needs.
+ *
+ * Scaffolding writes files and touches nothing else. The toolchain step downloads only after an
+ * explicit yes: `--install-toolchain` for a scripted setup, `--no-install-toolchain` to skip, and
+ * otherwise a prompt. With no terminal to prompt, nothing is installed.
+ */
 async function init(flags) {
-  const root = getWorkspace().root;
+  const workspace = getWorkspace();
   const platform = text(flags, 'platform') || { darwin: 'macos', linux: 'linux', win32: 'windows' }[process.platform];
   const adapter = boxTargetAdapters().find((candidate) => candidate.platform === platform)
     || fail(`No target adapter for platform ${platform}.`);
   const accelerator = text(flags, 'accelerator') || (platform === 'macos' ? 'metal' : 'cpu');
   const result = await initProject({
-    root,
+    root: workspace.root,
     target: { platform: adapter.platform, arch: adapter.arch, accelerator },
     pixiVersion: text(flags, 'pixi-version'),
     recipeId: text(flags, 'recipe-id') || `example-box-${adapter.platform}-${adapter.arch}-${accelerator}`,
   });
   for (const path of result.written) console.log(`Created ${path}`);
   for (const path of result.skipped) console.log(`Kept    ${path} (already present)`);
-  if (!text(flags, 'pixi-version')) {
+
+  const always = Boolean(flags.get('install-toolchain'));
+  const never = Boolean(flags.get('no-install-toolchain'));
+  const toolchain = await ensureToolchain({
+    workspace,
+    pixiVersion: text(flags, 'pixi-version'),
+    recipePath: join(result.recipeDir, 'recipe.json'),
+    confirm: async (missing) => {
+      if (never) return false;
+      if (always) return true;
+      console.log(`\nThis project needs ${missing.join(' and ')} to build a box.`);
+      return confirm(`Install ${missing.length > 1 ? 'them' : 'it'} into ${workspace.toolchainDir}?`);
+    },
+  });
+
+  if (toolchain.installed.length > 0) {
+    console.log(`\nInstalled ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
+    console.log('Nothing was added to PATH; scrollcase finds them there on its own.');
+    if (toolchain.pinnedRecipe) console.log(`Pinned pixi ${toolchain.pixiVersion} in ${result.recipeDir}/recipe.json`);
+    if (toolchain.configPath) console.log(`Recorded the verified checksum in ${toolchain.configPath}`);
+  } else if (toolchain.unsupportedHost) {
+    console.log(`\npixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
+  } else if (toolchain.missing.length > 0) {
+    console.log(`\nSkipped installing ${toolchain.missing.join(' and ')}.`);
+    console.log('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
+  }
+
+  if (!text(flags, 'pixi-version') && !toolchain.pinnedRecipe) {
     console.log(`\nSet pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
   }
   console.log('\nNext:');
-  console.log(`  Scrollcase lock ${result.recipeId}`);
-  console.log(`  Scrollcase keygen`);
-  console.log(`  Scrollcase build ${result.recipeId}`);
+  console.log(`  scrollcase lock ${result.recipeId}`);
+  console.log(`  scrollcase keygen`);
+  console.log(`  scrollcase build ${result.recipeId}`);
 }
 
 /** `doctor` — report whether this machine can build a box. Reads only; never writes. */
@@ -161,7 +211,7 @@ async function verify(path, flags) {
 }
 
 function usage() {
-  console.log(`Usage: Scrollcase <command> [options]
+  console.log(`Usage: scrollcase <command> [options]
 
 Commands:
   init                       Scaffold a config, an example recipe, and ignore rules
@@ -177,6 +227,10 @@ Init options:
   --accelerator <name>       cpu, metal or cuda (default: metal on macOS, else cpu)
   --pixi-version <version>   Pin the example recipe to this pixi release
   --recipe-id <name>         Name the example recipe
+  --install-toolchain        Install missing pixi/conda-pack without asking
+  --no-install-toolchain     Never install them; just report what is missing
+                             With neither flag, init asks before downloading anything, and
+                             installs into <toolchain> after a verified checksum check.
 
 Doctor options:
   --recipe <name>            Take the required pixi version from this recipe
@@ -215,6 +269,7 @@ Workspace:
   --build-dir <dir>          Payload scratch space (default .scrollcase/build)
   --out-dir <dir>            Built artefacts (default .scrollcase/dist)
   --keys-dir <dir>           Local signing keys (default .scrollcase/keys)
+  --toolchain-dir <dir>      Project-local pixi/conda-pack (default .scrollcase/toolchain)
 `);
 }
 

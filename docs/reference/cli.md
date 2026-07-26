@@ -24,21 +24,52 @@ documented in [Workspace Configuration](/reference/configuration).
 ## `init`
 
 Scaffold a project: a `scrollcase.config.json`, one example recipe (with its `pixi.toml`), and
-`.gitignore` rules for `.scrollcase/`. Writes files, never touches the network, and **never
-overwrites** — existing files are reported as `Kept`, so re-running on a half-configured project
-completes it.
+`.gitignore` rules for `.scrollcase/`. Scaffolding **never overwrites** — existing files are
+reported as `Kept`, so re-running on a half-configured project completes it.
+
+`init` then offers to install `pixi` and `conda-pack` if they are missing. It downloads nothing
+before you say yes.
 
 ```sh
 scrollcase init [--platform macos|linux|windows] [--accelerator cpu|metal|cuda]
                 [--pixi-version <version>] [--recipe-id <name>]
+                [--install-toolchain | --no-install-toolchain]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--platform` | this machine | Target platform of the example recipe |
 | `--accelerator` | `metal` on macOS, else `cpu` | Target accelerator of the example recipe |
-| `--pixi-version` | none | Pin the example recipe to this pixi release; without it, you edit `pixiVersion` by hand before locking |
+| `--pixi-version` | none | Pin the example recipe to this pixi release, and install exactly that one. Without it, the installed version is pinned for you; declining the install leaves `pixiVersion` for you to set |
 | `--recipe-id` | `example-box-<platform>-<arch>-<accelerator>` | Name of the example recipe directory |
+| `--install-toolchain` | ask | Install missing tools without prompting |
+| `--no-install-toolchain` | ask | Never install; just report what is missing |
+
+### The toolchain step
+
+With neither flag and a terminal attached, `init` prompts, defaulting to **no**. Without a
+terminal — CI, a pipe — it never installs and simply reports what is missing: silence is not
+consent.
+
+When you agree, `init`:
+
+1. resolves the pixi version — `--pixi-version`, else the installed pixi's, else the newest
+   release;
+2. downloads the release for this host and checks its SHA-256 against the checksum pixi publishes
+   beside it. **A mismatch aborts and installs nothing**;
+3. installs pixi into the workspace's toolchain directory, then uses it to run
+   `pixi global install conda-pack` with `PIXI_HOME` pointing there, so both land in the project;
+4. records the verified digest under `toolchain` in `scrollcase.config.json`, so later installs
+   are checked against the committed value rather than the published one — see
+   [Workspace Configuration](/reference/configuration#toolchain);
+5. writes the installed version into the recipe's `pixiVersion` if it had none.
+
+Nothing is added to `PATH` and nothing is installed system-wide; later commands find the tools
+because [tool discovery](#tool-discovery) looks in the toolchain directory. Deleting
+`.scrollcase/toolchain/` undoes the whole thing.
+
+Hosts pixi publishes builds for: macOS (arm64, x64), Linux (x64, arm64) and Windows (x64, arm64).
+On anything else `init` says so and leaves the install to you.
 
 ## `doctor`
 
@@ -176,6 +207,20 @@ release; the target and entry point are coherent; archive size and SHA-256 match
 entry names are safe (no traversal, no links); `box.json` inside the archive agrees
 field-for-field with the signed release; the declared interpreter is present. `--self-test`
 additionally checks the extracted payload size and runs the import check.
+
+## Tool discovery {#tool-discovery}
+
+Every command that needs `pixi` or `conda-pack` resolves it the same way, highest precedence
+first:
+
+1. **The explicit flag** — `--pixi <path>`, `--conda-pack <path>`.
+2. **The environment** — `SCROLLCASE_PIXI`, `SCROLLCASE_CONDA_PACK`.
+3. **The project's own toolchain** — `<toolchain>/bin/`, if the executable is there. This is where
+   `init` installs, which is why nothing has to be added to `PATH` afterwards.
+4. **`PATH`** — the bare `pixi` / `conda-pack` name.
+
+`build` and `lock` additionally require pixi to be at the exact version the recipe pins; a
+different version is an error rather than a silent substitution.
 
 ## Environment variables
 

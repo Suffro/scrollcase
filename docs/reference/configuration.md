@@ -22,7 +22,8 @@ convention.
     "recipes": "recipes",
     "build": ".scrollcase/build",
     "dist": ".scrollcase/dist",
-    "keys": ".scrollcase/keys"
+    "keys": ".scrollcase/keys",
+    "toolchain": ".scrollcase/toolchain"
   }
 }
 ```
@@ -33,6 +34,7 @@ convention.
 | `paths.build` | `.scrollcase/build` | Payload scratch space, wiped and regenerated on every build |
 | `paths.dist` | `.scrollcase/dist` | Built artefacts: archives, signed documents, and the content-addressed `objects/` staging tree |
 | `paths.keys` | `.scrollcase/keys` | Local signing keys (`signing-private.pem`, `signing-public.json`) |
+| `paths.toolchain` | `.scrollcase/toolchain` | `pixi` and `conda-pack`, when `init` installed them for the project |
 
 Rules:
 
@@ -72,6 +74,7 @@ Each individual path is then resolved with its own precedence, highest first:
 | `--build-dir <dir>` | `paths.build` |
 | `--out-dir <dir>` | `paths.dist` |
 | `--keys-dir <dir>` | `paths.keys` |
+| `--toolchain-dir <dir>` | `paths.toolchain` |
 
 ## Examples
 
@@ -97,3 +100,31 @@ A monorepo that keeps packaging assets under `packaging/`:
 
 Note that the git checkout the build records its provenance from is the **project root** — the
 box's `builderRevision` is the HEAD of the repository the workspace resolves to.
+
+## The toolchain pin {#toolchain}
+
+When [`init` installs the toolchain](/reference/cli#the-toolchain-step) it adds a `toolchain`
+block recording the digest it verified:
+
+```json
+{
+  "version": 1,
+  "paths": { "…": "…" },
+  "toolchain": {
+    "pixi": {
+      "version": "0.73.0",
+      "assets": {
+        "pixi-aarch64-apple-darwin.tar.gz": "63e7cc91ef10eda71765c42e951362a084b2cbcbc93fb55c375c4f3acbfd7d00"
+      }
+    }
+  }
+}
+```
+
+**Commit this block.** The first install trusts the checksum published beside the release; every
+install after it is checked against the value recorded here, so a teammate or a CI runner cannot
+silently receive different bytes under the same version. One entry accumulates per host asset, so
+a team on mixed platforms ends up with a pin for each.
+
+Scrollcase writes the block itself; you never have to author it. Changing the pinned version means
+deleting the entry (or the `.scrollcase/toolchain/` directory) and re-running `init`.

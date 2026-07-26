@@ -33,7 +33,14 @@ namespaces are configurable, and the tool carries no consumer's name.
   `minimumCosine`).
 - Asset handling: `--weights embed` (air-gapped, default) or `on-demand` with size and SHA-256
   committed in the signed release.
-- Workspace discovery via `scrollcase.config.json`, with per-invocation overrides.
+- Optional toolchain bootstrap: `init` offers to install `pixi` and `conda-pack` into the
+  project's own `.scrollcase/toolchain/`, never without an explicit yes (`--install-toolchain` /
+  `--no-install-toolchain`, and never at all without a terminal). The release archive is verified
+  against its published SHA-256, and the verified digest is recorded in `scrollcase.config.json`
+  so later installs are checked against the committed value.
+- Workspace discovery via `scrollcase.config.json`, with per-invocation overrides, including the
+  `toolchain` path and `--toolchain-dir`. Tool discovery prefers, in order: an explicit flag, the
+  environment override, the project's toolchain, then `PATH`.
 - A working example, `examples/hello-box-macos-arm64-metal`, proven end-to-end against a real
   pixi + conda-pack toolchain.
 - CI running the test suite on macOS, Linux and Windows.
