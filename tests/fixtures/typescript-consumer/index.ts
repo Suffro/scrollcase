@@ -1,10 +1,12 @@
 import {
-  BOX_SCHEMA_VERSION,
-  boxTargetId,
   fixtureUrl,
-  isSignedBoxDocument,
   schemaUrl,
 } from "scrollcase/contract";
+import {
+  BOX_SCHEMA_VERSION,
+  boxTargetId,
+  isSignedBoxDocument,
+} from "scrollcase/contract/browser";
 import type {
   BoxChannelManifest,
   BoxReleaseManifest,

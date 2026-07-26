@@ -96,6 +96,10 @@ was built. See [examples/README.md](examples/README.md).
 
 `scrollcase help` documents every option.
 
+Projects that consume the box contract directly can import the full Node surface from
+`scrollcase/contract`, or its target/document-shape helpers with no Node built-ins from
+`scrollcase/contract/browser`. Generated format types remain under `scrollcase/contract/types`.
+
 ## Workspace
 
 Paths come from the project, not from the tool. A `scrollcase.config.json` at the project root —

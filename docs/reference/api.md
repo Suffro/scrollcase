@@ -5,12 +5,13 @@ description: The importable surface — the format contract, the build primitive
 
 # Node API
 
-The CLI is the supported way to run the pipeline. The package additionally exports three modules,
+The CLI is the supported way to run the pipeline. The package additionally exports four modules,
 for clients that need to *understand* boxes rather than build them: validate a document, derive a
 target ID, check a signature, resolve a workspace.
 
 ```js
 import { boxTargetId, documentKinds } from 'scrollcase/contract';
+import { isSignedBoxDocument } from 'scrollcase/contract/browser';
 import { sha256File, resolveWorkspace } from 'scrollcase/build';
 import { verifySignedDocument } from 'scrollcase/sign';
 ```
@@ -47,11 +48,12 @@ definition. A schema change that is not accompanied by `npm run types` fails the
 the two cannot drift — the same discipline that makes the licence audit a function of the lock.
 
 This subpath is **types only**: there is nothing to import at runtime, so use `import type`.
-`scrollcase/contract`, `scrollcase/build`, and `scrollcase/sign` also ship declarations generated
-from the typed JSDoc beside their JavaScript implementations. Strict TypeScript consumers therefore
-get checked parameters, return values, narrowing guards, hover documentation, and completion
-without a build step or a separate types package. `npm run types:check` fails if either the
-schema-derived format types or the runtime declarations drift from their source.
+`scrollcase/contract`, `scrollcase/contract/browser`, `scrollcase/build`, and
+`scrollcase/sign` also ship declarations generated from the typed JSDoc beside their JavaScript
+implementations. Strict TypeScript consumers therefore get checked parameters, return values,
+narrowing guards, hover documentation, and completion without a build step or a separate types
+package. `npm run types:check` fails if either the schema-derived format types or the runtime
+declarations drift from their source.
 
 ::: info The pipeline verbs are CLI-only
 `build`, `verify`, `audit`, `lock`, `init` and `doctor` are not part of the exported surface.
@@ -96,6 +98,23 @@ boxTargetId({ platform: 'linux', arch: 'x86_64', accelerator: 'cuda', cudaVersio
 Constants: `BOX_SCHEMA_VERSION` (`1`), `PAYLOAD_ENCODING` (`'base64-json-utf8'`),
 `SIGNATURE_ALGORITHM` (`'ed25519'`), `DEFAULT_DOCUMENT_NAMESPACE` (`'scrollcase.box'`),
 `CHANNELS` (`['development', 'beta', 'stable']`).
+
+## `scrollcase/contract/browser`
+
+The platform-neutral subset of the contract for browsers, Workers, and Node. It exports the target
+helpers plus document constants, namespacing helpers, and `isSignedBoxDocument`. Its complete module
+graph contains no Node built-ins.
+
+```js
+import {
+  boxTargetId,
+  isSignedBoxDocument,
+} from 'scrollcase/contract/browser';
+```
+
+The full `scrollcase/contract` entry point remains the Node surface and additionally exports
+`decodeDocumentPayload`, `schemaUrl`, and `fixtureUrl`. Cryptographic verification remains under
+`scrollcase/sign`; the browser guard checks envelope shape only and never establishes trust.
 
 ::: warning Decoding is not verifying
 `decodeDocumentPayload` catches a truncated or edited document, because the payload hash must

@@ -22,6 +22,23 @@ const packageJson = require('../../package.json');
 const repoRoot = new URL('../../', import.meta.url);
 const repoRootPath = fileURLToPath(repoRoot);
 
+async function moduleClosure(entry, visited = new Set()) {
+  const url = new URL(entry, repoRoot);
+  if (visited.has(url.href)) return visited;
+  visited.add(url.href);
+  const source = await readFile(url, 'utf8');
+  const specifiers = [...source.matchAll(
+    /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g,
+  )].map((match) => match[1]);
+  for (const specifier of specifiers) {
+    expect(specifier, `${entry} imports a Node built-in`).not.toMatch(/^node:/);
+    if (specifier.startsWith('.')) {
+      await moduleClosure(new URL(specifier, url).href, visited);
+    }
+  }
+  return visited;
+}
+
 describe('the package surface', () => {
   const subpathTargets = (subpath) => {
     const entry = packageJson.exports[subpath];
@@ -30,7 +47,13 @@ describe('the package surface', () => {
 
   it('exports every subpath it advertises, and each one resolves to a file that exists', async () => {
     const subpaths = Object.keys(packageJson.exports).filter((subpath) => !subpath.includes('*'));
-    expect(subpaths).toEqual(['./contract', './contract/types', './build', './sign']);
+    expect(subpaths).toEqual([
+      './contract',
+      './contract/browser',
+      './contract/types',
+      './build',
+      './sign',
+    ]);
     for (const subpath of subpaths) {
       for (const target of subpathTargets(subpath)) {
         // Reading it is the check: a path that no longer exists throws here.
@@ -57,6 +80,7 @@ describe('the package surface', () => {
 
   it('imports each runtime entry point the way a dependent would', async () => {
     const contract = await import('scrollcase/contract');
+    const browserContract = await import('scrollcase/contract/browser');
     const build = await import('scrollcase/build');
     const sign = await import('scrollcase/sign');
 
@@ -64,8 +88,13 @@ describe('the package surface', () => {
     expect(contract.boxTargetId({ platform: 'macos', arch: 'aarch64', accelerator: 'metal' }))
       .toBe('macos-aarch64-metal');
     expect(contract.documentKinds().release).toBe('scrollcase.box.release');
+    expect(browserContract.isSignedBoxDocument({})).toBe(false);
     expect(typeof build.sha256File).toBe('function');
     expect(typeof sign.verifySignedDocument).toBe('function');
+  });
+
+  it('ships a browser-safe contract helper graph with no Node built-ins', async () => {
+    await expect(moduleClosure('src/contract/browser.mjs')).resolves.toBeInstanceOf(Set);
   });
 
   it('type-checks every public entry point in a strict TypeScript consumer', () => {

@@ -20,8 +20,9 @@ The substrate is **pixi + conda-pack + conda-forge**, and only that. `pixi` solv
 `pixi.lock`, `conda-pack` relocates the resulting prefix, and the tree is extracted into the box's
 `venv/`. Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`.
 
-Scrollcase is **a library as well as a CLI**: `package.json` exports `./contract`, `./build`,
-`./sign` and `./contract/types`. A change to any of those is a change to a public API.
+Scrollcase is **a library as well as a CLI**: `package.json` exports `./contract`,
+`./contract/browser`, `./build`, `./sign` and `./contract/types`. A change to any of those is a
+change to a public API.
 
 It is open source and vendor-neutral, and must stay usable by projects that have nothing to do with
 the one that first needed it.

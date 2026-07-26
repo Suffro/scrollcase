@@ -5,7 +5,7 @@
  *
  * The runtime implementation remains the source of truth: TypeScript reads the JSDoc already
  * reviewed beside each function and emits declarations for the complete dependency closure of the
- * three public modules. Committing that output keeps the published package build-free, while the
+ * public modules. Committing that output keeps the published package build-free, while the
  * check mode prevents a JavaScript API change from silently leaving stale declarations behind.
  */
 
@@ -21,6 +21,7 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SOURCE_ROOT = join(ROOT, 'src');
 const ENTRY_POINTS = [
   'src/contract/index.mjs',
+  'src/contract/browser.mjs',
   'src/build/index.mjs',
   'src/sign/index.mjs',
 ];

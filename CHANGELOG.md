@@ -4,6 +4,17 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-07-26
+
+### Fixed
+
+- Export `scrollcase/contract/browser`, a platform-neutral target/document-helper surface with
+  generated TypeScript declarations and no Node built-in dependency. Browser and Worker consumers
+  can now derive target IDs and inspect signed-envelope shapes without bundling the Node-only
+  cryptographic payload decoder.
+- Keep the existing `scrollcase/contract` API unchanged while sharing its namespacing and envelope
+  shape implementation with the browser-safe entry point.
+
 ## [0.1.1] — 2026-07-26
 
 ### Fixed
