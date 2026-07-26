@@ -120,7 +120,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: `Scrollcase v${packageVersion} · schema version 1 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md">Changelog</a>`,
+      message: `Scrollcase v${packageVersion} · schema version 1 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md" target="_blank">Changelog</a>`,
       copyright: 'Licensed under Apache-2.0'
     }
   }
