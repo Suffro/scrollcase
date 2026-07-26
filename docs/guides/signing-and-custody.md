@@ -25,7 +25,7 @@ Writes two files into the workspace's keys directory:
 The key ID is derived from the key itself (`scrollcase-<first 16 hex of its hash>`), so it is
 stable and collision-resistant without a registry. Override it with `--key-id`.
 
-```json
+```jsonc
 {
   "algorithm": "ed25519",
   "keyId": "scrollcase-9f2b7c1e04a83d56",
@@ -35,12 +35,21 @@ stable and collision-resistant without a registry. Override it with `--key-id`.
 ```
 
 ::: danger Never commit the private key
-`init` adds `.scrollcase/` to `.gitignore` for exactly this reason. Commit and distribute
-`signing-public.json`; keep the PEM out of history, backups, and CI logs.
+`init` adds `.scrollcase/` to `.gitignore` for exactly this reason. Keep the PEM out of history,
+backups, and CI logs. Copy the public file to a tracked, project-owned trust directory and name it
+explicitly:
+
+```sh
+mkdir -p trust
+cp .scrollcase/keys/signing-public.json trust/scrollcase-signing-public.json
+git add trust/scrollcase-signing-public.json
+scrollcase verify release.json --public-key trust/scrollcase-signing-public.json
+```
 :::
 
 `keygen` refuses to overwrite an existing key without `--force`, because rotating silently would
-invalidate every document previously signed with it, with no way to tell which.
+invalidate every document previously signed with it, with no way to tell which. Never use
+`keygen --force` as a mismatch repair or rotation procedure.
 
 ## What gets signed
 
@@ -64,7 +73,7 @@ Verification loads the trusted key file (`--public-key`, default `<keys>/signing
 and accepts the document when **any one** of its signatures verifies against a trusted key. The
 file may hold a single key, or a bundle:
 
-```json
+```jsonc
 {
   "keys": [
     { "algorithm": "ed25519", "keyId": "scrollcase-9f2b…", "publicKeyPem": "…" },
@@ -165,11 +174,19 @@ the whole integration surface.
 Signature verification accepts a document when any one signature matches a trusted key, so a
 rotation does not invalidate what is already published:
 
-1. Generate the new key (`scrollcase keygen --force`, or provision it in your KMS).
-2. Publish a trust file containing **both** the outgoing and the incoming public key, and let
-   clients pick it up.
-3. Sign new releases with the new key.
-4. Once every client trusts the bundle, drop the old key from it.
+1. Preserve the outgoing public key and record its key ID before changing anything.
+2. Generate the incoming key under **different explicit paths**, or provision a distinct KMS key:
+
+   ```sh
+   scrollcase keygen --key-id release-2026 \
+     --private-key .scrollcase/keys/release-2026-private.pem \
+     --public-key .scrollcase/keys/release-2026-public.json
+   ```
+
+3. Publish a reviewed trust bundle containing both outgoing and incoming public keys.
+4. Wait until consumers have received that bundle.
+5. Switch new builds to the incoming private key or external signer.
+6. Remove the outgoing public key only after the compatibility window.
 
 Documents signed under the old key stay verifiable throughout, because their key is still in the
 bundle — and stop being accepted the moment you remove it, which is the point.
@@ -184,11 +201,15 @@ to whatever distributes your boxes.
 The private key should not exist as a file on a shared runner. In order of preference:
 
 1. **External signer.** The runner holds a credential that can *request* a signature, never the
-   key. `--signer-command` plus a short-lived cloud identity.
-2. **Sign outside the build.** Build unsigned artefacts in CI, then sign on a controlled machine.
-3. **Secret-injected key.** If you must, write the PEM from a secret to a path outside the
+   key. `--signer-command` plus a short-lived cloud identity is the supported custody boundary.
+2. **Secret-injected key.** If you must, write the PEM from a secret to a path outside the
    workspace, `chmod 600` it, pass `--private-key`, and delete it in a cleanup step that runs
    even on failure. Never let it reach logs or a cached directory.
 
-Whichever you choose, `--public-key` should point at a trust file that is **reviewed and
-committed**, since it is what decides which signatures count.
+Scrollcase does not have an unsigned-build/later-sign workflow: `build` emits signed release and
+channel documents as one pipeline. Whichever custody path you choose, `--public-key` should point
+at a trust file that is **reviewed and committed**, since it decides which signatures count.
+
+Scrollcase ships the revocations schema, and its generic signing and envelope-verification APIs
+can carry that document. Distribution, freshness policy, semantic enforcement, and any registry
+belong to the project that distributes boxes.

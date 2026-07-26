@@ -20,11 +20,11 @@ const MAX_DOWNLOAD_ATTEMPTS = 5;
 /**
  * Downloads an asset and enforces the recipe's declared size and hash.
  *
- * Model files are large, so the download is resumable: a partial file is kept as `.part` and
- * continued with a Range request. Two safeguards matter — an already-complete file with the right
- * size and hash is skipped entirely, making a build re-runnable without re-fetching gigabytes, and
- * the `.part` file is renamed into place only *after* the hash matches, so an interrupted or
- * corrupted transfer can never masquerade as a finished asset.
+ * Model files are large, so retries inside one download operation resume from a `.part` file with a
+ * Range request. Two safeguards matter — a complete destination is reused only after size and hash
+ * verification, and the `.part` file is renamed into place only *after* the hash matches, so an
+ * interrupted or corrupted transfer can never masquerade as a finished asset. The build scratch
+ * tree is recreated at process start, so this is intentionally not a cross-process cache.
  */
 export async function downloadVerified(asset, destination, options = {}) {
   const {

@@ -22,7 +22,7 @@ Scrollcase never decides what is scientifically correct. It enforces a threshold
 
 ## Declaring the gate
 
-```json
+```jsonc
 "parity": {
   "script": "checks/parity.py",
   "accelerators": ["cpu", "cuda"],
@@ -45,7 +45,7 @@ rejected.
 The script ships inside the box — either produced by the environment, or copied in through
 [`localFiles`](/reference/recipe#localfiles):
 
-```json
+```jsonc
 "localFiles": [
   { "sourcePath": "checks/parity.py", "relativePath": "checks/parity.py", "sha256": "…" }
 ]
@@ -78,6 +78,9 @@ Two rules make the comparison meaningful:
 
 ## How the comparison works
 
+The first accelerator is the reference. Every later accelerator is a candidate compared against
+that same reference, in declaration order.
+
 For each run after the reference, three quantities are computed element-wise:
 
 | Measurement | Meaning | Bounded by |
@@ -94,6 +97,12 @@ Outputs of differing length fail immediately, and **non-finite values are reject
 a `NaN` or an infinity is the classic symptom of a broken accelerator build, so it is reported as
 such rather than allowed to poison the arithmetic.
 
+All declared tolerances are conjunctive. If `absolute`, `relative`, and `minimumCosine` are
+present, the candidate must pass all three. Absolute and relative bounds are finite numbers greater
+than zero; minimum cosine is finite and at most 1. Values below -1 are accepted by schema v1 but
+are vacuous because cosine similarity cannot be lower than -1. Output must be a non-empty JSON array of
+finite numbers, directly or under a `values` property.
+
 ## Choosing tolerances
 
 There is no universally right answer, which is exactly why Scrollcase does not pick one. A useful
@@ -104,10 +113,8 @@ procedure:
    loose enough to survive legitimate floating-point differences between devices.
 3. Record why you chose it, next to the recipe.
 
-Rough expectations: fp32 matmul differences between CPU and GPU commonly land around `1e-5` to
-`1e-6` relative; anything reduced in fp16/bf16 is looser by orders of magnitude. A cosine
-similarity below `0.999` on a model's output vector usually means something is genuinely wrong,
-not that floating point drifted.
+The project must derive bounds from its workload, numeric precision, fixture, and scientific
+requirements. Scrollcase cannot infer a safe threshold from the accelerator name.
 
 ## When it runs, and what it prints
 
@@ -125,8 +132,10 @@ On a breach the build fails with the measurement and the bound it exceeded:
 scrollcase: Parity check cpu vs cuda: maximum relative error 0.041 exceeds 0.001.
 ```
 
-The measurements are returned by the build so a caller can record them as evidence even when
-nothing failed.
+Measurements are used internally for the gate. The public CLI logs only a short success summary or
+the first breached bound; it does not persist or sign the measurements, and `scrollcase/build`
+does not export the build orchestrator. A project that needs retained scientific evidence must
+record it in its own pipeline.
 
 ## When not to use it
 

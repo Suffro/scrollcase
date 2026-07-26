@@ -60,6 +60,7 @@
   ],
   "scripts": {
     "test": "vitest run --config tests/unit/vitest.config.mjs",
+    "docs:schemas": "node scripts/sync-docs-schemas.mjs",
     "types": "node scripts/generate-contract-types.mjs && node scripts/generate-runtime-types.mjs",
     "types:check": "node scripts/generate-contract-types.mjs --check && node scripts/generate-runtime-types.mjs --check",
     "prepublishOnly": "npm test && npm run types:check"

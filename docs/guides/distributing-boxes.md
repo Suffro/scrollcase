@@ -84,7 +84,7 @@ Two rules:
 The channel document is a small mutable pointer, signed independently from the release. That
 separation is the point: **promoting a build never requires re-signing it**.
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "kind": "scrollcase.box.channel",
@@ -99,14 +99,15 @@ separation is the point: **promoting a build never requires re-signing it**.
 }
 ```
 
-A freshly built channel goes out at 100%. A **staged rollout is arranged by editing and
-re-signing this document**, not by Scrollcase: list candidate releases in evaluation order, and
-a client takes the first entry whose rollout cohort it falls into.
+A freshly built channel goes out at 100%. The schema can represent multiple release percentages,
+but schema version 1 does **not** specify an interoperable cohort algorithm: it defines no identity
+normalisation, byte framing, hash algorithm, integer extraction, percentage mapping, ordering, or
+boundary fixtures. A consuming project may define and test those rules for its own clients, but
+must not claim that unrelated implementations derive the same cohort from this format alone.
 
-`cohortSalt` is mixed into the client's rollout hash so assignment is stable per client and
-unpredictable across channels — a user cannot reroll their cohort by reinstalling. Scrollcase
-derives it from `boxId` and `version` rather than randomly, so rebuilding a release does not
-reshuffle who receives it.
+`cohortSalt` is deterministic builder output derived from `boxId` and `version`; the format does
+not define how a client combines it with an identity. Until a future version supplies normative
+fixtures, the only cross-client behavior documented here is a 100% release.
 
 Promotion between channels (`development` → `beta` → `stable`) is publishing a channel document
 naming the release you already built. Build once per channel name with `--channel`, or write the
@@ -130,7 +131,7 @@ revoked, which a client can distinguish from a missing or withheld document.
 flowchart TD
   C["fetch channel document"] --> CV{"signature valid?"}
   CV -->|no| X["refuse"]
-  CV -->|yes| P["pick release for this client's cohort"]
+  CV -->|yes| P["apply the consuming project's release policy"]
   P --> R["fetch release document by URL"]
   R --> RV{"signature valid?"}
   RV -->|no| X
@@ -148,20 +149,22 @@ flowchart TD
 
 Whatever installs your boxes should do exactly what `scrollcase verify` does, in the same order:
 
-1. Fetch the channel document; verify its signature; pick a release for this client's cohort.
+1. Fetch the channel document, verify its signature, and apply the consuming project's release
+   policy. Schema version 1 guarantees interoperability only for the 100% case.
 2. Fetch the release document by the URL the channel names; verify its signature.
 3. Check `compatibility` against the host — and **refuse a constraint it cannot evaluate** rather
    than assuming it passes.
-4. Check `installedSizeBytes` against free space *before* downloading.
+4. Treat `installedSizeBytes` as a logical extracted-size lower bound. Require headroom for the
+   archive, extracted files, temporary copies, and filesystem overhead.
 5. Download the archive; check size and SHA-256 against the release.
-6. Validate entry names; extract.
-7. Compare `box.json` against the release field for field.
+6. Validate every entry name before final extraction.
+7. Compare all shared `box.json` fields recursively against the release.
 8. Run the self-test: `selfTest.pythonImports` with `pythonEntryPoint`, bounded by
    `selfTest.timeoutSeconds`.
 9. With on-demand weights, fetch each asset and check its size and SHA-256 before first use.
 
-Running `scrollcase verify --self-test` on the build machine is a dry run of steps 5–8, which is
-why it is worth doing before anything is published.
+Running `scrollcase verify --self-test` on the build machine covers the archive and temporary
+extraction checks, not final installation, compatibility policy, rollout, or activation.
 
 ## Namespaces for existing publishers
 

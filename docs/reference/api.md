@@ -115,7 +115,13 @@ for (const { target, targetId } of cases.valid) {
   if (boxTargetId(target) !== targetId) throw new Error(`mismatch for ${targetId}`);
 }
 for (const { target } of cases.invalid) {
-  try { boxTargetId(target); throw new Error('should have been rejected'); } catch {}
+  let rejected = false;
+  try {
+    boxTargetId(target);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error(`invalid target was accepted: ${JSON.stringify(target)}`);
 }
 ```
 
@@ -153,7 +159,7 @@ client that computes the same hashes.
 import { resolveWorkspace } from 'scrollcase/build';
 
 const workspace = resolveWorkspace({ cwd: '/work/my-project/recipes/my-model' });
-// → { root, configPath, recipesDir, buildDir, distDir, keysDir }
+// → { root, configPath, recipesDir, buildDir, distDir, keysDir, toolchainDir }
 ```
 
 Details in [Workspace Configuration](/reference/configuration).

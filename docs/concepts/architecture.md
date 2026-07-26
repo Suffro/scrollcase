@@ -47,10 +47,9 @@ flowchart TD
 
 Each step earns its position:
 
-**Validate first.** The recipe's declared identity must match its directory, its entry point must
-match the target's layout, the host must match the target, `pixi.lock` must exist, the tree must
-be a git checkout, and it must be clean unless `--allow-dirty` is passed. All of this happens
-before anything is installed, because the cheapest failure is the earliest one.
+**Validate first.** The complete nested recipe is checked against the shipped schemas before a
+tool is probed, a fetch is made, or build state is mutated. Identity, target/entry-point,
+weights/archive policy, native host, lock presence, and Git state follow in that order.
 
 **Install, never resolve.** `pixi install --frozen` materialises exactly the locked packages
 without touching or re-checking the lock, so what ships is byte-for-byte what was reviewed.
@@ -59,8 +58,8 @@ Resolution is a separate, human-initiated step (`lock`).
 **Relocate.** See [below](#relocation).
 
 **Stage assets.** Every declared asset is size- and hash-checked before it enters the payload.
-Downloads are resumable and re-runnable, and a partial file is renamed into place only after its
-hash matches.
+Network retries within one download resume a partial file, which is renamed into place only after
+its size and hash match. Build scratch is reset between processes; there is no persistent cache.
 
 **Prune, then check.** Pruning keeps the box to what it needs at run time; `selfTest.files` is
 what stops an over-aggressive prune from shipping a broken box.
@@ -69,9 +68,10 @@ what stops an over-aggressive prune from shipping a broken box.
 reviewed copy. A licence problem is a legal problem, and it is cheaper to hit it before the
 expensive checks.
 
-**Self-test with the box's own interpreter.** The step that earns the box its name: the same
-check a consumer repeats after installing, so an environment that unpacks but cannot import its
-dependencies fails on the builder's machine rather than on a user's.
+**Self-test with the box's own interpreter.** The builder runs post-prune file assertions, the
+target assertion, imports, and optional recipe `pythonCode`. Schema version 1 signs the target
+assertion and import subset for a consumer to repeat; the richer recipe-only checks are not
+misrepresented as consumer checks.
 
 **Parity after the self-test, on the same payload.** There is no point comparing accelerators in
 a box that cannot import its dependencies in the first place.
@@ -102,8 +102,7 @@ Rebuilding the same commit produces a **byte-identical archive**. Three things m
 - the build time comes from the HEAD commit, not the clock — outside a git checkout it falls back
   to a constant, because a wall-clock fallback would reintroduce exactly the nondeterminism this
   avoids;
-- the rollout cohort salt is derived from `boxId` and `version` rather than randomly, so a
-  rebuild does not reshuffle which users receive the release.
+- the channel cohort salt is derived from `boxId` and `version` rather than randomly.
 
 A test asserts this directly. Anything that varies per run — a clock read, a random value, an
 unsorted directory listing — breaks it.
@@ -138,15 +137,15 @@ is verified locally before the build continues. See
 
 ### Verified
 
-`verify` mirrors what an installing client does: signature, archive size and hash, safe entry
-names, `box.json` agreeing field-for-field with the signed release, the declared interpreter
-present, and — with `--self-test` — a real extraction whose own interpreter imports the declared
-modules. A box that would fail on a user's machine fails on the builder's first.
+`verify` checks signature, archive size and hash, safe entry names, recursive agreement of all
+shared schema-v1 manifest fields, and the declared interpreter. With `--self-test`, it temporarily
+extracts and runs the signed import subset. It does not repeat recipe-only Python or file checks.
 
 ### Honest about provenance
 
-A box records the commit it was built from and whether that tree was dirty. Building outside a
-git checkout **fails** rather than inventing a revision; a dirty tree requires `--allow-dirty` and
+A box records the commit it was built from and whether that tree was dirty, including untracked
+files while respecting Git ignore rules. Building outside a git checkout **fails** rather than
+inventing a revision; a dirty tree requires `--allow-dirty` and
 is recorded as `sourceTreeDirty: true` in the box itself. A build that cannot be reproduced from
 its recorded revision says so.
 

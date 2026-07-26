@@ -6,9 +6,10 @@
  * the payload's *own* interpreter, normalise timestamps, zip deterministically, and emit a signed
  * release plus a signed channel pointer.
  *
- * The self-test is the step that earns the box its name: it is the same check a consumer repeats
- * after installing, so an environment that unpacks but cannot import its dependencies fails on the
- * builder's machine rather than on a user's.
+ * The self-test is the step that earns the box its name. The builder runs target, import, optional
+ * Python-code, and file assertions; schema version 1 signs the import subset that a consumer can
+ * repeat after extraction. The distinction is deliberate rather than pretending the narrower
+ * consumer check reproduces recipe-only assertions it cannot see.
  *
  * The archive is content-addressed by its own hash, so the release document can commit to it and any
  * consumer can verify it byte for byte.
@@ -90,6 +91,13 @@ export async function buildBox(name, options = {}) {
   const probe = runResult ? { runResult } : {};
   const workspace = getWorkspace();
   const { adapter, dir, recipe } = await readRecipe(name);
+  const weightsMode = weights || recipe.weights || 'embed';
+  if (weightsMode !== 'embed' && weightsMode !== 'on-demand') {
+    fail(`Unsupported weights mode: ${weightsMode}. Use embed or on-demand.`);
+  }
+  if (weightsMode === 'on-demand' && (recipe.assetArchives ?? []).length > 0) {
+    fail('on-demand weights cannot be combined with assetArchives, which are expanded at build time.');
+  }
   // Wheels, native libraries, and the interpreter are proven on the exact OS/architecture they ship for.
   assertNativeHost(adapter);
   const pixi = findPixi({ requiredVersion: recipe.pixiVersion, path: pixiPath, ...probe });
@@ -136,10 +144,6 @@ export async function buildBox(name, options = {}) {
   // descriptors carried in the signed release — the declared hash is what keeps that safe. The choice
   // trades archive size against an install-time dependency on the asset host, so it is the project's
   // to make, per build.
-  const weightsMode = weights || recipe.weights || 'embed';
-  if (weightsMode !== 'embed' && weightsMode !== 'on-demand') {
-    fail(`Unsupported weights mode: ${weightsMode}. Use embed or on-demand.`);
-  }
   const embedded = weightsMode === 'embed';
   for (const asset of embedded ? recipe.assets : []) {
     log(`Downloading ${asset.relativePath}`);
@@ -154,11 +158,6 @@ export async function buildBox(name, options = {}) {
   }
   for (const archive of embedded ? recipe.assetArchives ?? [] : []) {
     await expandAssetArchive(payloadDir, archive);
-  }
-  if (!embedded && (recipe.assetArchives ?? []).length > 0) {
-    // An archive is expanded into the payload at build time, so there is nothing sensible to defer:
-    // saying otherwise would produce a box whose declared layout never materialises.
-    fail('on-demand weights cannot be combined with assetArchives, which are expanded at build time.');
   }
   // Drops what is only needed to build (tests, docs, bundled sample data). A box is a multi-gigabyte
   // download for an end user, so pruning is a user-facing concern rather than tidiness.

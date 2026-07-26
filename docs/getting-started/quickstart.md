@@ -123,11 +123,11 @@ Rebuilding the same commit produces a byte-identical archive — see
 scrollcase verify .scrollcase/dist/example-box-1.0.0-macos-aarch64-metal.release.json --self-test
 ```
 
-`verify` mirrors what an installing client does: signature against the trusted key, archive size
-and SHA-256, safe entry names, `box.json` inside the archive agreeing with the signed release,
-the declared interpreter present. With `--self-test` it goes further: it extracts the archive to
-a temporary directory and imports the recipe's declared modules **with the box's own Python** —
-the check that proves the environment runs somewhere other than where it was built.
+`verify` mirrors the format checks available to an installing client: trusted signature, archive
+size and SHA-256, safe entry names, recursive agreement between `box.json` and the signed release,
+and the declared interpreter. With `--self-test` it extracts to a temporary directory and imports
+the signed modules **with the box's own Python**. Recipe-only `pythonCode` and file assertions ran
+on the builder but are not carried by schema version 1.
 
 ## Where to go next
 

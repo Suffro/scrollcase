@@ -1,4 +1,9 @@
 import { defineConfig } from 'vitepress'
+import { readFileSync } from 'node:fs'
+
+const packageVersion = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+).version
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -35,7 +40,6 @@ export default defineConfig({
       gtag('js', new Date());
       gtag('config', 'G-QY4HT9GE1P');
     `],
-    ['script', { src: "https://platform-api.sharethis.com/js/sharethis.js", async: "true" }],
   ],
 
   themeConfig: {
@@ -77,7 +81,9 @@ export default defineConfig({
           { text: 'Accelerator Parity', link: '/guides/accelerator-parity' },
           { text: 'Signing & Key Custody', link: '/guides/signing-and-custody' },
           { text: 'Offline / Air-Gapped Installs', link: '/guides/offline-airgap' },
-          { text: 'Distributing Boxes', link: '/guides/distributing-boxes' }
+          { text: 'Distributing Boxes', link: '/guides/distributing-boxes' },
+          { text: 'Platform Examples', link: '/guides/platform-examples' },
+          { text: 'Troubleshooting', link: '/guides/troubleshooting' }
         ]
       },
       {
@@ -88,6 +94,7 @@ export default defineConfig({
           { text: 'Workspace Configuration', link: '/reference/configuration' },
           { text: 'The Recipe (recipe.json)', link: '/reference/recipe' },
           { text: 'The Box Format', link: '/reference/box-format' },
+          { text: 'JSON Schemas', link: '/reference/schemas' },
           { text: 'Node API', link: '/reference/api' }
         ]
       },
@@ -96,6 +103,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Architecture', link: '/concepts/architecture' },
+          { text: 'Security & Trust', link: '/concepts/security-and-trust' },
           { text: 'Why Pixi & Conda-Forge', link: '/concepts/why-pixi' },
           { text: 'Design Decisions', link: '/concepts/design-decisions' }
         ]
@@ -108,6 +116,13 @@ export default defineConfig({
 
     outline: {
       level: [2, 3]
+    },
+
+    packageVersion,
+
+    footer: {
+      message: `Scrollcase v${packageVersion} · schema version 1 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md">Changelog</a>`,
+      copyright: 'Licensed under Apache-2.0'
     }
   }
 })

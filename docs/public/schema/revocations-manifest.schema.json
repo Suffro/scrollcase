@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scrollcase.dev/schema/revocations-manifest.schema.json",
+  "title": "Box revocations manifest",
+  "description": "The signed list of releases that must no longer be installed or activated. A published release is immutable, so withdrawing one is an explicit statement rather than a deletion: clients keep honouring this list even when the archive is still reachable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "updatedAt",
+    "revocations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*\\.revocations$",
+      "description": "Wire discriminator, \"<namespace>.revocations\", carrying the same namespace as the releases it refers to."
+    },
+    "updatedAt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revocations": {
+      "type": "array",
+      "description": "May be empty: an empty signed list is a positive statement that nothing is revoked, which a client can distinguish from a missing or withheld document.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "boxId",
+          "version",
+          "reason",
+          "revokedAt"
+        ],
+        "properties": {
+          "boxId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "$ref": "https://scrollcase.dev/schema/target.schema.json",
+            "description": "Omitted when every target of that version is revoked."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revokedAt": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

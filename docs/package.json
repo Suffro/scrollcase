@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../scripts/sync-docs-schemas.mjs --check",
     "dev": "vitepress dev",
+    "prebuild": "node ../scripts/sync-docs-schemas.mjs --check",
     "build": "vitepress build",
+    "postbuild": "node ../scripts/verify-built-docs.mjs",
     "preview": "vitepress preview"
   },
   "devDependencies": {

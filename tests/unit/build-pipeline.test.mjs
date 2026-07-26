@@ -6,8 +6,9 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
-import { readRecipe } from '../../src/build/recipe.mjs';
-import { verifyBox } from '../../src/build/verify.mjs';
+import { fileExists } from '../../src/build/filesystem.mjs';
+import { readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
+import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
 import { generateSigningKey } from '../../src/sign/index.mjs';
 import { boxTargetAdapters, decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
@@ -103,6 +104,7 @@ describe('the build pipeline', () => {
     await writeFile(join(recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
     await writeFile(join(recipeDir, 'pixi.toml'), '[project]\nname = "example-model"\n');
     await writeFile(join(recipeDir, 'pixi.lock'), 'version: 6\n');
+    await writeFile(join(root, '.gitignore'), '/.scrollcase/\n');
     if (commit) {
       git(root, 'init', '--quiet');
       git(root, 'config', 'user.email', 'test@example.org');
@@ -126,12 +128,97 @@ describe('the build pipeline', () => {
 
   it('rejects a recipe with no pixi version, and one whose entry point defies its target', async () => {
     await makeProject({ ...RECIPE, pixiVersion: undefined }, { commit: false });
-    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/does not declare a pixiVersion/);
+    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/pixiVersion is required/);
     resetWorkspace();
     // An entry point belonging to any *other* target must be refused on this one.
     const foreignEntryPoint = HOST_ADAPTER.platform === 'windows' ? 'venv/bin/python' : 'venv/python.exe';
     await makeProject({ ...RECIPE, pythonEntryPoint: foreignEntryPoint }, { commit: false });
     await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/entry point/);
+  });
+
+  it.each([
+    ['an identity the release schema cannot carry', { ...RECIPE, boxId: 'Example Model' }],
+    ['an invalid nested asset field', {
+      ...RECIPE,
+      assets: [{
+        url: 'https://assets.example.org/weights.bin',
+        relativePath: 'model-cache/weights.bin',
+        sizeBytes: 'four',
+        sha256: 'a'.repeat(64),
+      }],
+    }],
+    ['empty imports', { ...RECIPE, selfTest: { imports: [], files: [] } }],
+    ['an escaping payload path', {
+      ...RECIPE,
+      assets: [{
+        url: 'https://assets.example.org/weights.bin',
+        relativePath: '../weights.bin',
+        sizeBytes: 4,
+        sha256: 'a'.repeat(64),
+      }],
+    }],
+    ['an invalid parity threshold', {
+      ...RECIPE,
+      parity: {
+        script: 'checks/parity.py',
+        accelerators: ['cpu', 'cuda'],
+        tolerances: { absolute: 0 },
+      },
+    }],
+  ])('rejects %s against the complete recipe schema', async (_label, recipe) => {
+    await makeProject(recipe, { commit: false });
+    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/Invalid recipe/);
+  });
+
+  it('rejects structurally invalid input without probing a process or fetching', async () => {
+    const { keys } = await makeProject({
+      ...RECIPE,
+      selfTest: { imports: [], files: [] },
+    });
+    const calls = [];
+    await expect(buildBox(RECIPE.recipeId, {
+      ...keys,
+      run: (...args) => calls.push(['run', ...args]),
+      runResult: (...args) => {
+        calls.push(['runResult', ...args]);
+        return { status: 0, stdout: '' };
+      },
+      fetchImpl: async (...args) => {
+        calls.push(['fetch', ...args]);
+        throw new Error('unexpected fetch');
+      },
+      log: () => {},
+    })).rejects.toThrow(/Invalid recipe/);
+    expect(calls).toEqual([]);
+  });
+
+  it('rejects an on-demand archive before probing tools, fetching, or mutating the build tree', async () => {
+    const recipe = {
+      ...RECIPE,
+      weights: 'on-demand',
+      assetArchives: [{
+        relativePath: 'model-cache/weights.zip',
+        format: 'zip',
+        destination: 'model-cache',
+      }],
+    };
+    const { keys, payloadDir } = await makeProject(recipe);
+    const calls = [];
+    await expect(buildBox(RECIPE.recipeId, {
+      ...keys,
+      run: (...args) => calls.push(['run', ...args]),
+      runResult: (...args) => {
+        calls.push(['runResult', ...args]);
+        return { status: 0, stdout: '' };
+      },
+      fetchImpl: async (...args) => {
+        calls.push(['fetch', ...args]);
+        throw new Error('unexpected fetch');
+      },
+      log: () => {},
+    })).rejects.toThrow(/on-demand weights cannot be combined with assetArchives/);
+    expect(calls).toEqual([]);
+    expect(await fileExists(payloadDir)).toBe(false);
   });
 
   it('builds, signs, and verifies a box end to end', async () => {
@@ -183,6 +270,16 @@ describe('the build pipeline', () => {
     const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
     // The box says so rather than hiding it: that build is not reproducible from its revision alone.
     expect(release.provenance.sourceTreeDirty).toBe(true);
+  });
+
+  it('counts untracked inputs as dirty while ignoring generated workspace state', async () => {
+    const { root } = await makeProject();
+    expect(sourceBuildState(root)?.dirty).toBe(false);
+    await mkdir(join(root, '.scrollcase', 'cache'), { recursive: true });
+    await writeFile(join(root, '.scrollcase', 'cache', 'ignored.bin'), 'generated');
+    expect(sourceBuildState(root)?.dirty).toBe(false);
+    await writeFile(join(root, 'untracked-model.bin'), 'build input');
+    expect(sourceBuildState(root)?.dirty).toBe(true);
   });
 
   it('refuses to build where it cannot record the commit it came from', async () => {
@@ -243,5 +340,63 @@ describe('the build pipeline', () => {
     await generateSigningKey(stranger);
     await expect(verifyBox(built.releasePath, { publicPath: stranger.publicPath, log: () => {} }))
       .rejects.toThrow(/no valid signature/);
+  });
+});
+
+describe('box manifest agreement', () => {
+  const shared = {
+    schemaVersion: 1,
+    boxId: 'example-model',
+    modelId: 'example-org-example-model',
+    runtimeId: 'example-runtime',
+    version: '1.0.0',
+    target: { platform: 'linux', arch: 'x86_64', accelerator: 'cpu' },
+    pythonEntryPoint: 'venv/bin/python',
+    modelCacheSubdir: 'model-cache/example-model',
+    selfTest: { pythonImports: ['json'], timeoutSeconds: 180 },
+    provenance: {
+      recipeId: 'example-model-linux',
+      recipeVersion: '1.0.0',
+      builderRevision: 'a'.repeat(40),
+      sourceTreeDirty: false,
+      sourceRevision: 'b'.repeat(40),
+      pythonVersion: '3.11.15',
+      pixiVersion: '0.73.0',
+      dependencyLockSha256: 'c'.repeat(64),
+      builtAt: '2026-01-01T00:00:00Z',
+    },
+  };
+
+  it.each([
+    ['schemaVersion', 2],
+    ['boxId', 'other-box'],
+    ['modelId', 'other-model'],
+    ['runtimeId', 'other-runtime'],
+    ['version', '2.0.0'],
+    ['target', { platform: 'linux', arch: 'x86_64', accelerator: 'cuda', cudaVersion: '12.8' }],
+    ['pythonEntryPoint', 'venv/python.exe'],
+    ['modelCacheSubdir', 'other-cache'],
+    ['selfTest', { pythonImports: ['math'], timeoutSeconds: 180 }],
+    ['provenance', { ...shared.provenance, sourceTreeDirty: true }],
+  ])('rejects a %s mismatch', (field, value) => {
+    expect(() => assertBoxManifestAgreement({ ...shared, [field]: value }, shared))
+      .toThrow(new RegExp(`box\\.json mismatch: ${field}`));
+  });
+
+  it('compares the complete on-demand asset policy', () => {
+    const asset = {
+      url: 'https://assets.example.org/weights.bin',
+      relativePath: 'model-cache/example-model/weights.bin',
+      sizeBytes: 4,
+      sha256: 'd'.repeat(64),
+    };
+    const release = { ...shared, weights: 'on-demand', assets: [asset] };
+    expect(() => assertBoxManifestAgreement({ ...release }, release)).not.toThrow();
+    expect(() => assertBoxManifestAgreement({
+      ...release,
+      assets: [{ ...asset, sha256: 'e'.repeat(64) }],
+    }, release)).toThrow(/box\.json mismatch: assets/);
+    expect(() => assertBoxManifestAgreement({ ...shared }, release))
+      .toThrow(/box\.json mismatch: weights/);
   });
 });

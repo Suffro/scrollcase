@@ -14,10 +14,11 @@ wheels wearing a CUDA name.
 
 | `platform` | `arch` | `accelerator` | Target ID |
 | --- | --- | --- | --- |
-| `linux` | `x86_64` | `cuda` | `linux-x86_64-cuda12.4` |
-| `windows` | `x86_64` | `cuda` | `windows-x86_64-cuda12.4` |
+| `linux` | `x86_64` | `cuda` | `linux-x86_64-cuda<major.minor>` |
+| `windows` | `x86_64` | `cuda` | `windows-x86_64-cuda<major.minor>` |
 
-macOS has no CUDA target — use `metal`.
+macOS has no CUDA target — use `metal`. The `12.4` values below are one concrete example, not the
+only CUDA ABI the contract accepts.
 
 ## The recipe
 
@@ -92,6 +93,9 @@ scrollcase lock my-model-linux-x86_64-cuda12.4
 git add recipes/my-model-linux-x86_64-cuda12.4/pixi.lock
 ```
 
+Run those commands with Pixi `0.73.0`, because that is the exact version this example recipe pins;
+do not substitute another resolver version.
+
 ::: warning `cuda-version` pins the ABI, not the driver
 The `cuda-version` package constrains which CUDA runtime the conda-forge packages are built
 against. The host still needs a driver new enough for that ABI — that is what
@@ -125,14 +129,14 @@ the CPU — CPU-only wheels shipped under a CUDA target ID. Three layers catch i
 
 **1. The self-test.** The cheapest and most direct:
 
-```json
+```jsonc
 "pythonCode": "import torch; assert torch.cuda.is_available(); assert torch.version.cuda.startswith('12.4')"
 ```
 
 **2. The parity gate.** Run a real computation on CPU and on CUDA and require the results to
 agree within a declared tolerance:
 
-```json
+```jsonc
 "parity": {
   "script": "checks/parity.py",
   "accelerators": ["cpu", "cuda"],
@@ -143,12 +147,17 @@ agree within a declared tolerance:
 This catches a broken BLAS, a mis-solved kernel, and a GPU path that silently falls back — see
 [Accelerator Parity](/guides/accelerator-parity).
 
-**3. `verify --self-test`.** Extracts the built archive and re-runs the imports with the box's
-own interpreter, on the machine that will ship it:
+**3. `verify --self-test`.** Extracts the built archive and re-runs the signed imports with the
+box's own interpreter, on a matching native host:
 
 ```sh
 scrollcase verify .scrollcase/dist/my-model-1.0.0-linux-x86_64-cuda12.4.release.json --self-test
 ```
+
+This consumer check does **not** repeat recipe `pythonCode`, so it does not by itself prove
+`torch.cuda.is_available()`. That stronger assertion and parity are builder gates. Building a
+target proves packaging and declared gates; it never proves scientific parity unless the recipe
+declares and passes a suitable parity check.
 
 ## One box per CUDA ABI
 
@@ -174,7 +183,7 @@ boxes/my-model/1.0.0/linux-x86_64-cuda12.8/…
 CUDA environments are large — the runtime libraries alone can dominate the archive. Prune what
 the box does not need at run time, and let the self-test guard the prune:
 
-```json
+```jsonc
 "prunePaths": [
   "venv/share/doc",
   "venv/lib/python3.11/site-packages/torch/test",

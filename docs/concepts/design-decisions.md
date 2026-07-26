@@ -64,10 +64,10 @@ badly and excludes everyone using something else.
 
 ## Verification is not optional
 
-`verify` mirrors what an installing client does: signature, archive size and hash, safe entry names,
-`box.json` agreeing field-for-field with the signed release, the declared interpreter present, and —
-with `--self-test` — a real extraction whose own interpreter imports the declared modules. The point
-is that a box which would fail on a user's machine fails on the builder's first.
+`verify` checks signature, archive size and hash, safe entry names, recursive agreement of every
+shared schema-v1 field, and the declared interpreter. With `--self-test` it extracts temporarily and
+runs the signed import subset. Recipe-only Python and file assertions remain builder checks because
+schema version 1 does not carry them.
 
 ## Weights: embedded by default, on demand when asked
 
@@ -132,14 +132,31 @@ anywhere against any project that declares one.
 
 ## Provenance refuses to lie
 
-A box records the commit it was built from and whether that working tree was dirty. Building outside a
-git checkout fails rather than inventing a revision, and building from a dirty tree requires
+A box records the commit it was built from and whether that working tree was dirty, including
+untracked files while respecting Git ignore rules. Building outside a git checkout fails rather
+than inventing a revision, and building from a dirty tree requires
 `--allow-dirty` and is recorded as `sourceTreeDirty: true` in the box itself. A build that cannot be
 reproduced from its recorded revision says so.
 
 Rebuilding the same commit produces a byte-identical archive: timestamps are normalised, the build
-time comes from the commit rather than the clock, and the rollout cohort salt is derived from box and
-version rather than randomly, so a rebuild does not reshuffle which users receive it.
+time comes from the commit rather than the clock, and the channel cohort salt is derived from box
+and version rather than randomly.
+
+## Documentation audit decisions (2026-07-26)
+
+The public-contract audit resolved six implementation choices:
+
+- The maintainer chose to preserve the existing privacy banner and analytics behavior. The linked
+  `/privacy` route documents that behavior; consent controls were not added.
+- Public schema URLs are deterministic copies of `src/contract/schema/`, guarded byte for byte.
+- Verification compares all security-, identity-, target-, asset-policy-, self-test-, and
+  provenance fields already duplicated by schema version 1.
+- Consumer self-test is documented as the signed import subset; recipe `pythonCode` and file
+  assertions stay builder-only until a future wire version can carry them.
+- Recipe structure is validated at runtime from the shipped schemas by a dependency-free internal
+  validator before tool discovery or build-directory mutation.
+- Asset resume is limited to retries within one download operation. There is no persistent cache
+  and the documentation makes that process boundary explicit.
 
 ## The licence audit is derived from the lock
 

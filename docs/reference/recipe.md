@@ -18,7 +18,8 @@ recipes/
 
 The recipe's `recipeId` **must equal its directory name**, so a recipe cannot quietly claim an
 identity other than the one being built. The machine-readable definition is
-`recipe.schema.json`, shipped in the package under `src/contract/schema/`.
+[`recipe.schema.json`](/schema/recipe.schema.json), also shipped through the package export. See
+[JSON Schemas](/reference/schemas).
 
 ## A complete example
 
@@ -69,7 +70,7 @@ separate is what lets a consumer reason about that.
 
 ## Target
 
-```json
+```jsonc
 "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cuda", "cudaVersion": "12.4" }
 ```
 
@@ -135,7 +136,7 @@ Files fetched over the network during the build. Every entry is size- and hash-c
 enters the payload, so a moved or replaced upstream file fails the build instead of quietly
 producing a different box under the same version.
 
-```json
+```jsonc
 "assets": [
   {
     "url": "https://huggingface.co/example-org/model/resolve/main/model.safetensors",
@@ -146,16 +147,17 @@ producing a different box under the same version.
 ]
 ```
 
-Downloads are resumable and re-runnable: a complete file with the right size and hash is skipped,
-and a partial transfer is renamed into place only after its hash matches. See
-[Managing Model Weights](/guides/managing-weights).
+Retries inside one download operation resume from a partial file, and a partial transfer is
+renamed into place only after its size and hash match. The build scratch tree is recreated at
+process start, so there is no cross-process cache. See [Managing Model
+Weights](/guides/managing-weights).
 
 ### `assetArchives`
 
 Downloaded archives to expand into the payload. Extraction preserves files already present and
 refuses to overwrite them.
 
-```json
+```jsonc
 "assetArchives": [
   {
     "relativePath": "model-cache/hello/weights.tar.gz",
@@ -176,7 +178,7 @@ materialises.
 Files copied from your own repository into the payload, each verified against a declared hash so
 a licence notice or runtime shim cannot drift from what was reviewed.
 
-```json
+```jsonc
 "localFiles": [
   { "sourcePath": "runtime/entrypoint.py", "relativePath": "entrypoint.py", "sha256": "4c7e…9a" }
 ]
@@ -188,7 +190,7 @@ Payload paths deleted before packing, to keep the box to what it actually needs 
 box is a multi-gigabyte download for an end user, so pruning is a user-facing concern rather than
 tidiness.
 
-```json
+```jsonc
 "prunePaths": ["venv/share/doc", "venv/lib/python3.11/site-packages/numpy/tests"]
 ```
 
@@ -208,10 +210,11 @@ channel documents point at. Required unless passed per build with `--asset-base-
 
 ## Self-test
 
-Run with the payload's **own interpreter** before the box is archived, and repeated by a consumer
-after installing.
+Builder checks run with the payload's **own interpreter** before the box is archived. Schema
+version 1 signs the import subset for a consumer to repeat; it does not carry the richer file or
+`pythonCode` assertions.
 
-```json
+```jsonc
 "selfTest": {
   "imports": ["torch", "transformers"],
   "files": ["model-cache/hello/model.safetensors"],
@@ -221,17 +224,19 @@ after installing.
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `imports` | yes | Modules imported with the box's interpreter. The single most valuable check there is: an environment that unpacks but cannot import its dependencies fails on the builder's machine |
+| `imports` | yes | One or more modules imported with the box's interpreter. These names are signed and repeated by `verify --self-test` |
 | `files` | yes | Files that must still exist after pruning — this is what stops an over-aggressive prune from shipping a broken box. May be empty |
 | `pythonCode` | no | Extra Python executed after the imports succeed, for checks a bare import cannot make |
 
 The target's own platform assertion is prepended automatically, and the run happens under the
 accelerator's validation environment. A file listed in `files` that is a deliberately deferred
-on-demand asset is not required to be present.
+on-demand asset is not required to be present. After pruning, the builder checks required files,
+then runs the target assertion, imports, optional `pythonCode`, and finally optional parity. A
+consumer runs the target assertion and signed imports only.
 
 ## Weights mode
 
-```json
+```jsonc
 "weights": "embed"
 ```
 
@@ -246,7 +251,7 @@ time. A build may override this with `--weights`. See
 An optional numerical gate: run a check inside the box on more than one accelerator and require
 the results to agree.
 
-```json
+```jsonc
 "parity": {
   "script": "checks/parity.py",
   "accelerators": ["cpu", "metal"],
@@ -258,20 +263,24 @@ the results to agree.
 | --- | --- |
 | `script` | Path inside the box, run with the box's own interpreter. Must print a JSON array of numbers, or an object with a `values` array |
 | `accelerators` | At least two, each run under its target's validation environment. **The first is the reference** the others are compared against — conventionally `cpu` |
-| `tolerances` | At least one of `absolute`, `relative`, `minimumCosine` |
+| `tolerances` | At least one bound. `absolute` and `relative` are finite numbers greater than zero; `minimumCosine` is finite and at most 1 |
 
+Every declared threshold is enforced conjunctively: passing one never excuses breaching another.
 Scrollcase runs the check and enforces the thresholds; what the check computes, and what closeness
 is acceptable, belong to your project. Full treatment in
 [Accelerator Parity](/guides/accelerator-parity).
 
 ## Validation summary
 
-A recipe is rejected before anything is installed when:
+Validation is ordered so malformed input cannot trigger a process, fetch, or build-directory
+mutation:
 
-- `schemaVersion` is not `1`, or `recipeId` does not match its directory name;
-- `pixiVersion` is absent, or the pixi on hand is a different version;
-- the target is outside the supported matrix, or a CUDA target lacks a valid `cudaVersion`;
-- `pythonEntryPoint` does not match the target's layout;
-- a path escapes the payload root;
-- `pixi.lock` is missing, or the reviewed licence audit no longer matches it;
-- `assetArchives` are combined with `on-demand` weights.
+1. Parse `recipe.json` and validate its complete nested structure against the shipped recipe and
+   target schemas.
+2. Require `recipeId` to match its directory, reject invalid target/entry-point combinations, and
+   reject default on-demand weights with `assetArchives`.
+3. Resolve a build-time `--weights` override and repeat the archive/policy check.
+4. Require a matching native host, discover the exact tools, and require `pixi.lock`.
+5. Record Git provenance and reject a dirty tree unless `--allow-dirty` was explicit.
+6. Only then recreate build state, install from the lock, download verified assets, and enforce
+   semantic checks whose inputs appear later, including lock/audit agreement.

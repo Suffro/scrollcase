@@ -18,6 +18,7 @@ export type BoxTarget = {
   cudaVersion?: string;
 };
 
+export type Identifier = string;
 /**
  * The platform, architecture and accelerator a box is built for. The supported combinations are closed: a target outside this matrix has no defined identifier and cannot be built, signed, or routed.
  */
@@ -34,9 +35,9 @@ export interface BoxRecipe {
    */
   recipeId: string;
   recipeVersion: string;
-  boxId: string;
-  modelId: string;
-  runtimeId: string;
+  boxId: Identifier;
+  modelId: Identifier;
+  runtimeId: Identifier;
   /**
    * Version of the box this recipe produces, as it will appear in the release manifest.
    */
@@ -110,10 +111,13 @@ export interface BoxRecipe {
    */
   prunePaths?: PayloadPath[];
   /**
-   * Run with the payload's own interpreter before the box is archived. It doubles as the check a consumer repeats after installing.
+   * Builder checks run with the payload's own interpreter before archiving. Schema version 1 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.
    */
   selfTest: {
-    imports: string[];
+    /**
+     * @minItems 1
+     */
+    imports: [string, ...string[]];
     /**
      * Files that must still exist after pruning, which is what stops an over-aggressive prune from shipping a broken box.
      */
@@ -223,10 +227,6 @@ export interface Provenance {
   builtAt: string;
 }
 
-export type Identifier = string;
-/**
- * The platform, architecture and accelerator a box is built for. The supported combinations are closed: a target outside this matrix has no defined identifier and cannot be built, signed, or routed.
- */
 export interface BoxReleaseManifest {
   schemaVersion: 1;
   /**
@@ -280,7 +280,7 @@ export interface BoxReleaseManifest {
    */
   modelCacheSubdir: string;
   /**
-   * The check a consumer repeats after installing, using the box's own interpreter. It is the same check the builder ran, so a box that would fail on the user's machine fails at build time first.
+   * The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran these imports, plus any recipe-only Python-code and file assertions that schema version 1 does not carry.
    */
   selfTest: {
     /**

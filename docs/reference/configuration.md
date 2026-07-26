@@ -61,7 +61,8 @@ The project root is chosen with this precedence, highest first:
 
 Each individual path is then resolved with its own precedence, highest first:
 
-1. **CLI flag** — `--recipes-dir`, `--build-dir`, `--out-dir`, `--keys-dir`. Flag values resolve
+1. **CLI flag** — `--recipes-dir`, `--build-dir`, `--out-dir`, `--keys-dir`,
+   `--toolchain-dir`. Flag values resolve
    against the **current working directory**, which is what a shell user expects.
 2. **Config value** — resolves against the **project root**.
 3. **Built-in default** — resolves against the project root.
@@ -86,7 +87,7 @@ scrollcase build hello-box-macos-arm64-metal --recipes-dir ../scrollcase/example
 
 A monorepo that keeps packaging assets under `packaging/`:
 
-```json
+```jsonc
 {
   "version": 1,
   "paths": {
@@ -106,7 +107,7 @@ box's `builderRevision` is the HEAD of the repository the workspace resolves to.
 When [`init` installs the toolchain](/reference/cli#the-toolchain-step) it adds a `toolchain`
 block recording the digest it verified:
 
-```json
+```jsonc
 {
   "version": 1,
   "paths": { "…": "…" },
@@ -130,5 +131,7 @@ recorded here. One pixi asset entry accumulates per host, so a mixed-platform te
 per host asset. The conda-pack entry records the exact package release the managed installer asks
 pixi to install.
 
-Scrollcase writes the block itself; you never have to author it. Changing the pinned version means
-deleting the entry (or the `.scrollcase/toolchain/` directory) and re-running `init`.
+Scrollcase writes the block itself; you never have to author it. To change Pixi intentionally,
+edit the recipe's `pixiVersion`, install that exact release with consent, relock, rerun the licence
+audit, review the changes, and rebuild. Removing `.scrollcase/toolchain/` only removes managed
+executables; it does not erase the committed pin or make a floating resolver acceptable.

@@ -13,12 +13,13 @@ box for real additionally needs `pixi` and `conda-pack` on the machine that buil
 
 | You want to… | You need |
 | --- | --- |
-| Run the CLI (`init`, `keygen`, `audit`, `verify`) | Node.js ≥ 20 |
-| Resolve a lock (`lock`) or build a box (`build`) | Node.js ≥ 20, `pixi` at the version the recipe pins, `conda-pack` 0.9.2 — installable by `init` |
+| Scaffold, audit, keygen, or verify without a self-test | Node.js ≥ 20 |
+| Resolve a lock (`lock`) | Node.js ≥ 20 and `pixi` at the recipe's pinned version |
+| Build a box (`build`) | Node.js ≥ 20, pinned `pixi`, conda-pack, and a local key or external signer |
 | Verify with `--self-test` | The same OS and architecture the box targets |
 
-Locking, auditing, signing, and verifying an existing archive need no toolchain at all — only
-`build` and `lock` invoke pixi, and only `build` invokes conda-pack.
+Auditing, key generation, signing primitives, and verification need no dependency toolchain.
+`lock` invokes pixi; `build` invokes both pixi and conda-pack.
 
 ## Install the CLI
 
@@ -126,6 +127,19 @@ export SCROLLCASE_CONDA_PACK=/opt/toolchain/bin/conda-pack
 
 A `--pixi` / `--conda-pack` flag wins over the environment variable, which wins over the
 project-local toolchain, which wins over `PATH`.
+
+## Upgrade Pixi intentionally
+
+Changing resolver versions is a dependency change, not a tool repair:
+
+1. edit the recipe's `pixiVersion` to the intended release;
+2. initialise or install that exact version with explicit consent, or point `--pixi` at it;
+3. run `scrollcase lock <recipe>` and review the new `pixi.lock`;
+4. run `scrollcase audit <recipe>` and review/write any intentional licence change;
+5. commit the recipe, lock, audit, and toolchain digest;
+6. rebuild the box.
+
+Do not delete the pin and accept whichever resolver happens to be newest.
 
 ## Check the machine
 

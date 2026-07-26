@@ -13,7 +13,7 @@ The normative artefacts ship inside the npm package:
 | Artefact | Where | What it is |
 | --- | --- | --- |
 | Reference implementation | `scrollcase/contract` | The rules as executable code |
-| JSON Schemas | `scrollcase/contract/schema/*.json` | The machine-readable spec |
+| JSON Schemas | `scrollcase/contract/schema/*.json` and `/schema/*.json` | The machine-readable spec, package-local or public |
 | Golden fixtures | `scrollcase/contract/fixtures/*.json` | What "agreeing" means, concretely |
 
 A client written in another language **does not import the code** — it mirrors the rules and
@@ -92,7 +92,7 @@ The manifest packed **inside** the archive, so an extracted box is self-describi
 holding the directory but not the release document can still tell what it is and how it was
 built.
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "boxId": "example-model",
@@ -107,8 +107,9 @@ built.
 }
 ```
 
-`verify` checks `box.json` field-for-field against the signed release — that agreement is what
-binds the archive's contents to its signed metadata.
+`verify` recursively checks every shared field against the signed release: schema and identity,
+complete target, entry point, cache subdirectory, consumer self-test, weights/assets policy, and
+provenance. That agreement binds the archive's contents to its signed metadata.
 
 ## Provenance
 
@@ -129,7 +130,7 @@ cannot be dressed up after the fact:
 
 Every document a build emits travels in one envelope:
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "payloadEncoding": "base64-json-utf8",
@@ -167,10 +168,10 @@ by passing `--namespace`. Scrollcase never hard-codes one, and carries nobody's 
 ### Release manifest
 
 The immutable description of one built box: identity, target, compatibility, where the archive
-lives and what it hashes to, the self-test to repeat, and provenance. Never edited after signing
+lives and what it hashes to, the consumer import check to repeat, and provenance. Never edited after signing
 — a correction ships as a new version.
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "kind": "scrollcase.box.release",
@@ -194,17 +195,18 @@ lives and what it hashes to, the self-test to repeat, and provenance. Never edit
 }
 ```
 
-`installedSizeBytes` is the sum of extracted payload file sizes, so a consumer can check free
-space **before** downloading. `weights: "on-demand"` and an `assets` array appear together, and
-only when the assets were deliberately left out of the archive; their absence means the box is
-self-contained.
+`installedSizeBytes` is the sum of logical extracted payload file sizes. It is an estimate and
+lower bound, not a free-space guarantee: consumers need headroom for the archive, extracted files,
+temporary copies, allocation units, and filesystem metadata. `weights: "on-demand"` and an
+`assets` array appear together only when assets were deliberately left out; their absence means
+the box is self-contained.
 
 ### Channel manifest
 
 A small mutable pointer from a channel to the releases it currently serves. Signed independently,
 so promoting a build never requires re-signing it.
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "kind": "scrollcase.box.channel",
@@ -223,12 +225,12 @@ so promoting a build never requires re-signing it.
 }
 ```
 
-Channels are `development`, `beta`, `stable`. A client takes the first entry whose rollout cohort
-it falls into. `cohortSalt` is mixed into that hash so assignment is stable per client and
-unpredictable across channels — a staged rollout cannot be gamed by reinstalling. Scrollcase
-derives it from `boxId` and `version` rather than randomly, so a rebuild does not reshuffle who
-receives the release. A freshly built channel goes out at 100%; a staged rollout is arranged by
-editing this document, not by Scrollcase.
+Channels are `development`, `beta`, `stable`, and a fresh build emits one release at 100%.
+Schema version 1 carries `cohortSalt` and rollout percentages but intentionally lacks a normative
+cohort algorithm and golden fixtures. It does not specify identity normalisation, byte framing,
+hashing, integer extraction, percentage mapping, ordering, or boundary behavior. A project can
+define those rules for its own clients, but cross-implementation rollout interoperability is not a
+schema-v1 guarantee.
 
 ### Revocations manifest
 
@@ -236,7 +238,7 @@ The signed list of releases that must no longer be installed or activated. A pub
 immutable, so withdrawing one is an explicit statement rather than a deletion: clients keep
 honouring the list even when the archive is still reachable.
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
   "kind": "scrollcase.box.revocations",
@@ -271,7 +273,7 @@ flowchart LR
   C["channel document<br/><i>signed, mutable</i>"] -->|releaseManifestUrl<br/>= sha256 of the document| R["release document<br/><i>signed, immutable</i>"]
   R -->|archive.sha256| A["archive .zip"]
   A -->|packed inside| B["box.json"]
-  R -.->|verify: must agree field for field| B
+  R -.->|verify: shared fields agree recursively| B
 ```
 
 Publishing is idempotent, and an object can never be replaced with different bytes under the same

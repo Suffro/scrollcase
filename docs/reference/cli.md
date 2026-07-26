@@ -18,7 +18,7 @@ Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `sc
 `scrollcase: <message>` line on stderr — safe to rely on from shell scripts and CI.
 
 **Workspace flags** (`--config`, `--project-root`, `--recipes-dir`, `--build-dir`, `--out-dir`,
-`--keys-dir`) apply to every command and are resolved before anything else runs. They are
+`--keys-dir`, `--toolchain-dir`) apply to every command and are resolved before anything else runs. They are
 documented in [Workspace Configuration](/reference/configuration).
 
 ## `init`
@@ -106,6 +106,8 @@ scrollcase keygen [--key-id <id>] [--force]
 | `--public-key` | `<keys>/signing-public.json` | Where the public key file is written |
 
 See [Signing & Key Custody](/guides/signing-and-custody) for rotation and external signers.
+`--force` is not a rotation workflow or a safe way to repair mismatched paths: it can overwrite
+the only copy of an established signing identity.
 
 ## `lock`
 
@@ -179,7 +181,7 @@ scrollcase build <recipe> [--channel <name>] [--weights embed|on-demand]
 `build` refuses to run when: the workspace is not a git checkout; the tree is dirty and
 `--allow-dirty` is absent; `pixi.lock` is missing; the pixi on hand is not the recipe's pinned
 version; or the host OS/architecture does not match the target — boxes are proven on the hardware
-they ship for.
+they ship for. Dirty detection includes untracked files and excludes files ignored by Git.
 
 Outputs, under the workspace's `dist` directory:
 
@@ -192,8 +194,8 @@ Outputs, under the workspace's `dist` directory:
 
 ## `verify`
 
-Re-run a consumer's install-time checks against a signed release document and its archive, before
-anything is published. A box that would fail on a user's machine fails here instead.
+Run the format checks a consumer can repeat against a signed release document and its archive,
+before anything is published.
 
 ```sh
 scrollcase verify <release.json> [--archive <path>] [--self-test] [--public-key <path>]
@@ -205,11 +207,13 @@ scrollcase verify <release.json> [--archive <path>] [--self-test] [--public-key 
 | `--self-test` | off | Extract to a temporary directory and import the declared modules with the box's own interpreter. Only runs on a matching native host |
 | `--public-key` | `<keys>/signing-public.json` | Trusted key file (a single key, or a `{ "keys": [...] }` bundle) |
 
-Checks, in order: at least one signature verifies against a trusted key; the document is a
-release; the target and entry point are coherent; archive size and SHA-256 match the release;
-entry names are safe (no traversal, no links); `box.json` inside the archive agrees
-field-for-field with the signed release; the declared interpreter is present. `--self-test`
-additionally checks the extracted payload size and runs the import check.
+Checks, in order: envelope payload hash and at least one trusted signature; release kind; coherent
+target and entry point; archive size and SHA-256; safe entry names; recursively equal shared
+`box.json` fields (identity/version, full target, entry point, cache subdirectory, consumer
+self-test, weights/assets, and provenance); and the declared interpreter. `--self-test`
+additionally requires a matching native host, extracts to a temporary directory, checks logical
+payload size, and runs the signed import check. It does not repeat recipe-only `pythonCode` or file
+assertions, which schema version 1 does not carry.
 
 ## Tool discovery {#tool-discovery}
 

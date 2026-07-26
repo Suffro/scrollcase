@@ -12,9 +12,38 @@
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { assertNativeHost, assertPythonEntryPoint, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
 import { parseDocumentKind } from '../contract/documents.mjs';
 import { verifySignedDocument } from '../sign/index.mjs';
+
+const AGREEMENT_FIELDS = [
+  'schemaVersion',
+  'boxId',
+  'modelId',
+  'runtimeId',
+  'version',
+  'target',
+  'pythonEntryPoint',
+  'modelCacheSubdir',
+  'selfTest',
+  'weights',
+  'assets',
+  'provenance',
+];
+
+/**
+ * Binds the self-description inside the archive to the signed release outside it.
+ *
+ * Only fields present in both schema-version-1 documents belong here. Release-only transport and
+ * compatibility data has no counterpart in box.json; every shared identity, target, layout,
+ * consumer self-test, asset-policy, and provenance field must agree recursively.
+ */
+export function assertBoxManifestAgreement(box, release) {
+  for (const field of AGREEMENT_FIELDS) {
+    if (!isDeepStrictEqual(box[field], release[field])) fail(`box.json mismatch: ${field}`);
+  }
+}
 import { extractZipArchive, listZipEntries, readZipEntry } from './archive.mjs';
 import { fileExists, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
 import { boxReleaseStem } from './identity.mjs';
@@ -56,9 +85,7 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   const files = new Set(entries.filter((entry) => entry.kind === 'file').map((entry) => entry.path));
   if (!files.has('box.json')) fail('Archive is missing box.json.');
   const box = JSON.parse(await readZipEntry(archivePath, 'box.json'));
-  for (const field of ['boxId', 'modelId', 'runtimeId', 'version', 'pythonEntryPoint']) {
-    if (box[field] !== release[field]) fail(`box.json mismatch: ${field}`);
-  }
+  assertBoxManifestAgreement(box, release);
   if (!files.has(release.pythonEntryPoint)) fail(`Archive is missing ${release.pythonEntryPoint}.`);
 
   if (selfTest) {

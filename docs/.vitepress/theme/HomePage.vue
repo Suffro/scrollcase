@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { withBase } from 'vitepress'
+import { useData, withBase } from 'vitepress'
+
+const { theme } = useData()
 
 const pillars = [
   {
     icon: 'shield',
     title: 'Signed and verifiable',
-    text: 'Every box carries a manifest, content digests, and a signature. Consumers verify a box offline before unpacking it — no registry call, no trust in the download path.',
+    text: 'Every archive is paired with a signed release document carrying its identity and content digest. Consumers verify both offline — no registry call and no trust in the download path.',
   },
   {
     icon: 'bolt',
@@ -28,7 +30,7 @@ const capabilities = [
   {
     icon: 'flow',
     title: 'Validated before shipping',
-    text: 'Each build runs the recipe’s own validation on real inputs. A box that fails validation never gets an identity.',
+    text: 'Every build checks target and imports; recipes can add Python assertions, required files, and numerical parity gates. A failed gate produces no box.',
   },
   {
     icon: 'spark',
@@ -38,7 +40,7 @@ const capabilities = [
   {
     icon: 'layers',
     title: 'Reproducible identity',
-    text: 'The target ID that appears in archive names, object keys, and registry routes is derived deterministically and locked by golden fixtures.',
+    text: 'The target ID used in archive names and object paths is derived deterministically and locked by golden fixtures.',
   },
   {
     icon: 'plug',
@@ -60,19 +62,19 @@ const capabilities = [
       <div class="hero-glow" aria-hidden="true"></div>
 
       <div class="container hero-inner">
-        <span class="status"><span class="status-dot" aria-hidden="true"></span>In active development · Coming soon</span>
+        <span class="status"><span class="status-dot" aria-hidden="true"></span>Version {{ theme.packageVersion }} · schema version 1</span>
 
         <h1 class="name">Scrollcase</h1>
 
         <p class="headline">Pack AI and scientific models<br>as self-contained boxes.</p>
 
         <p class="tagline">
-          Pinned, validated, signed, no docker, and installable offline on<br>macOS metal, Linux and Windows (CPU and CUDA).
+          Pinned, validated, signed, no Docker, and usable offline on<br>macOS Metal, Linux and Windows (CPU and CUDA).
         </p>
 
         <div class="actions">
           <a class="btn btn-brand" :href="withBase('/getting-started/quickstart')">Read the docs</a>
-          <a class="btn btn-alt" href="https://github.com/Suffro/scrollcase">GitHub</a>
+          <a class="btn btn-alt" href="https://github.com/suffro/scrollcase">GitHub</a>
         </div>
 
         <p class="trust">Apache-2.0</p>
@@ -107,7 +109,7 @@ const capabilities = [
     <!-- ── Capabilities ─────────────────────────────────────── -->
     <section class="container band">
       <div class="section-head">
-        <h2>From recipe to installable box</h2>
+        <h2>From recipe to portable box</h2>
         <p>Resolve, build, validate, sign — one pipeline, one format, every target.</p>
       </div>
 
@@ -150,6 +152,19 @@ const capabilities = [
           </div>
         </article>
       </div>
+    </section>
+
+    <section class="container band surface">
+      <div class="section-head">
+        <h2>CLI and library</h2>
+        <p>Seven focused verbs, plus public modules for consumers and integrations.</p>
+      </div>
+      <p class="surface-line"><code>init</code> · <code>doctor</code> · <code>keygen</code> ·
+        <code>lock</code> · <code>audit</code> · <code>build</code> · <code>verify</code></p>
+      <p class="surface-line"><code>scrollcase/contract</code> · <code>scrollcase/build</code> ·
+        <code>scrollcase/sign</code> · <code>scrollcase/contract/types</code></p>
+      <p class="surface-note">Scrollcase stops at a signed, verified box on disk. Distribution,
+        promotion, registries, and installation policy belong to the consuming project.</p>
     </section>
   </div>
 </template>
@@ -216,7 +231,7 @@ const capabilities = [
   border-radius: 999px;
 }
 
-/* ── Status pill (coming soon) ─────────────────────────── */
+/* ── Version status pill ───────────────────────────────── */
 .status {
   display: inline-flex;
   align-items: center;
@@ -407,6 +422,26 @@ const capabilities = [
   display: flex;
   gap: 16px;
   align-items: flex-start;
+}
+
+.surface {
+  text-align: center;
+}
+
+.surface-line {
+  margin: 10px 0;
+  color: var(--vp-c-text-1);
+}
+
+.surface-line code {
+  white-space: nowrap;
+}
+
+.surface-note {
+  max-width: 720px;
+  margin: 22px auto 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.65;
 }
 
 /* ── Icon chips ────────────────────────────────────────── */

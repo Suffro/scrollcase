@@ -236,8 +236,13 @@ Doctor options:
   --recipe <name>            Take the required pixi version from this recipe
   --pixi-version <version>   Check for this pixi release
 
+Keygen options:
+  --key-id <id>              Identifier recorded in signatures (default derived from key)
+  --force                    Overwrite both named key files; unsafe for rotation
+
 Audit options:
   --write                    Write the inventory to the recipe's reviewed audit path
+  --namespace <ns>           Document kind namespace (default scrollcase.box)
 
 Build options:
   --channel <name>           Channel the signed pointer names (default beta)

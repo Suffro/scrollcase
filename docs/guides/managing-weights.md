@@ -13,7 +13,7 @@ up front, verified before use, and committed to by hash in the signed release.
 
 Every asset carries a URL, a destination inside the payload, a size, and a SHA-256:
 
-```json
+```jsonc
 "assets": [
   {
     "url": "https://huggingface.co/example-org/model/resolve/main/model.safetensors",
@@ -37,18 +37,18 @@ though its inputs live on servers outside anyone's control: if an upstream file 
 replaced, or silently re-uploaded, the build fails instead of quietly producing a different box
 under the same version.
 
-::: tip Downloads are re-runnable
-A file already present with the right size and hash is skipped entirely, so re-running a build
-does not re-fetch gigabytes. Interrupted transfers resume with a Range request, and the partial
-file is renamed into place only *after* its hash matches — a truncated download can never
-masquerade as a finished asset.
+::: tip Resume boundary
+A dropped connection is retried inside one download operation, resuming its `.part` file with a
+Range request. The partial is renamed only after size and hash match. Build scratch is recreated
+at process start, so a new build process does not reuse an earlier partial or provide a persistent
+asset cache.
 :::
 
 ## Archives that need unpacking
 
 When the upstream artefact is a tarball or zip, declare it as an asset and then expand it:
 
-```json
+```jsonc
 "assets": [
   {
     "url": "https://example.org/model/weights-v1.tar.gz",
@@ -82,7 +82,7 @@ When the upstream artefact is a tarball or zip, declare it as an asset and then 
 Runtime shims, licence notices, a parity check script — anything you maintain yourself — go in
 `localFiles`, each with a hash so it cannot drift from what was reviewed:
 
-```json
+```jsonc
 "localFiles": [
   { "sourcePath": "runtime/entrypoint.py", "relativePath": "entrypoint.py", "sha256": "…" },
   { "sourcePath": "legal/MODEL_LICENSE.txt", "relativePath": "MODEL_LICENSE.txt", "sha256": "…" }
@@ -114,7 +114,7 @@ A recipe may set `"weights": "embed" | "on-demand"` as its own default; the flag
 The assets are left out of the archive, and their descriptors travel in the signed release and in
 `box.json`:
 
-```json
+```jsonc
 "weights": "on-demand",
 "assets": [
   { "url": "https://…/model.safetensors", "relativePath": "model-cache/hello/model.safetensors",
@@ -147,7 +147,7 @@ Then read [Offline / Air-Gapped Installs](/guides/offline-airgap) to understand 
 
 Everything the environment does not need at run time can be pruned before packing:
 
-```json
+```jsonc
 "prunePaths": [
   "venv/share/doc",
   "venv/lib/python3.11/site-packages/numpy/tests",
@@ -163,7 +163,7 @@ check the resulting archive size to confirm the prune did what you expected.
 
 Guard against over-pruning by listing what must survive:
 
-```json
+```jsonc
 "selfTest": {
   "imports": ["torch", "numpy"],
   "files": ["model-cache/hello/model.safetensors", "entrypoint.py"]

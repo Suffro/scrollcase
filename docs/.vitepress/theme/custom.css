@@ -1,14 +1,5 @@
 
 
-/* ── Hide scrollbars ──────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  scrollbar-width: none !important;
-}
-
-::-webkit-scrollbar { display: none !important; } 
-
 /* ── Brand colors ──────────────────────────────────────────────── */
 :root {
   --vp-c-brand-1: #f5b70b;
@@ -86,32 +77,6 @@
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
 }
 
-.floating-share {
-  cursor: pointer !important;
-  background-color: var(--vp-c-brand-1) !important;
-  position: fixed;
-  right: 20px; /* Distanza dal bordo destro */
-  bottom: 5px;    /* Centrato verticalmente */
-  border-radius: 5px !important;
-  transform: translateY(-50%);
-  z-index: 1000; /* Sempre sopra tutto */
-  overflow: hidden !important;
-}
-
-.floating-share:hover {
-  opacity: 0.9;
-}
-
-.floating-share .st-btn {
-  background-color: var(--vp-c-brand-1) !important;
-  border-radius: 5px !important;
-}
-
-
-.floating-share .st-total {
-  display: none !important;
-}
-
 body:has(.cookie-backdrop) {
   overflow: hidden !important;
 }
@@ -159,6 +124,12 @@ body:has(.cookie-backdrop) {
   background: var(--vp-c-brand-soft);
 }
 
+.vp-tabs__button:focus-visible,
+.vp-tabs__panel:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
 .vp-tabs__content {
   padding: 20px;
 }
@@ -183,14 +154,14 @@ body:has(.cookie-backdrop) {
   color: var(--vp-c-brand-1) !important;
 }
 
-/* Layout di base per schermi grandi (2 colonne uguali) */
+/* Two equal columns on wide screens. */
 .VPNavBarMenuGroup .items {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
 
-/* Layout per schermi piccoli (Smartphone) */
+/* One column on narrow screens. */
 @media (max-width: 600px) {
   .VPNavBarMenuGroup .items {
     grid-template-columns: 1fr;
@@ -200,12 +171,5 @@ body:has(.cookie-backdrop) {
 @media (max-width: 768px) {
   .scrollcase-architecture-figure {
     margin: 24px 0;
-  }
-}
-
-/* Hide on very small screens so it never covers the content. */
-@media (max-width: 768px) {
-  .floating-share {
-    display: none;
   }
 }
