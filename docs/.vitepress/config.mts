@@ -35,6 +35,7 @@ export default defineConfig({
       gtag('js', new Date());
       gtag('config', 'G-QY4HT9GE1P');
     `],
+    ['script', { src: "https://platform-api.sharethis.com/js/sharethis.js", async: "true" }],
   ],
 
   themeConfig: {
