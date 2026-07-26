@@ -11,7 +11,7 @@ distribute them.
 
 ## Analytics
 
-The site loads Google Analytics (measurement ID `G-QY4HT9GE1P`) to understand aggregate page use,
+The site loads Google Analytics to understand simple aggregate page use,
 navigation, device class, and site reliability. Analytics is provided by Google; data processed by
 that service is subject to the [Google Privacy Policy](https://policies.google.com/privacy) and the
 retention settings of the Scrollcase Analytics property.
