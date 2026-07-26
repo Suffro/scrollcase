@@ -2,7 +2,7 @@
 
 ## `hello-box-macos-arm64-metal`
 
-The smallest thing scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
+The smallest thing Scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
 packed into a relocatable box. No model weights, no assets, nothing to download beyond the
 interpreter itself — so it exercises the whole pipeline in about a minute and produces a ~48 MB
 archive you can inspect by hand.

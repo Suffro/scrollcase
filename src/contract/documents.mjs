@@ -1,5 +1,5 @@
 /**
- * Reference implementation of the scrollcase signed-document envelope.
+ * Reference implementation of the Scrollcase signed-document envelope.
  *
  * Signed documents carry their payload as exact base64-encoded JSON rather than canonicalized JSON.
  * That choice is deliberate: verifying a signature then means hashing bytes that were transmitted

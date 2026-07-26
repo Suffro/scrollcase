@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * The scrollcase command line.
+ * The Scrollcase command line.
  *
  * One job: turn a recipe into a portable, locked, self-contained box and prove it works. `init` and
  * `doctor` get a machine ready, `lock` resolves dependencies once so a human can review and commit
@@ -102,9 +102,9 @@ async function init(flags) {
     console.log(`\nSet pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
   }
   console.log('\nNext:');
-  console.log(`  scrollcase lock ${result.recipeId}`);
-  console.log(`  scrollcase keygen`);
-  console.log(`  scrollcase build ${result.recipeId}`);
+  console.log(`  Scrollcase lock ${result.recipeId}`);
+  console.log(`  Scrollcase keygen`);
+  console.log(`  Scrollcase build ${result.recipeId}`);
 }
 
 /** `doctor` — report whether this machine can build a box. Reads only; never writes. */
@@ -161,7 +161,7 @@ async function verify(path, flags) {
 }
 
 function usage() {
-  console.log(`Usage: scrollcase <command> [options]
+  console.log(`Usage: Scrollcase <command> [options]
 
 Commands:
   init                       Scaffold a config, an example recipe, and ignore rules

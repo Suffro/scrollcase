@@ -1,5 +1,5 @@
 /**
- * scrollcase workspace resolution.
+ * Scrollcase workspace resolution.
  *
  * Where a project keeps its recipes, and where the tool writes what it builds, is the project's
  * decision, not the tool's. A workspace is declared by a `scrollcase.config.json` at the project
@@ -26,6 +26,7 @@ export const DEFAULT_WORKSPACE_PATHS = Object.freeze({
   build: '.scrollcase/build',
   dist: '.scrollcase/dist',
   keys: '.scrollcase/keys',
+  toolchain: '.scrollcase/toolchain',
 });
 
 /** Config path key -> resolved workspace field. */
@@ -34,6 +35,7 @@ const PATH_FIELDS = Object.freeze({
   build: 'buildDir',
   dist: 'distDir',
   keys: 'keysDir',
+  toolchain: 'toolchainDir',
 });
 
 /** CLI flag -> config path key. */
@@ -42,6 +44,7 @@ const PATH_FLAGS = Object.freeze({
   'build-dir': 'build',
   'out-dir': 'dist',
   'keys-dir': 'keys',
+  'toolchain-dir': 'toolchain',
 });
 
 /** Walks up from `startDir` to the filesystem root looking for a workspace config. */

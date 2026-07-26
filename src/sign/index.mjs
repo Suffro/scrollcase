@@ -4,7 +4,7 @@
  * Two paths, one envelope. The built-in path signs with a local ed25519 key, which is enough for
  * development and for anyone happy to hold their own key. The external path hands the payload to a
  * command the operator configures — a KMS, an HSM, a signing service — so the private key never
- * touches the build machine and scrollcase never learns anything about the custody model.
+ * touches the build machine and Scrollcase never learns anything about the custody model.
  *
  * What the external path does *not* do is take the result on faith. The returned document must echo
  * back exactly the payload that was sent, and its signature is verified locally before the build

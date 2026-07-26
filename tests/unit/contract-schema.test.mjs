@@ -84,7 +84,7 @@ describe('schemas describe what the builder actually emits', () => {
 });
 
 describe('the document namespace belongs to the publishing project', () => {
-  it('defaults to scrollcase and names one kind per document type', () => {
+  it('defaults to Scrollcase and names one kind per document type', () => {
     expect(documentKinds()).toEqual({
       release: `${DEFAULT_DOCUMENT_NAMESPACE}.release`,
       channel: `${DEFAULT_DOCUMENT_NAMESPACE}.channel`,

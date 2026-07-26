@@ -1,5 +1,5 @@
 /**
- * Reference implementation of the scrollcase box-format target model.
+ * Reference implementation of the Scrollcase box-format target model.
  *
  * A target is the (platform, arch, accelerator) triple a box is built for, plus a CUDA ABI version
  * when the accelerator is CUDA. `boxTargetId()` turns it into the canonical slug that appears

@@ -1,5 +1,5 @@
 /**
- * The scrollcase box-format contract.
+ * The Scrollcase box-format contract.
  *
  * This module is the single source of truth for what a box *is*: which targets exist, how a
  * target is named, what layout the payload has, and the shape of every document a build emits. It

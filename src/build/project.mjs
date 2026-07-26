@@ -14,7 +14,7 @@ import { findCondaPack, findPixi } from './pixi.mjs';
 import { runResult as defaultRunResult } from './process.mjs';
 import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace.mjs';
 
-const GITIGNORE_MARKER = '# scrollcase build state';
+const GITIGNORE_MARKER = '# Scrollcase build state';
 
 /** The example a new project starts from: an environment with nothing in it but Python. */
 function exampleRecipe(recipeId, target) {

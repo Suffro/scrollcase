@@ -5,7 +5,7 @@
  * responsible for — the wrong wheels solved in, a CPU-only build shipped as CUDA, a broken BLAS —
  * and it catches them on the build machine rather than on a user's.
  *
- * The division of labour matters. scrollcase owns the mechanism: run the declared check inside the
+ * The division of labour matters. Scrollcase owns the mechanism: run the declared check inside the
  * box once per accelerator, compare the numbers, enforce the declared tolerances, report what was
  * measured. The project owns the meaning: which input to feed the model, which tensor to read, and
  * what closeness is acceptable for it. The tool never decides what is scientifically correct — it

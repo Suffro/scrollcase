@@ -1,5 +1,5 @@
 scrollcase
-Copyright 2026 The scrollcase authors
+Copyright 2026 The Scrollcase authors
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the
@@ -8,6 +8,6 @@ License at
     http://www.apache.org/licenses/LICENSE-2.0
 
 This license covers scrollcase's own source code. It does not cover the contents
-of the boxes scrollcase builds: interpreters, conda-forge and PyPI dependencies,
+of the boxes Scrollcase builds: interpreters, conda-forge and PyPI dependencies,
 model source, and model weights each carry their own licenses, which is what the
 dependency license audit shipped inside every box exists to record.

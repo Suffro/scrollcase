@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to scrollcase are documented here. The format follows
+All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0] — Unreleased
 
-First public release. scrollcase was extracted from the runtime packaging builder of a private
+First public release. Scrollcase was extracted from the runtime packaging builder of a private
 application and made project-agnostic: paths are declared by the consuming project, document
 namespaces are configurable, and the tool carries no consumer's name.
 

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
 
-scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
+Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
 than where it was built, signed so a consumer can prove what they received, and accompanied by a
 dependency licence inventory.
@@ -35,7 +35,7 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 ## Requirements
 
 - Node.js ≥ 20 for the CLI.
-- For real builds: `pixi` (at the version the recipe pins) and `conda-pack`. Point scrollcase at
+- For real builds: `pixi` (at the version the recipe pins) and `conda-pack`. Point Scrollcase at
   them with `--pixi` / `--conda-pack` or `SCROLLCASE_PIXI` / `SCROLLCASE_CONDA_PACK` if they are
   not on `PATH`. `scrollcase doctor` reports exactly what is missing and how to install it.
 - Locking, auditing, signing and verifying an existing archive need no toolchain at all.
@@ -46,11 +46,11 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 npm install -g scrollcase
 ```
 
-Until the first release lands on npm, run it from a checkout instead:
+Otherwise from a checkout:
 
 ```sh
 git clone https://github.com/Suffro/scrollcase.git
-cd scrollcase && npm install && npm link
+cd Scrollcase && npm install && npm link
 ```
 
 ## Quickstart
@@ -120,9 +120,9 @@ failures a packaging tool is responsible for — the wrong wheels solved in, a C
 shipped as CUDA, a broken BLAS — while the project owns the check script and what closeness means
 for its model.
 
-## What scrollcase is not
+## What Scrollcase is not
 
-scrollcase stops at a signed, verified box on disk. Uploading to object storage, serving a
+Scrollcase stops at a signed, verified box on disk. Uploading to object storage, serving a
 registry, promoting or revoking releases, allocating CI runners, and model-specific scientific
 validation all belong to whoever consumes the tool. The reasoning behind this boundary — and
 every other decision that looks arbitrary — lives in
