@@ -19,6 +19,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compile } from 'json-schema-to-typescript';
+import { normalizeGeneratedText } from './normalize-generated-text.mjs';
 
 const SCHEMA_DIR = fileURLToPath(new URL('../src/contract/schema/', import.meta.url));
 const OUTPUT_PATH = fileURLToPath(new URL('../src/contract/types/index.d.ts', import.meta.url));
@@ -84,13 +85,13 @@ export async function generateContractTypes() {
     seen.add(name);
     return true;
   });
-  return `${BANNER}\n\n${deduped.join('\n').trim()}\n`;
+  return normalizeGeneratedText(`${BANNER}\n\n${deduped.join('\n').trim()}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const types = await generateContractTypes();
   if (process.argv.includes('--check')) {
-    const committed = await readFile(OUTPUT_PATH, 'utf8');
+    const committed = normalizeGeneratedText(await readFile(OUTPUT_PATH, 'utf8'));
     if (committed !== types) {
       throw new Error('Generated contract types are out of date. Run `npm run types`.');
     }

@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { normalizeGeneratedText } from '../../scripts/normalize-generated-text.mjs';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
@@ -77,6 +78,10 @@ describe('the package surface', () => {
 });
 
 describe('the generated contract types', () => {
+  it('normalises platform line endings before checking generated source', () => {
+    expect(normalizeGeneratedText('first\r\nsecond\rthird\n')).toBe('first\nsecond\nthird\n');
+  });
+
   it('match the schemas they are generated from', () => {
     // Run the generator under Node itself instead of loading its CommonJS toolchain through
     // Vitest's transformer. Besides matching how contributors invoke it, this keeps collection

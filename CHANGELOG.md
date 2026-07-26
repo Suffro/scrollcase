@@ -60,8 +60,8 @@ namespaces are configurable, and the tool carries no consumer's name.
   undeclared dependency on the host's `tar` executable.
 - Pin managed toolchains to conda-pack 0.9.2 and use locale-independent ordering for every file and
   licence record that can affect deterministic archive bytes.
-- Keep generated-type drift checks portable on Windows by running the generator under Node rather
-  than through the test transform.
+- Keep generated-type drift checks portable on Windows by running the generator under Node and
+  normalising checkout-dependent CRLF/LF line endings before comparison.
 - Pin a newly scaffolded recipe when the requested pixi is already available, and install the
   requested resolver when a different pixi version is present.
 - Preserve quoted external-signer arguments, including empty values and paths containing spaces or
