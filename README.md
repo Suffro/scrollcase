@@ -1,16 +1,11 @@
 
-<div align="center">
+<div align="center" style="margin-bottom: -10px;">
   <a href="https://scrollcase.dev" target="_blank">
     <img src="docs/public/static/svg/logo-color.svg" alt="Scrollcase logo" width="60">
   </a>
-  <p style="font-size: 48px; font-weight: 600; margin-bottom: 5px;">
-    Scrollcase
-  </p>
 </div>
 
----
-
-<br>
+<h1 align="center">Scrollcase</h1>
 
   [![CI](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Suffro/scrollcase/actions/workflows/ci.yml)
 
