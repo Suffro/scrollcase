@@ -12,7 +12,7 @@ It is built on exactly one substrate: [pixi](https://pixi.sh) solves a committed
 against [conda-forge](https://conda-forge.org), [conda-pack](https://conda.github.io/conda-pack/)
 relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 
-> You can find the official documentation [here](https://scrollcase.dev).
+> You can find the official documentation [here](https://scrollcase.dev/getting-started/overview).
 
 ## What you get
 
