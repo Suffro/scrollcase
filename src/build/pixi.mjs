@@ -156,17 +156,24 @@ export function findCondaPack({ path = null, runResult = defaultRunResult } = {}
 }
 
 /**
- * The only fields a box keeps from conda's per-package records: what the package is, what it needs,
- * and what it is licensed under. Everything else is dropped.
+ * The only fields a box keeps from conda's per-package records: which exact binary this is, and
+ * what it is licensed under. Everything else is dropped.
+ *
+ * `build` earns its place because name and version do not identify a conda binary — one version is
+ * published in many builds, and a CPU and a CUDA build of the same library can differ in nothing
+ * else. All four are properties of the package as published rather than of the install that placed
+ * it, which is what makes them stable across rebuilds: `license` here was measured equal to the
+ * lock's declared licence for every package, and the lock is already the source the shipped licence
+ * inventory is derived from. A package declaring no licence simply has no such field, which is
+ * equally a property of the package and not of the run.
+ *
+ * The dependency graph is deliberately not here: nothing resolves dependencies inside a box, and
+ * the lock records them where they can actually be acted on.
  */
 const CONDA_RECORD_FIELDS = Object.freeze([
   'name',
   'version',
   'build',
-  'build_number',
-  'subdir',
-  'depends',
-  'constrains',
   'license',
 ]);
 

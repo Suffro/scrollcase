@@ -11,6 +11,7 @@
   "compatibility": { "minHostAppVersion": "1.0.0", "minMacosVersion": "13.0", "minRamGb": 1 },
   "pythonVersion": "3.11",
   "pixiVersion": "0.73.0",
+  "condaDependencyLicenseAudit": "examples/hello-box-macos-arm64-metal/conda-licenses.json",
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/hello",
   "assetBaseUrl": "https://assets.example.org/boxes",

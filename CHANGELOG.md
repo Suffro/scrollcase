@@ -4,17 +4,17 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] — 2026-07-27
 
 ### Fixed
 
-- Ship conda's per-package records reduced to what the package *is* — name, version, build,
-  build number, subdir, dependencies, licence — and drop `conda-meta/history` entirely. As written
-  by the installer those records varied between two installs of the identical lock (a per-file
-  `sha256_in_prefix` recorded on one run and not the next), so rebuilding a commit produced a
-  different archive hash and no third party could reproduce a box to check it. They also carried the
-  build machine's package-cache paths in `extracted_package_dir` and `link`: on a minimal `python`
-  environment, fourteen files inside the box named the builder's home directory. The kept fields are
+- Ship conda's per-package records reduced to which binary it is and how it is licensed — name,
+  version, build, licence — and drop `conda-meta/history` entirely. As written by the installer
+  those records varied between two installs of the identical lock (a per-file `sha256_in_prefix`
+  recorded on one run and not the next), so rebuilding a commit produced a different archive hash
+  and no third party could reproduce a box to check it. They also carried the build machine's
+  package-cache paths in `extracted_package_dir` and `link`: on a minimal `python` environment,
+  fourteen files inside the box named the builder's home directory. The kept fields are
   copied verbatim and chosen by allowlist, so a field a later pixi starts writing cannot reintroduce
   either problem. Nothing in a box reads these records — conda is never shipped inside one, and
   package versions stay readable from `site-packages`.
@@ -27,6 +27,12 @@ All notable changes to Scrollcase are documented here. The format follows
   all. Links are now created in a second pass, once every regular entry is on disk and nothing can
   be written through one; targets are still resolved afterwards, and a link that dangles or leaves
   the tree is still dropped rather than pulling a host file into the box.
+
+### Changed
+
+- The bundled example recipe declares `condaDependencyLicenseAudit`, so a box built by following
+  the quickstart ships the dependency licence inventory rather than silently omitting it. The
+  reviewed inventory is committed beside the recipe.
 
 ## [0.1.2] — 2026-07-26
 

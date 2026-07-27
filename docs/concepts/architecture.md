@@ -128,10 +128,10 @@ Instead, four repairs happen at build time:
    instance) unpacks like any other.
 3. Generated console scripts, whose shebangs embed the build interpreter's absolute path, are
    rewritten to resolve Python next to themselves.
-4. conda's per-package records in `conda-meta/` are reduced to name, version, build, build number,
-   subdir, dependencies and licence, and its `history` log is dropped. As the installer writes them
-   those records name the build machine's package cache and vary between two installs of the same
-   lock, which would leak a developer's paths and break the byte-identical rebuild. The kept fields
+4. conda's per-package records in `conda-meta/` are reduced to name, version, build and licence,
+   and its `history` log is dropped. As the installer writes them, those records name the build
+   machine's package cache and vary between two installs of the same lock, which would leak a
+   developer's paths and break the byte-identical rebuild. The kept fields
    are copied verbatim and chosen by allowlist, so a field a later pixi starts writing cannot
    reintroduce either problem. Nothing in a box reads them — conda is never shipped inside one, and
    package versions stay readable from `site-packages`.

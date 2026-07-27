@@ -340,9 +340,6 @@ describe('the build pipeline', () => {
       name: 'bzip2',
       version: '1.0.8',
       build: 'hd037594_9',
-      build_number: 9,
-      subdir: 'osx-arm64',
-      depends: ['__osx >=11.0', 'libzlib >=1.3.2,<2.0a0'],
       license: 'bzip2-1.0.6',
     });
     // conda's own log is not a record and is dropped whole.
