@@ -117,14 +117,24 @@ to users — measured on a probe environment, zero files carried the build prefi
 and thirty-six after — leaking a developer's directory layout while still being wrong at the
 user's install location.
 
-Instead, three repairs happen at build time:
+Instead, four repairs happen at build time:
 
 1. The few service files that carry the build prefix are removed
    (`conda-meta/pixi_env_prefix`, `bin/conda-unpack`, and friends).
 2. Every symlink is dereferenced, so the payload contains only regular files and directories — a
    link that dangles or escapes the prefix is dropped rather than pulling host files into the box.
+   Links are recreated only after every regular entry is on disk, so no file content is ever written
+   through one; a prefix whose links chain through other links (icu's `current` directory, for
+   instance) unpacks like any other.
 3. Generated console scripts, whose shebangs embed the build interpreter's absolute path, are
    rewritten to resolve Python next to themselves.
+4. conda's per-package records in `conda-meta/` are reduced to name, version, build, build number,
+   subdir, dependencies and licence, and its `history` log is dropped. As the installer writes them
+   those records name the build machine's package cache and vary between two installs of the same
+   lock, which would leak a developer's paths and break the byte-identical rebuild. The kept fields
+   are copied verbatim and chosen by allowlist, so a field a later pixi starts writing cannot
+   reintroduce either problem. Nothing in a box reads them — conda is never shipped inside one, and
+   package versions stay readable from `site-packages`.
 
 ### Signed
 

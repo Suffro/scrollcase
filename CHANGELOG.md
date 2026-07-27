@@ -4,6 +4,30 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Ship conda's per-package records reduced to what the package *is* — name, version, build,
+  build number, subdir, dependencies, licence — and drop `conda-meta/history` entirely. As written
+  by the installer those records varied between two installs of the identical lock (a per-file
+  `sha256_in_prefix` recorded on one run and not the next), so rebuilding a commit produced a
+  different archive hash and no third party could reproduce a box to check it. They also carried the
+  build machine's package-cache paths in `extracted_package_dir` and `link`: on a minimal `python`
+  environment, fourteen files inside the box named the builder's home directory. The kept fields are
+  copied verbatim and chosen by allowlist, so a field a later pixi starts writing cannot reintroduce
+  either problem. Nothing in a box reads these records — conda is never shipped inside one, and
+  package versions stay readable from `site-packages`.
+
+- Unpack a packed environment whose symlinks chain through other symlinks. The extractor refuses to
+  create a link whose target passes through another one — a defence against writing file content
+  through a link — and conda-forge now ships exactly that shape in a plain `python` environment
+  (`libsqlite` 3.53.4 pulls in `icu`, which lays out `current -> <version>` and then
+  `pkgdata.inc -> current/pkgdata.inc`). Any recipe locked after that release failed to build at
+  all. Links are now created in a second pass, once every regular entry is on disk and nothing can
+  be written through one; targets are still resolved afterwards, and a link that dangles or leaves
+  the tree is still dropped rather than pulling a host file into the box.
+
 ## [0.1.2] — 2026-07-26
 
 ### Fixed

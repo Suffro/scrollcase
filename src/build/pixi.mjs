@@ -14,9 +14,10 @@
  */
 
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, stat } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { chmod, copyFile, cp, mkdir, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import * as tar from 'tar';
+import { compareStableStrings, safeRelativePath } from './filesystem.mjs';
 import { fail, runResult as defaultRunResult } from './process.mjs';
 import { repairPosixLaunchers } from './launchers.mjs';
 import { CONDA_PACK_VERSION, toolchainPaths } from './toolchain.mjs';
@@ -155,6 +156,60 @@ export function findCondaPack({ path = null, runResult = defaultRunResult } = {}
 }
 
 /**
+ * The only fields a box keeps from conda's per-package records: what the package is, what it needs,
+ * and what it is licensed under. Everything else is dropped.
+ */
+const CONDA_RECORD_FIELDS = Object.freeze([
+  'name',
+  'version',
+  'build',
+  'build_number',
+  'subdir',
+  'depends',
+  'constrains',
+  'license',
+]);
+
+/**
+ * Rewrites `conda-meta/` into a canonical, build-independent form.
+ *
+ * These records are written by the installer, not by the package, and two installs of the identical
+ * lock do not produce identical ones: a per-file `sha256_in_prefix` is recorded on one run and not
+ * the next. They also carry absolute paths into the build machine's package cache. The first breaks
+ * the promise the whole trust chain rests on — rebuild a commit, get the same bytes — and the second
+ * ships a developer's directory layout to users, which is the very leak conda-unpack is refused
+ * over. Anything that is not a record (conda's `history` log) goes entirely.
+ *
+ * Nothing in a box reads any of this: conda is never shipped inside one, and package versions stay
+ * readable from `site-packages` where a Python tool actually looks. So the kept fields are copied
+ * verbatim and the rule is an allowlist rather than a list of known-volatile fields — deliberately,
+ * because a field pixi starts writing in a later release then cannot reintroduce the drift. It was
+ * never eligible to be written in the first place.
+ */
+async function canonicalizeCondaRecords(venvDir) {
+  const metaDir = join(venvDir, 'conda-meta');
+  if (!existsSync(metaDir)) return;
+  for (const entry of (await readdir(metaDir)).sort(compareStableStrings)) {
+    const entryPath = join(metaDir, entry);
+    if (!entry.endsWith('.json')) {
+      await rm(entryPath, { recursive: true, force: true });
+      continue;
+    }
+    let record;
+    try {
+      record = JSON.parse(await readFile(entryPath, 'utf8'));
+    } catch (error) {
+      return fail(`Unreadable conda package record ${entry}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const canonical = {};
+    for (const field of CONDA_RECORD_FIELDS) {
+      if (record[field] !== undefined) canonical[field] = record[field];
+    }
+    await writeFile(entryPath, `${JSON.stringify(canonical, null, 2)}\n`);
+  }
+}
+
+/**
  * Replaces every symbolic link under `root` with the real content it points to, so the payload
  * contains only regular files and directories.
  *
@@ -259,13 +314,42 @@ export async function installAndPackPixiEnvironment({
   // rather than a host `tar`: builds then have exactly the dependencies `doctor` reports, and the
   // archive behaves the same on macOS, Linux and Windows. Symlinks are expected in a conda prefix
   // and are deliberately handled by dereferenceSymlinksInPlace immediately below.
+  //
+  // They cannot, however, be created *during* extraction. The extractor refuses a link whose target
+  // leaves the tree, and refuses one whose target passes through another link — both are defences
+  // against writing file content through a link, and neither is negotiable. A conda prefix trips
+  // the second routinely: icu ships `current -> <version>` and then `pkgdata.inc ->
+  // current/pkgdata.inc`, which arrives in a plain `python` environment that never asked for icu,
+  // and made the whole box unbuildable.
+  //
+  // So links are extracted in a second pass, once every regular entry is already on disk and there
+  // is nothing left that could be written through one. Creating a link is not traversing it: the
+  // targets are resolved and checked immediately below, where anything leaving the tree is dropped.
+  const deferredLinks = [];
   await tar.x({
     file: packPath,
     cwd: venvDir,
     gzip: true,
     preservePaths: false,
     strict: true,
+    filter: (entryPath, entry) => {
+      if (entry.type !== 'SymbolicLink') return true;
+      deferredLinks.push({ path: safeRelativePath(entryPath), target: String(entry.linkpath) });
+      return false;
+    },
   });
+  // Sorted so the tree is built the same way whatever order the tar happened to list them in.
+  for (const link of deferredLinks.sort((left, right) => compareStableStrings(left.path, right.path))) {
+    const linkPath = join(venvDir, ...link.path.split('/'));
+    // A regular entry already holding the path wins: content beats an alias to it.
+    if (existsSync(linkPath)) continue;
+    await mkdir(dirname(linkPath), { recursive: true });
+    // The type argument is inert on POSIX and decides junction-vs-file on Windows, where a conda
+    // prefix carries no links at all — so a target that is not yet a directory is simply a file.
+    const resolved = resolve(dirname(linkPath), link.target);
+    const type = existsSync(resolved) && (await stat(resolved)).isDirectory() ? 'dir' : 'file';
+    await symlink(link.target, linkPath, type);
+  }
 
   const interpreter = join(payloadDir, ...adapter.python.entryPoint.split('/'));
   // Deliberately do NOT run conda-unpack. conda-pack already replaces the build prefix with a
@@ -283,6 +367,8 @@ export async function installAndPackPixiEnvironment({
   ]) {
     await rm(join(venvDir, ...servicePath), { force: true });
   }
+  // The rest of conda-meta carries the same two problems in a less obvious form; see above.
+  await canonicalizeCondaRecords(venvDir);
   // Order matters: dereference first, because the launcher repair walks the tree with collectFiles,
   // which rejects symbolic links outright (venv/bin ships aliases such as `2to3`).
   await dereferenceSymlinksInPlace(venvDir);

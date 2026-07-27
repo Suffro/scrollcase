@@ -1,12 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
-import { fileExists } from '../../src/build/filesystem.mjs';
+import { listZipEntries } from '../../src/build/archive.mjs';
+import { collectFiles, fileExists } from '../../src/build/filesystem.mjs';
 import { readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
 import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
@@ -49,6 +50,56 @@ function writeDeep(path, contents) {
 }
 
 /**
+ * One of conda's per-package records, as the installer writes it.
+ *
+ * Three of these fields are why the payload cannot ship the record as found: `sha256_in_prefix`
+ * appears on some installs of the identical lock and not others, the two `*_dir`/`*_path` fields
+ * name the build machine's package cache, and `future_pixi_field` stands in for whatever a later
+ * release starts writing — the case an allowlist has to survive and a denylist cannot.
+ */
+const CONDA_RECORD = {
+  name: 'bzip2',
+  version: '1.0.8',
+  build: 'hd037594_9',
+  build_number: 9,
+  subdir: 'osx-arm64',
+  depends: ['__osx >=11.0', 'libzlib >=1.3.2,<2.0a0'],
+  license: 'bzip2-1.0.6',
+  md5: '0f51e2391ade309db462a55611263e9c',
+  timestamp: 1739822400000,
+  extracted_package_dir: '/Users/somebody/.cache/rattler/pkgs/bzip2-1.0.8-hd037594_9',
+  package_tarball_full_path: '/Users/somebody/.cache/rattler/pkgs/bzip2-1.0.8-hd037594_9.conda',
+  paths_data: {
+    paths: [{
+      _path: 'bin/bzip2',
+      path_type: 'hardlink',
+      sha256: 'd5e2951edcc0388feda0726ee69b5ac079bf91e4bc79ce095b34a56b38db29b7',
+      sha256_in_prefix: 'd5e2951edcc0388feda0726ee69b5ac079bf91e4bc79ce095b34a56b38db29b7',
+    }],
+  },
+  future_pixi_field: { recorded: 'by a version of pixi that does not exist yet' },
+};
+
+/**
+ * Plants the symlink shapes a real conda prefix carries, which a stub made only of regular files
+ * would never exercise.
+ *
+ * The chain is icu's, verbatim: `current` points at the versioned directory, and `pkgdata.inc`
+ * points *through* it. Extraction refuses to write through a link by default, so a prefix
+ * containing this shape failed to unpack at all — and conda-forge started shipping it in a plain
+ * `python` environment, where nothing in the recipe asks for icu.
+ *
+ * The escaping link is here to keep the fix honest: leaving the tree must still drop the link
+ * rather than pull a host file into the box.
+ */
+function plantPrefixSymlinks(prefix) {
+  writeDeep(join(prefix, 'lib', 'icu', '78.3', 'pkgdata.inc'), 'PKGDATA\n');
+  symlinkSync('78.3', join(prefix, 'lib', 'icu', 'current'), 'dir');
+  symlinkSync(join('current', 'pkgdata.inc'), join(prefix, 'lib', 'icu', 'pkgdata.inc'));
+  symlinkSync(join('..', '..', '..', '..', 'outside-the-box.txt'), join(prefix, 'lib', 'icu', 'escaped.inc'));
+}
+
+/**
  * Stands in for pixi and conda-pack.
  *
  * Solving the environment is the one step that needs real external tools and a network, so it is
@@ -62,7 +113,10 @@ function fakeToolchain(payloadDir) {
       const manifest = args[args.indexOf('--manifest-path') + 1];
       const prefix = join(dirname(manifest), '.pixi', 'envs', 'default');
       writeDeep(join(prefix, ...ENTRY_SEGMENTS.slice(1)), '#!/bin/sh\nexit 0\n');
-      writeDeep(join(prefix, 'conda-meta', 'history'), '');
+      writeDeep(join(prefix, 'conda-meta', 'history'), '==> 2026-07-27 05:29:00 <==\n');
+      writeDeep(join(prefix, 'conda-meta', 'bzip2-1.0.8-hd037594_9.json'),
+        `${JSON.stringify(CONDA_RECORD, null, 2)}\n`);
+      plantPrefixSymlinks(prefix);
       return '';
     }
     if (command === 'conda-pack') {
@@ -71,6 +125,9 @@ function fakeToolchain(payloadDir) {
       const output = args[args.indexOf('-o') + 1];
       expect(output).toMatch(/pixi-env\.tar\.gz$/);
       const prefix = args[args.indexOf('-p') + 1];
+      // The file the escaping link in the packed prefix points at. It exists, so a link that got
+      // followed would copy a build-machine file into the box rather than merely dangle.
+      writeDeep(join(dirname(output), 'outside-the-box.txt'), 'HOST SECRET\n');
       tar.c({ file: output, cwd: prefix, gzip: true, sync: true }, ['.']);
       return '';
     }
@@ -250,6 +307,54 @@ describe('the build pipeline', () => {
     expect(receipt.status).toBe('passed');
     expect(receipt.localSignatureVerified).toBe(true);
     expect(receipt.archiveSha256).toBe(built.archiveSha256);
+  });
+
+  it('materialises a chained prefix symlink, and still refuses one that leaves the tree', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+
+    // `pkgdata.inc -> current/pkgdata.inc -> 78.3/pkgdata.inc`: both hops resolved, real content.
+    const icu = join(payloadDir, 'venv', 'lib', 'icu');
+    expect(await readFile(join(icu, 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
+    expect(await readFile(join(icu, 'current', 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
+    // Nothing that is still a link may reach the archive, which rejects them outright.
+    expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(false);
+    expect((await lstat(join(icu, 'current'))).isDirectory()).toBe(true);
+
+    // The escaping link is dropped, and the host file it pointed at neither moves nor ships.
+    expect(await fileExists(join(icu, 'escaped.inc'))).toBe(false);
+    const entries = await listZipEntries(built.archivePath);
+    expect(entries.some((entry) => entry.path.endsWith('outside-the-box.txt'))).toBe(false);
+    expect(entries.some((entry) => entry.path === 'venv/lib/icu/pkgdata.inc')).toBe(true);
+  });
+
+  it('ships conda records reduced to identity, and nothing an install or a machine varies', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+
+    const metaDir = join(payloadDir, 'venv', 'conda-meta');
+    const record = JSON.parse(await readFile(join(metaDir, 'bzip2-1.0.8-hd037594_9.json'), 'utf8'));
+    // What the package is, taken verbatim — and nothing else, including a field invented here to
+    // stand for one a later pixi might write.
+    expect(record).toEqual({
+      name: 'bzip2',
+      version: '1.0.8',
+      build: 'hd037594_9',
+      build_number: 9,
+      subdir: 'osx-arm64',
+      depends: ['__osx >=11.0', 'libzlib >=1.3.2,<2.0a0'],
+      license: 'bzip2-1.0.6',
+    });
+    // conda's own log is not a record and is dropped whole.
+    expect(await fileExists(join(metaDir, 'history'))).toBe(false);
+
+    // And nothing naming the build machine, or varying with the install, survives anywhere in the
+    // payload — searched across every file rather than only the record it came from.
+    const contents = await Promise.all((await collectFiles(payloadDir))
+      .map((file) => readFile(join(payloadDir, ...file.split('/')), 'utf8').catch(() => '')));
+    expect(contents.filter((text) => text.includes('/Users/somebody'))).toEqual([]);
+    expect(contents.filter((text) => text.includes('sha256_in_prefix'))).toEqual([]);
+    expect(built.installedSizeBytes).toBeGreaterThan(0);
   });
 
   it('produces a byte-identical archive when the same commit is rebuilt', async () => {
