@@ -1,13 +1,9 @@
 
 <p align="center">
-  <a align="center" href="https://scrollcase.dev" target="_blank">
-    <img src="https://scrollcase.dev/static/png/labeled/neutral-colored.png" alt="Scrollcase logo" width="220">
-  </a>
+  <img src="https://scrollcase.dev/static/png/labeled/neutral-colored.png" alt="Scrollcase logo" width="220">
 </p>
 
----
-
-Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
+[**Scrollcase**](https://scrollcase.dev) turns a declarative **recipe** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
 than where it was built, signed so a consumer can prove what they received, and accompanied by a
 dependency licence inventory.
