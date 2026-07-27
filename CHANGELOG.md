@@ -34,6 +34,13 @@ All notable changes to Scrollcase are documented here. The format follows
   the quickstart ships the dependency licence inventory rather than silently omitting it. The
   reviewed inventory is committed beside the recipe.
 
+### Removed
+
+- Google Analytics, the third-party sharing widget, and the consent banner are gone from the
+  documentation site, which now sets no cookies and loads no third-party script. The banner told
+  readers the site used only essential cookies while both trackers loaded ahead of it. The privacy
+  page states the new position, and a test fails if any script tag returns to the site config.
+
 ## [0.1.2] — 2026-07-26
 
 ### Fixed

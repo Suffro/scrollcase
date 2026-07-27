@@ -33,14 +33,9 @@ export default defineConfig({
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-dark.svg', media: '(prefers-color-scheme: light)' }],
     // ['link', { rel: 'icon', type: 'image/svg+xml', href: '/static/svg/logo-light.svg', media: '(prefers-color-scheme: dark)' }]
 
-    ['script', { src: "https://platform-api.sharethis.com/js/sharethis.js", async: "true" }],
-    ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-QY4HT9GE1P' }],
-    ['script', {}, `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-QY4HT9GE1P');
-    `],
+    // No third-party scripts. The site set analytics and sharing cookies while telling readers it
+    // used only essential ones, and loaded them before the notice could be read. Measurement, if
+    // wanted, belongs at the edge where it needs no cookie and no consent dialogue.
   ],
 
   themeConfig: {

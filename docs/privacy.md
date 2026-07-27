@@ -9,26 +9,23 @@ This page describes the data handling of the public documentation site at
 `scrollcase.dev`. It does not describe boxes built with Scrollcase or the policies of projects that
 distribute them.
 
-## Analytics
+## Analytics and cookies
 
-The site loads Google Analytics to understand simple aggregate page use,
-navigation, device class, and site reliability. Analytics is provided by Google; data processed by
-that service is subject to the [Google Privacy Policy](https://policies.google.com/privacy) and the
-retention settings of the Scrollcase Analytics property.
+The site sets no cookies and loads no third-party scripts. There is no analytics tag, no sharing
+widget, and nothing that identifies a reader across pages or across visits. This is why the site
+asks for no consent: there is nothing to consent to.
 
-The acknowledgement in the privacy banner is stored in the browser under
-`scrollcase-cookie-consent-v1`. It prevents the notice from appearing again after acknowledgement.
-It is not a preference switch for analytics.
-
-To remove the acknowledgement, clear site data for `scrollcase.dev`. To prevent analytics
-requests, use the tracking-protection or site-data controls provided by your browser. These choices
-do not affect access to the documentation.
+Earlier versions of this site loaded Google Analytics and a third-party sharing widget behind a
+notice that described them as essential cookies. Both have been removed.
 
 ## Hosting and request logs
 
-The documentation is hosted on Cloudflare. Like other web hosts, Cloudflare may process request
-metadata needed to deliver and protect the site. See the
-[Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/) for its processing terms.
+The documentation is hosted on Cloudflare. Like any web host, Cloudflare processes the request
+metadata needed to deliver and protect the site — including the requesting IP address — under its
+own terms. See the [Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/).
+
+If aggregate traffic measurement is added later it will be a cookieless, edge-side count that
+identifies no individual reader, and this page will say so before it ships.
 
 ## Contact and changes
 

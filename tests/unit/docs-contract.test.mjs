@@ -47,9 +47,24 @@ describe('public documentation routes', () => {
     }
   });
 
-  it('has a real privacy page behind the banner link', async () => {
+  it('has a real privacy page, reachable from every page', async () => {
     await expect(readFile(join(root, 'docs', 'privacy.md'), 'utf8'))
       .resolves.toMatch(/^---[\s\S]*title:\s*Privacy/m);
+    // The footer is the only thing linking it now that the consent banner is gone.
+    const config = await readFile(join(root, 'docs', '.vitepress', 'config.mts'), 'utf8');
+    expect(config).toMatch(/href="\/privacy"/);
+  });
+
+  it('loads no third-party script, which is what lets the site ask for no consent', async () => {
+    // The privacy page promises no cookies and no third-party code. A tag pasted back into the
+    // head — an analytics snippet, a sharing widget — would make that page a false statement
+    // before anyone noticed, so the promise is asserted rather than trusted.
+    const config = await readFile(join(root, 'docs', '.vitepress', 'config.mts'), 'utf8');
+    const scripts = [...config.matchAll(/\[\s*'script'\s*,[\s\S]*?\]/g)].map((match) => match[0]);
+    expect(scripts).toEqual([]);
+    for (const forbidden of ['googletagmanager', 'google-analytics', 'gtag(', 'sharethis']) {
+      expect(config.toLowerCase()).not.toContain(forbidden.toLowerCase());
+    }
   });
 
   it('keeps CLI verbs and help options discoverable in the CLI reference', async () => {
@@ -100,7 +115,6 @@ describe('public documentation routes', () => {
     const sources = await Promise.all([
       readFile(join(root, 'docs', '.vitepress', 'config.mts'), 'utf8'),
       readFile(join(root, 'docs', '.vitepress', 'theme', 'HomePage.vue'), 'utf8'),
-      readFile(join(root, 'docs', '.vitepress', 'theme', 'CookieBanner.vue'), 'utf8'),
     ]);
     const routes = new Set();
     for (const source of sources) {
