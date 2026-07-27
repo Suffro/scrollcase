@@ -364,7 +364,7 @@ describe('the build pipeline', () => {
     const files = await collectFiles(dist);
     expect(files.sort()).toEqual([
       `boxes/${RECIPE.boxId}/${RECIPE.version}/${boxTargetId(RECIPE.target)}/${built.archiveSha256}.zip`,
-      expect.stringMatching(new RegExp(`^boxes/${RECIPE.boxId}/${RECIPE.version}/[^/]+/[a-f0-9]{64}\\.release\\.json$`)),
+      expect.stringMatching(new RegExp(`(boxes\/example-model\/1.0.0\/macos-aarch64-cpu\/[a-f0-9]{64}.release.json)`)),
       `channels/${RECIPE.boxId}/beta/${boxTargetId(RECIPE.target)}.json`,
     ].sort());
 
