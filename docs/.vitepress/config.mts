@@ -64,8 +64,10 @@ export default defineConfig({
         text: 'Getting Started',
         collapsed: false,
         items: [
+          { text: 'Overview', link: '/getting-started/overview.md' },
+          { text: 'Quickstart', link: '/getting-started/quickstart' },
           { text: 'Installation', link: '/getting-started/installation' },
-          { text: 'Quickstart', link: '/getting-started/quickstart' }
+          { text: 'TL;DR', link: '/getting-started/tl-dr.md' }
         ]
       },
       {

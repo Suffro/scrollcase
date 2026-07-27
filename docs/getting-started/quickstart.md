@@ -21,7 +21,22 @@ mkdir my-boxes && cd my-boxes
 git init
 ```
 
-## 2. `init` — scaffold the project
+## 2. Install the CLI
+
+```sh
+npm install -g scrollcase
+```
+
+Check the install:
+
+```sh
+scrollcase help
+```
+
+For more details check the [installation page](/getting-started/installation).
+
+
+## 3. `init` — scaffold the project
 
 ```sh
 scrollcase init
@@ -52,7 +67,7 @@ way `init` never downloads anything you did not agree to, which is what makes it
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
 
-## 3. `doctor` — check the machine
+## 4. `doctor` — check the machine
 
 ```sh
 scrollcase doctor --recipe example-box-macos-aarch64-metal
@@ -67,7 +82,7 @@ The recipe name on the command line is the name of its directory under `recipes/
 printed on your machine throughout.
 :::
 
-## 4. `lock` — resolve dependencies, once
+## 5. `lock` — resolve dependencies, once
 
 ```sh
 scrollcase lock example-box-macos-aarch64-metal
@@ -85,7 +100,7 @@ git add . && git commit -m "Example box recipe and lock"
 Committing now also matters for the next steps: `build` refuses a dirty tree without
 `--allow-dirty`, because an artefact built from uncommitted changes is reproducible by nobody.
 
-## 5. `keygen` — create a signing key
+## 6. `keygen` — create a signing key
 
 ```sh
 scrollcase keygen
@@ -96,7 +111,7 @@ permissions) and the matching public key file (`signing-public.json`). Every doc
 emits is signed; `verify` checks signatures against the public key file. For production custody —
 a KMS, an HSM — see [Signing & Key Custody](/guides/signing-and-custody).
 
-## 6. `build` — install, self-test, archive, sign
+## 7. `build` — install, self-test, archive, sign
 
 ```sh
 scrollcase build example-box-macos-aarch64-metal
@@ -117,7 +132,7 @@ timestamps, zip deterministically, and sign. The result lands in `.scrollcase/di
 Rebuilding the same commit produces a byte-identical archive — see
 [Architecture](/concepts/architecture#determinism) for what makes that true.
 
-## 7. `verify` — prove what you built
+## 8. `verify` — prove what you built
 
 ```sh
 scrollcase verify .scrollcase/dist/example-box-1.0.0-macos-aarch64-metal.release.json --self-test
