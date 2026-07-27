@@ -16,12 +16,12 @@
  */
 
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { assertNativeHost, boxTargetId } from '../contract/targets.mjs';
 import { documentKinds } from '../contract/documents.mjs';
 import { signDocument } from '../sign/index.mjs';
-import { copyVerifiedLocalFile, downloadVerified, expandAssetArchive, linkOrCopyFile } from './assets.mjs';
+import { copyVerifiedLocalFile, downloadVerified, expandAssetArchive, moveIntoPlace } from './assets.mjs';
 import { createDeterministicZip } from './archive.mjs';
 import { fileExists, normalizeTree, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
 import { boxReleaseObjectPrefix, boxReleaseStem, builderVersionFields } from './identity.mjs';
@@ -118,13 +118,17 @@ export async function buildBox(name, options = {}) {
 
   const buildDir = join(workspace.buildDir, recipe.recipeId);
   const payloadDir = join(buildDir, 'payload');
-  const stem = boxReleaseStem(recipe);
-  const archivePath = join(workspace.distDir, `${stem}.zip`);
+  // `dist` is laid out as the two things a publisher does with it, and nothing else. `boxes/` is
+  // the tree that goes under the asset base URL verbatim — the same prefix the signed documents
+  // write into their own URLs, so uploading it is a copy rather than a mapping. `channels/` is
+  // separate because a channel is not part of any one version: it is a pointer that moves to the
+  // next one, and filing it under 1.0.0 would leave a stale copy claiming to be current the moment
+  // 1.0.1 ships. Nothing is written twice: what is on disk here is what gets published.
   const objectPrefix = boxReleaseObjectPrefix(recipe);
-  const objectDir = join(workspace.distDir, 'objects', objectPrefix);
+  const objectDir = join(workspace.distDir, ...objectPrefix.split('/'));
+  const archivePath = join(buildDir, `${boxReleaseStem(recipe)}.zip`);
   // Always start from an empty tree: leftovers from a previous build would end up in the archive.
   await rm(buildDir, { recursive: true, force: true });
-  await rm(archivePath, { force: true });
   await rm(objectDir, { recursive: true, force: true });
   await mkdir(payloadDir, { recursive: true });
 
@@ -258,12 +262,13 @@ export async function buildBox(name, options = {}) {
     ...deferred,
     provenance,
   };
-  const releasePath = join(workspace.distDir, `${stem}.release.json`);
-  await writeFile(releasePath, `${JSON.stringify(await signDocument(release, signing), null, 2)}\n`);
+  // Written beside the archive, under the same scratch rule: named for its own hash once it has one.
+  const stagedReleasePath = join(buildDir, 'release.json');
+  await writeFile(stagedReleasePath, `${JSON.stringify(await signDocument(release, signing), null, 2)}\n`);
 
   // The channel points at the release document by *its* hash too, so the whole chain is
   // content-addressed: channel -> release document -> archive.
-  const releaseDocumentSha = await sha256File(releasePath);
+  const releaseDocumentSha = await sha256File(stagedReleasePath);
   const channelDocument = {
     schemaVersion: 1,
     kind: kinds.channel,
@@ -282,16 +287,33 @@ export async function buildBox(name, options = {}) {
       rolloutPercentage: 100,
     }],
   };
-  const channelPath = join(workspace.distDir, `${recipe.boxId}-${channel}-${boxTargetId(recipe.target)}.channel.json`);
+  // One file per channel per target, filed by channel rather than by version: it is a pointer, and
+  // the next release moves it rather than adding a second one.
+  const channelDir = join(workspace.distDir, 'channels', recipe.boxId, channel);
+  const channelPath = join(channelDir, `${boxTargetId(recipe.target)}.json`);
+  await mkdir(channelDir, { recursive: true });
   await writeFile(channelPath, `${JSON.stringify(await signDocument(channelDocument, signing), null, 2)}\n`);
 
-  // A staging tree laid out exactly as a bucket would be, so whatever publishes it uses the same keys
-  // the manifests already point to.
+  // Both documents move — not copy — into the tree a publisher uploads, so the only copy that
+  // exists is the one that gets published and there is no second name for the same bytes.
   await mkdir(objectDir, { recursive: true });
-  await linkOrCopyFile(archivePath, join(objectDir, `${archiveSha}.zip`));
-  await copyFile(releasePath, join(objectDir, `${releaseDocumentSha}.release.json`));
-  log(`Built archive: ${archivePath}`);
-  log(`Signed release: ${releasePath}`);
-  log(`Signed channel: ${channelPath}`);
-  return { archivePath, releasePath, channelPath, archiveSha256: archiveSha, installedSizeBytes, weights: weightsMode, parity };
+  const publishedArchive = join(objectDir, `${archiveSha}.zip`);
+  const publishedRelease = join(objectDir, `${releaseDocumentSha}.release.json`);
+  await moveIntoPlace(archivePath, publishedArchive);
+  await moveIntoPlace(stagedReleasePath, publishedRelease);
+  log(`Box:     ${publishedArchive}`);
+  log(`Release: ${publishedRelease}`);
+  log(`Channel: ${channelPath}`);
+  log('');
+  log(`Publish: upload ${join(workspace.distDir, 'boxes')} under ${assetBaseUrl}, keeping its paths,`);
+  log('         then publish the channel document where your clients look for it.');
+  return {
+    archivePath: publishedArchive,
+    releasePath: publishedRelease,
+    channelPath,
+    archiveSha256: archiveSha,
+    installedSizeBytes,
+    weights: weightsMode,
+    parity,
+  };
 }

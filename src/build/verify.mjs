@@ -9,6 +9,7 @@
  * The point is that a box which would fail on a user's machine fails here instead.
  */
 
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -71,8 +72,14 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   const adapter = boxTargetAdapter(release.target);
   assertPythonEntryPoint(adapter, release.pythonEntryPoint);
 
-  // By convention the archive sits next to its release document under the shared stem.
-  const archivePath = resolve(archiveOverride || join(dirname(releasePath), `${boxReleaseStem(release)}.zip`));
+  // The archive sits next to its release document under the hash that document commits to — the
+  // same name it is published under, so this resolves identically against a local dist tree and a
+  // directory downloaded from a mirror. The older stem-based name is still accepted so a release
+  // built before that layout can be verified without being rebuilt.
+  const beside = (name) => join(dirname(releasePath), name);
+  const candidates = [`${release.archive.sha256}.zip`, `${boxReleaseStem(release)}.zip`].map(beside);
+  const found = archiveOverride ? resolve(archiveOverride) : candidates.find(existsSync);
+  const archivePath = found ?? candidates[0];
   if (!await fileExists(archivePath)) fail(`Archive not found: ${archivePath}`);
   if ((await stat(archivePath)).size !== release.archive.sizeBytes) fail('Archive size mismatch.');
   if (await sha256File(archivePath) !== release.archive.sha256) fail('Archive SHA-256 mismatch.');

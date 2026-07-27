@@ -8,7 +8,7 @@
  */
 
 import { createWriteStream } from 'node:fs';
-import { copyFile, link, mkdir, rename, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { extractRecipeArchive as extractArchive } from './archive.mjs';
@@ -89,13 +89,20 @@ export async function copyVerifiedLocalFile(file, payloadDir, projectRoot) {
   await copyFile(source, destination);
 }
 
-/** Stages a large immutable object without duplicating its bytes on the same filesystem. */
-export async function linkOrCopyFile(source, destination) {
+/**
+ * Moves a built file to the name it is published under, without ever leaving two copies behind.
+ *
+ * A box archive is measured in gigabytes, so this renames rather than copies: on one filesystem the
+ * bytes never move at all. The copy-and-remove fallback is for the case a project points its build
+ * and dist directories at different volumes, where rename cannot work.
+ */
+export async function moveIntoPlace(source, destination) {
   await rm(destination, { force: true });
   try {
-    await link(source, destination);
+    await rename(source, destination);
   } catch {
     await copyFile(source, destination);
+    await rm(source, { force: true });
   }
 }
 

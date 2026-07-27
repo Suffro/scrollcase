@@ -20,18 +20,21 @@ of these features was left out deliberately, not overlooked. The reasoning is re
 
 ```text
 .scrollcase/dist/
-├── my-model-1.0.0-macos-aarch64-metal.zip
-├── my-model-1.0.0-macos-aarch64-metal.release.json
-├── my-model-beta-macos-aarch64-metal.channel.json
-└── objects/
-    └── boxes/my-model/1.0.0/macos-aarch64-metal/
-        ├── 7d2c9a41e8b350f6c174a9de20358bf41c6e97d05a8b3f2619e4c7081da5b3f2.zip
-        └── 4e81f0c93ab27d5e6081cf24b9a7d3e05f18c6b24a90d7e3518fc0a29b46d7e1.release.json
+├── boxes/my-model/1.0.0/macos-aarch64-metal/
+│   ├── 7d2c9a41e8b350f6c174a9de20358bf41c6e97d05a8b3f2619e4c7081da5b3f2.zip
+│   └── 4e81f0c93ab27d5e6081cf24b9a7d3e05f18c6b24a90d7e3518fc0a29b46d7e1.release.json
+└── channels/my-model/beta/macos-aarch64-metal.json
 ```
 
-The top three are the human-facing artefacts, named by identity. The `objects/` tree is the
-interesting one: **a staging tree laid out exactly as a bucket would be**, so whatever publishes
-it uses the same keys the signed manifests already point to.
+Two directories, because there are exactly two things to do with a build. **`boxes/` is uploaded
+verbatim**: it is laid out as the bucket already is, under the same keys the signed documents point
+to, so publishing is a copy rather than a mapping. **`channels/` is separate** because a channel
+belongs to a box rather than to any one version — the next release moves the pointer instead of
+adding a second one beside it, which is why filing it under `1.0.0/` would leave a stale copy
+claiming to be current.
+
+Nothing is written twice. What is on disk is what gets published, under the name it is published
+under.
 
 ## Content addressing
 
@@ -40,10 +43,10 @@ agree without any of them recording the others' paths:
 
 | Thing | Name |
 | --- | --- |
-| Stem | `<boxId>-<version>-<targetId>` |
 | Object prefix | `boxes/<boxId>/<version>/<targetId>` |
 | Archive object | `<prefix>/<archive sha256>.zip` |
 | Release object | `<prefix>/<release document sha256>.release.json` |
+| Channel pointer | `channels/<boxId>/<channel>/<targetId>.json` |
 
 The chain is content-addressed end to end: **channel → release document (by its hash) → archive
 (by its hash)**. Two consequences worth designing around:
@@ -51,10 +54,10 @@ The chain is content-addressed end to end: **channel → release document (by it
 - **Publishing is idempotent.** Re-uploading the same build writes the same keys with the same
   bytes. Combined with deterministic archives, a rebuild of the same commit is a no-op.
 - **An object can never be replaced with different bytes under the same URL.** New bytes means a
-  new hash means a new key. Serve `objects/` as immutable and cache it aggressively.
+  new hash means a new key. Serve `boxes/` as immutable and cache it aggressively.
 
 The URLs inside the signed documents are `<assetBaseUrl>/<object key>`, so pointing
-`assetBaseUrl` at wherever you serve `objects/` from is all the coordination needed.
+`assetBaseUrl` at wherever you serve `dist/boxes/` from is all the coordination needed.
 
 ## Publishing
 
@@ -62,12 +65,11 @@ Any object store or static host will do. The shape of the operation is:
 
 ```sh
 # Immutable objects — safe to cache forever.
-aws s3 sync .scrollcase/dist/objects/ s3://my-bucket/ \
+aws s3 sync .scrollcase/dist/boxes/ s3://my-bucket/boxes/ \
   --cache-control "public, max-age=31536000, immutable"
 
 # The mutable pointer — short cache, uploaded last.
-aws s3 cp .scrollcase/dist/my-model-beta-macos-aarch64-metal.channel.json \
-  s3://my-bucket/channels/my-model/beta/macos-aarch64-metal.json \
+aws s3 sync .scrollcase/dist/channels/ s3://my-bucket/channels/ \
   --cache-control "public, max-age=60"
 ```
 

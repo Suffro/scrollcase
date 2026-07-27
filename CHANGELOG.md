@@ -30,6 +30,19 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Changed
 
+- Lay `dist` out as the two things a publisher does with it: `boxes/<boxId>/<version>/<targetId>/`
+  holds the archive and release document under the hashes they are published as, and
+  `channels/<boxId>/<channel>/<targetId>.json` holds the pointer. A channel is filed by channel
+  rather than by version because it moves to the next release instead of accumulating one stale
+  copy per version. The `objects/` staging tree and the identity-named duplicates of the archive and
+  release document are gone — the build no longer writes the same bytes under two names, and
+  `dist/boxes` uploads verbatim. **`verify` resolves the archive by the hash its release document
+  commits to**, falling back to the old identity-based name so releases built before this still
+  verify.
+- `build` asks which channel and which weights mode when neither flag is given, offering `beta` and
+  `embed` as defaults. Guards are deliberately not asked about: `--allow-dirty` and `keygen --force`
+  stay explicit flags, because a question nobody reads is not a guard. With no terminal to ask, the
+  default is taken and reported.
 - The bundled example recipe declares `condaDependencyLicenseAudit`, so a box built by following
   the quickstart ships the dependency licence inventory rather than silently omitting it. The
   reviewed inventory is committed beside the recipe.

@@ -123,11 +123,14 @@ timestamps, zip deterministically, and sign. The result lands in `.scrollcase/di
 
 ```text
 .scrollcase/dist/
-├── example-box-1.0.0-macos-aarch64-metal.zip            # the box archive
-├── example-box-1.0.0-macos-aarch64-metal.release.json   # signed release document
-├── example-box-beta-macos-aarch64-metal.channel.json    # signed channel pointer
-└── objects/boxes/example-box/1.0.0/macos-aarch64-metal/ # content-addressed staging tree
+├── boxes/example-box/1.0.0/macos-aarch64-metal/   # upload this tree as it stands
+│   ├── <archive sha256>.zip                       # the box archive
+│   └── <document sha256>.release.json             # signed release document
+└── channels/example-box/beta/macos-aarch64-metal.json   # signed channel pointer
 ```
+
+The build prints both paths and what to do with each. Files are named for their own hash because
+that is the name they are published under — see [Distributing Boxes](/guides/distributing-boxes).
 
 Rebuilding the same commit produces a byte-identical archive — see
 [Architecture](/concepts/architecture#determinism) for what makes that true.
@@ -135,7 +138,7 @@ Rebuilding the same commit produces a byte-identical archive — see
 ## 8. `verify` — prove what you built
 
 ```sh
-scrollcase verify .scrollcase/dist/example-box-1.0.0-macos-aarch64-metal.release.json --self-test
+scrollcase verify .scrollcase/dist/boxes/example-box/1.0.0/macos-aarch64-metal/*.release.json --self-test
 ```
 
 `verify` mirrors the format checks available to an installing client: trusted signature, archive
@@ -155,5 +158,5 @@ on the builder but are not carried by schema version 1.
 - See how the whole pipeline fits together: [Architecture](/concepts/architecture).
 
 The repository also ships a proven example,
-[`examples/hello-box-macos-arm64-metal`](https://github.com/suffro/scrollcase/tree/main/examples),
+[`examples/hello-box-macos-aarch64-metal`](https://github.com/suffro/scrollcase/tree/main/examples),
 with a committed lock — the same walkthrough with nothing left to fill in.

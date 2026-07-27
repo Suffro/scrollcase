@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
@@ -12,7 +12,7 @@ import { readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
 import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
 import { generateSigningKey } from '../../src/sign/index.mjs';
-import { boxTargetAdapters, decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
+import { boxTargetAdapters, boxTargetId, decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
 
 // The pipeline is the same on every platform, but the native-host gate (rightly) refuses to build
 // a box for any other one — so the test recipe targets whatever host the suite is running on.
@@ -352,6 +352,31 @@ describe('the build pipeline', () => {
     expect(contents.filter((text) => text.includes('/Users/somebody'))).toEqual([]);
     expect(contents.filter((text) => text.includes('sha256_in_prefix'))).toEqual([]);
     expect(built.installedSizeBytes).toBeGreaterThan(0);
+  });
+
+  it('lays dist out as the two things a publisher uploads, with nothing written twice', async () => {
+    const { root, keys, payloadDir } = await makeProject();
+    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const dist = join(root, '.scrollcase', 'dist');
+
+    // Everything under dist is either a box object or a channel pointer — no third category, and
+    // no second copy of the archive under a friendlier name.
+    const files = await collectFiles(dist);
+    expect(files.sort()).toEqual([
+      `boxes/${RECIPE.boxId}/${RECIPE.version}/${boxTargetId(RECIPE.target)}/${built.archiveSha256}.zip`,
+      expect.stringMatching(new RegExp(`^boxes/${RECIPE.boxId}/${RECIPE.version}/[^/]+/[a-f0-9]{64}\\.release\\.json$`)),
+      `channels/${RECIPE.boxId}/beta/${boxTargetId(RECIPE.target)}.json`,
+    ].sort());
+
+    // The object path is the one the signed documents publish under, so uploading dist/boxes as it
+    // stands puts every object exactly where its own URL already says it is.
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    const objectKey = relative(dist, built.archivePath).split(sep).join('/');
+    expect(release.archive.url).toBe(`${RECIPE.assetBaseUrl}/${objectKey}`);
+
+    // And a release verifies where it lands, without being told where its archive is.
+    const receipt = await verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} });
+    expect(receipt.status).toBe('passed');
   });
 
   it('produces a byte-identical archive when the same commit is rebuilt', async () => {

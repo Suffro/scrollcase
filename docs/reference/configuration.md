@@ -82,7 +82,7 @@ Each individual path is then resolved with its own precedence, highest first:
 Run against the example recipes shipped in the Scrollcase repository, from your own project:
 
 ```sh
-scrollcase build hello-box-macos-arm64-metal --recipes-dir ../scrollcase/examples
+scrollcase build hello-box-macos-aarch64-metal --recipes-dir ../scrollcase/examples
 ```
 
 A monorepo that keeps packaging assets under `packaging/`:

@@ -148,7 +148,7 @@ Two modes:
 Output is a per-licence package count, for example:
 
 ```text
-23 packages for hello-box-macos-arm64-metal (macos-aarch64-metal)
+23 packages for hello-box-macos-aarch64-metal (macos-aarch64-metal)
     9  MIT
     4  Apache-2.0
     ...
@@ -187,10 +187,13 @@ Outputs, under the workspace's `dist` directory:
 
 | File | What it is |
 | --- | --- |
-| `<boxId>-<version>-<targetId>.zip` | The box archive |
-| `<boxId>-<version>-<targetId>.release.json` | The signed release document committing to the archive by size and SHA-256 |
-| `<boxId>-<channel>-<targetId>.channel.json` | The signed channel pointer |
-| `objects/boxes/<boxId>/<version>/<targetId>/…` | A content-addressed staging tree, laid out exactly as a bucket would be — see [Distributing Boxes](/guides/distributing-boxes) |
+| `boxes/<boxId>/<version>/<targetId>/<archive sha256>.zip` | The box archive |
+| `boxes/<boxId>/<version>/<targetId>/<document sha256>.release.json` | The signed release document committing to the archive by size and SHA-256 |
+| `channels/<boxId>/<channel>/<targetId>.json` | The signed channel pointer |
+
+`boxes/` is uploaded as it stands — the paths are the keys the signed documents already point to.
+`channels/` is separate because a channel outlives any one version. See
+[Distributing Boxes](/guides/distributing-boxes).
 
 ## `verify`
 

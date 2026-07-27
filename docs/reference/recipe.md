@@ -26,7 +26,7 @@ identity other than the one being built. The machine-readable definition is
 ```json
 {
   "schemaVersion": 1,
-  "recipeId": "hello-box-macos-arm64-metal",
+  "recipeId": "hello-box-macos-aarch64-metal",
   "recipeVersion": "1.0.0",
   "boxId": "hello-box",
   "modelId": "example-org-hello",
@@ -102,7 +102,7 @@ The dependencies themselves live in `pixi.toml`, not here:
 
 ```toml
 [workspace]
-name = "hello-box-macos-arm64-metal"
+name = "hello-box-macos-aarch64-metal"
 channels = ["conda-forge"]
 platforms = ["osx-arm64"]
 

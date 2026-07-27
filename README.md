@@ -66,10 +66,10 @@ scrollcase keygen                   # create a local ed25519 signing key
 scrollcase lock my-recipe           # resolve the recipe's pixi manifest into pixi.lock
 scrollcase audit my-recipe          # licence inventory, derived from the lock
 scrollcase build my-recipe          # install, self-test, archive, sign
-scrollcase verify .scrollcase/dist/<box>.release.json --self-test
+scrollcase verify .scrollcase/dist/boxes/<box>/<version>/<target>/<sha256>.release.json --self-test
 ```
 
-The repository ships a working example, `examples/hello-box-macos-arm64-metal`: a stdlib-only
+The repository ships a working example, `examples/hello-box-macos-aarch64-metal`: a stdlib-only
 Python 3.11 environment that exercises the whole pipeline in about a minute and produces a ~48 MB
 archive. Its final `verify --self-test` extracts the box and imports `json` and `sqlite3` with the
 interpreter *inside* it — the check that proves the environment runs somewhere other than where it

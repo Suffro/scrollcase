@@ -1,6 +1,6 @@
 # Examples
 
-## `hello-box-macos-arm64-metal`
+## `hello-box-macos-aarch64-metal`
 
 The smallest thing Scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
 packed into a relocatable box. No model weights, no assets, nothing to download beyond the
@@ -10,9 +10,9 @@ archive you can inspect by hand.
 Run it from a project whose `scrollcase.config.json` points `recipes` at this directory:
 
 ```sh
-scrollcase lock hello-box-macos-arm64-metal   # resolve pixi.toml into pixi.lock (already committed)
+scrollcase lock hello-box-macos-aarch64-metal   # resolve pixi.toml into pixi.lock (already committed)
 scrollcase keygen                              # a local signing key
-scrollcase build hello-box-macos-arm64-metal   # install, self-test, archive, sign
+scrollcase build hello-box-macos-aarch64-metal   # install, self-test, archive, sign
 scrollcase verify .scrollcase/dist/hello-box-1.0.0-macos-aarch64-metal.release.json --self-test
 ```
 
