@@ -7,9 +7,6 @@
 
 ---
 
-  [![CI](https://github.com/suffro/scrollcase/actions/workflows/ci.yml/badge.svg)](https://github.com/suffro/scrollcase/actions/workflows/ci.yml)
-
-
 Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
 than where it was built, signed so a consumer can prove what they received, and accompanied by a
