@@ -128,7 +128,10 @@ describe('public documentation routes', () => {
       } else if (route.startsWith('/static/')) {
         await expect(readFile(join(root, 'docs', 'public', route.slice(1)))).resolves.toBeTruthy();
       } else {
-        await expect(readFile(join(root, 'docs', `${route.slice(1)}.md`)), route).resolves.toBeTruthy();
+        // VitePress accepts a link written with or without the `.md` suffix and resolves both to
+        // the same page, so the check has to normalise before appending one of its own.
+        const page = route.slice(1).replace(/\.md$/, '');
+        await expect(readFile(join(root, 'docs', `${page}.md`)), route).resolves.toBeTruthy();
       }
     }
   });
