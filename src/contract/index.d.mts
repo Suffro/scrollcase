@@ -1,11 +1,11 @@
 /**
  * Absolute URL of a shipped JSON Schema, for consumers that validate documents themselves.
  *
- * @param {'target' | 'recipe' | 'box-manifest' | 'release-manifest' | 'channel-manifest'
+ * @param {'target' | 'scroll' | 'box-manifest' | 'release-manifest' | 'channel-manifest'
  *   | 'revocations-manifest' | 'signed-document'} name
  * @returns {URL}
  */
-export function schemaUrl(name: "target" | "recipe" | "box-manifest" | "release-manifest" | "channel-manifest" | "revocations-manifest" | "signed-document"): URL;
+export function schemaUrl(name: "target" | "scroll" | "box-manifest" | "release-manifest" | "channel-manifest" | "revocations-manifest" | "signed-document"): URL;
 /**
  * Absolute URL of a shipped fixture file, for consumers proving a mirror implementation.
  *

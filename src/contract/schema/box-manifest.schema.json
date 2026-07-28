@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scrollcase.dev/schema/box-manifest.schema.json",
+  "$id": "https://scrollcase.dev/schema/v2/box-manifest.schema.json",
   "title": "Box manifest (box.json)",
   "description": "The manifest packed inside the archive at box.json. It restates the box's identity, layout and provenance so an extracted box is self-describing: a consumer that has the directory but not the release document can still tell what it is holding and how it was built.",
   "type": "object",
@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "boxId": {
       "type": "string",
@@ -38,7 +38,7 @@
       "minLength": 1
     },
     "target": {
-      "$ref": "https://scrollcase.dev/schema/target.schema.json"
+      "$ref": "https://scrollcase.dev/schema/v2/target.schema.json"
     },
     "pythonEntryPoint": {
       "type": "string",
@@ -71,7 +71,7 @@
       }
     },
     "provenance": {
-      "$ref": "https://scrollcase.dev/schema/release-manifest.schema.json#/$defs/provenance"
+      "$ref": "https://scrollcase.dev/schema/v2/release-manifest.schema.json#/$defs/provenance"
     },
     "weights": {
       "const": "on-demand",
@@ -104,7 +104,7 @@
             "exclusiveMinimum": 0
           },
           "sha256": {
-            "$ref": "https://scrollcase.dev/schema/release-manifest.schema.json#/$defs/sha256"
+            "$ref": "https://scrollcase.dev/schema/v2/release-manifest.schema.json#/$defs/sha256"
           }
         }
       }

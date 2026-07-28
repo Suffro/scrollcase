@@ -5,15 +5,16 @@ description: What a box is on disk and on the wire — targets, archive layout, 
 
 # The Box Format
 
-The format is the product. This page is the contract a builder, a signer, and any client — in any
-language — must agree on. It is frozen at `schemaVersion: 1`.
+The format is the product. This page is the v2 contract a builder, a signer, and any client — in any
+language — must agree on. Active documents carry `schemaVersion: 2`; v1 is rejected rather than
+silently reinterpreted.
 
 The normative artefacts ship inside the npm package:
 
 | Artefact | Where | What it is |
 | --- | --- | --- |
 | Reference implementation | `scrollcase/contract` | The rules as executable code |
-| JSON Schemas | `scrollcase/contract/schema/*.json` and `/schema/*.json` | The machine-readable spec, package-local or public |
+| JSON Schemas | `scrollcase/contract/schema/*.json` and `/schema/v2/*.json` | The machine-readable spec, package-local or public |
 | Golden fixtures | `scrollcase/contract/fixtures/*.json` | What "agreeing" means, concretely |
 
 A client written in another language **does not import the code** — it mirrors the rules and
@@ -94,7 +95,7 @@ built.
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "boxId": "example-model",
   "modelId": "example-org-example-model",
   "runtimeId": "example-model-runtime",
@@ -118,10 +119,10 @@ cannot be dressed up after the fact:
 
 | Field | Meaning |
 | --- | --- |
-| `recipeId`, `recipeVersion` | Which recipe produced the box. New recipe inputs derive `recipeId` as `<boxId>-<targetId>` |
+| `scrollId`, `scrollVersion` | Which scroll produced the box. New scroll inputs derive `scrollId` as `<boxId>-<targetId>` |
 | `builderRevision` | The 40-hex commit of the source tree that built it |
 | `sourceTreeDirty` | Whether that tree had uncommitted changes. `true` means the build is **not** reproducible from the recorded revision alone |
-| `sourceRevision` | Upstream revision of the packaged model source, as declared by the recipe |
+| `sourceRevision` | Upstream revision of the packaged model source, as declared by the scroll |
 | `pythonVersion`, `pixiVersion` | The interpreter version, and the resolver that solved the environment |
 | `dependencyLockSha256` | Hash of the `pixi.lock` the environment was solved from |
 | `builtAt` | Taken from the HEAD commit, not the clock — the same commit rebuilds to the same timestamp |
@@ -132,9 +133,9 @@ Every document a build emits travels in one envelope:
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "payloadEncoding": "base64-json-utf8",
-  "payloadBase64": "ewogICJzY2hlbWFWZXJzaW9uIjogMSwK…",
+  "payloadBase64": "eyJzY2hlbWFWZXJzaW9uIjoyfQ==",
   "payloadSha256": "7d2c9a41e8b350f6c174a9de20358bf41c6e97d05a8b3f2619e4c7081da5b3f2",
   "signatures": [
     { "algorithm": "ed25519", "keyId": "scrollcase-9f2b7c1e04a83d56", "signatureBase64": "…" }
@@ -173,7 +174,7 @@ lives and what it hashes to, the consumer import check to repeat, and provenance
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "scrollcase.box.release",
   "boxId": "example-model",
   "modelId": "example-org-example-model",
@@ -208,7 +209,7 @@ so promoting a build never requires re-signing it.
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "scrollcase.box.channel",
   "channel": "beta",
   "boxId": "example-model",
@@ -225,12 +226,12 @@ so promoting a build never requires re-signing it.
 }
 ```
 
-Channels are `development`, `beta`, `stable`, and a fresh build emits one release at 100%.
-Schema version 1 carries `cohortSalt` and rollout percentages but intentionally lacks a normative
+Channels are `nightly`, `beta`, and `stable`, and a fresh build emits one release at 100%.
+Schema version 2 carries `cohortSalt` and rollout percentages but intentionally lacks a normative
 cohort algorithm and golden fixtures. It does not specify identity normalisation, byte framing,
 hashing, integer extraction, percentage mapping, ordering, or boundary behavior. A project can
 define those rules for its own clients, but cross-implementation rollout interoperability is not a
-schema-v1 guarantee.
+schema-v2 guarantee.
 
 ### Revocations manifest
 
@@ -240,7 +241,7 @@ honouring the list even when the archive is still reachable.
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "scrollcase.box.revocations",
   "updatedAt": "2026-07-25T10:14:03Z",
   "revocations": [
@@ -281,6 +282,7 @@ URL. See [Distributing Boxes](/guides/distributing-boxes).
 
 ## Versioning {#versioning}
 
-`schemaVersion: 1` is frozen. Published boxes, deployed services and installed clients depend on
-it, so a breaking change gets a **new** `schemaVersion` — never a silent edit to a `kind` string,
-the payload encoding, the signature algorithm, or the golden fixtures.
+Published v1 is immutable and remains paired with the old Scrollcase versions that emitted it.
+Active v2 code accepts and emits only `schemaVersion: 2`. A future breaking change gets a **new**
+`schemaVersion` — never a silent edit to a `kind` string, payload encoding, signature algorithm,
+or golden fixture.

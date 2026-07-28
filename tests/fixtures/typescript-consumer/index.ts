@@ -11,6 +11,7 @@ import type {
   BoxChannelManifest,
   BoxReleaseManifest,
   BoxRevocationsManifest,
+  BoxScroll,
   BoxTarget,
   SignedBoxDocument,
 } from "scrollcase/contract/types";
@@ -39,6 +40,7 @@ const workspaceRoot: string = resolveWorkspace().root;
 declare const release: BoxReleaseManifest;
 declare const channel: BoxChannelManifest;
 declare const revocations: BoxRevocationsManifest;
+declare const scroll: BoxScroll;
 declare const signed: SignedBoxDocument;
 
 const stem: string = boxReleaseStem(release);
@@ -67,6 +69,7 @@ void [
   workspaceRoot,
   channel,
   revocations,
+  scroll,
   stem,
   objectPrefix,
   narrowed,

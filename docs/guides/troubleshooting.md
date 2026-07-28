@@ -5,16 +5,16 @@ description: Safe diagnosis and correction for common Scrollcase build, signing,
 
 # Troubleshooting
 
-Start with the exact one-line error and `scrollcase doctor --recipe <name>`. Do not delete a guard,
+Start with the exact one-line error and `scrollcase doctor --scroll <name>`. Do not delete a guard,
 replace a lock opportunistically, or overwrite a key to make an error disappear.
 
 ## Toolchain
 
 ### Missing or wrong Pixi version
 
-- **Symptom:** `pixi not found` or `Recipe requires pixi X, found Y`.
-- **Cause:** discovery found no executable, or not the recipe's `pixiVersion`.
-- **Diagnose:** run `scrollcase doctor --recipe <name>` and inspect flag, environment,
+- **Symptom:** `pixi not found` or `Scroll requires pixi X, found Y`.
+- **Cause:** discovery found no executable, or not the scroll's `pixiVersion`.
+- **Diagnose:** run `scrollcase doctor --scroll <name>` and inspect flag, environment,
   project-toolchain, then `PATH` precedence.
 - **Correct:** install or select the exact pinned release, then relock only if intentionally
   changing that pin.
@@ -42,7 +42,7 @@ replace a lock opportunistically, or overwrite a key to make an error disappear.
 ### Missing or outdated `pixi.lock`
 
 - **Symptom:** `Missing dependency lock`, or a reviewed licence audit no longer matches.
-- **Cause:** the recipe has not been locked, or dependency declarations changed.
+- **Cause:** the scroll has not been locked, or dependency declarations changed.
 - **Correct:** run `scrollcase lock <name>`, review and commit the lock, then run
   `scrollcase audit <name> --write` only after reviewing the new inventory.
 - **Never:** let a production build resolve dependencies on the fly.
@@ -60,7 +60,7 @@ replace a lock opportunistically, or overwrite a key to make an error disappear.
 
 - **Symptom:** asset size/SHA-256 mismatch, or retry messages after a dropped connection.
 - **Cause:** partial transport, a server ignoring ranges, corruption, or upstream bytes changed.
-- **Correct:** verify the authoritative bytes and update the recipe only if the project intends to
+- **Correct:** verify the authoritative bytes and update the scroll only if the project intends to
   accept new content. Retries within one download resume from `.part`.
 - **Never:** promote a partial file or change the expected digest merely to match a mirror.
 
@@ -93,7 +93,7 @@ an interrupted process may need to download again.
 
 ## Windows specifics
 
-Use PowerShell syntax, preserve forward slashes in recipe payload paths, and declare
+Use PowerShell syntax, preserve forward slashes in scroll payload paths, and declare
 `venv/python.exe` as the interpreter. Windows launchers and native-library inspection differ from
 POSIX targets; do not copy a macOS/Linux entry point or assume `venv/bin/`. Build and self-test on
 native Windows x86_64.

@@ -107,7 +107,7 @@ scrollcase build my-model --weights embed        # the default
 scrollcase build my-model --weights on-demand
 ```
 
-A recipe may set `"weights": "embed" | "on-demand"` as its own default; the flag overrides it.
+A scroll may set `"weights": "embed" | "on-demand"` as its own default; the flag overrides it.
 
 ### What `on-demand` puts in the release
 

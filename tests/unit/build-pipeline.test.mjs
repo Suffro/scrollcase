@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,23 +8,24 @@ import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
 import { listZipEntries } from '../../src/build/archive.mjs';
 import { collectFiles, fileExists } from '../../src/build/filesystem.mjs';
-import { recipeCandidates, readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
+import { boxReleaseStem } from '../../src/build/identity.mjs';
+import { scrollCandidates, readScroll, sourceBuildState } from '../../src/build/scroll.mjs';
 import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
-import { generateSigningKey } from '../../src/sign/index.mjs';
+import { generateSigningKey, signDocument } from '../../src/sign/index.mjs';
 import { boxTargetAdapters, boxTargetId, decodeDocumentPayload, documentKinds } from '../../src/contract/index.mjs';
 
 // The pipeline is the same on every platform, but the native-host gate (rightly) refuses to build
-// a box for any other one — so the test recipe targets whatever host the suite is running on.
+// a box for any other one — so the test scroll targets whatever host the suite is running on.
 // `cpu` is the one accelerator every target supports without extra declarations.
 const HOST_ADAPTER = boxTargetAdapters().find((adapter) =>
   adapter.host.platform === process.platform && adapter.host.arch === process.arch)
   ?? (() => { throw new Error(`No box target adapter for this host: ${process.platform}/${process.arch}`); })();
 
-const RECIPE = {
-  schemaVersion: 1,
-  recipeId: 'example-model-native-cpu',
-  recipeVersion: '1.0.0',
+const SCROLL = {
+  schemaVersion: 2,
+  scrollId: 'example-model-native-cpu',
+  scrollVersion: '1.0.0',
   boxId: 'example-model',
   modelId: 'example-org-example-model',
   runtimeId: 'example-model-runtime',
@@ -40,6 +41,7 @@ const RECIPE = {
   assets: [],
   selfTest: { imports: ['json'], files: [] },
 };
+const SCROLL_REF = `${SCROLL.boxId}/${boxTargetId(SCROLL.target)}`;
 
 // The interpreter's path inside the payload, split for platform-correct joins.
 const ENTRY_SEGMENTS = HOST_ADAPTER.python.entryPoint.split('/');
@@ -87,7 +89,7 @@ const CONDA_RECORD = {
  * The chain is icu's, verbatim: `current` points at the versioned directory, and `pkgdata.inc`
  * points *through* it. Extraction refuses to write through a link by default, so a prefix
  * containing this shape failed to unpack at all — and conda-forge started shipping it in a plain
- * `python` environment, where nothing in the recipe asks for icu.
+ * `python` environment, where nothing in the scroll asks for icu.
  *
  * The escaping link is here to keep the fix honest: leaving the tree must still drop the link
  * rather than pull a host file into the box.
@@ -152,22 +154,23 @@ describe('the build pipeline', () => {
     await Promise.all(created.splice(0).map((path) => rm(path, { recursive: true, force: true })));
   });
 
-  /** Lays out a project the way a user of the tool would have one: recipes in a git checkout. */
-  async function makeProject(recipe = RECIPE, { commit = true, dirName = RECIPE.recipeId } = {}) {
+  /** Lays out a project the way a user of the tool would have one: scrolls in a git checkout. */
+  async function makeProject(scroll = SCROLL, { commit = true, dirName = null } = {}) {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-build-')));
     created.push(root);
-    const recipeDir = join(root, 'recipes', dirName);
-    await mkdir(recipeDir, { recursive: true });
-    await writeFile(join(recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
-    await writeFile(join(recipeDir, 'pixi.toml'), '[project]\nname = "example-model"\n');
-    await writeFile(join(recipeDir, 'pixi.lock'), 'version: 6\n');
+    const resolvedDirName = dirName ?? `${scroll.boxId}/${boxTargetId(scroll.target)}`;
+    const scrollDir = join(root, 'scrolls', resolvedDirName);
+    await mkdir(scrollDir, { recursive: true });
+    await writeFile(join(scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
+    await writeFile(join(scrollDir, 'pixi.toml'), '[project]\nname = "example-model"\n');
+    await writeFile(join(scrollDir, 'pixi.lock'), 'version: 6\n');
     await writeFile(join(root, '.gitignore'), '/.scrollcase/\n');
     if (commit) {
       git(root, 'init', '--quiet');
       git(root, 'config', 'user.email', 'test@example.org');
       git(root, 'config', 'user.name', 'Test');
       git(root, 'add', '.');
-      git(root, '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'recipe');
+      git(root, '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'scroll');
     }
     configureWorkspace({ cwd: root });
     const keys = {
@@ -175,76 +178,76 @@ describe('the build pipeline', () => {
       publicPath: join(root, '.scrollcase', 'keys', 'signing-public.json'),
     };
     await generateSigningKey(keys);
-    return { root, recipeDir, keys, payloadDir: join(root, '.scrollcase', 'build', dirName, 'payload') };
+    const scrollId = scroll.scrollId ?? `${scroll.boxId}-${boxTargetId(scroll.target)}`;
+    return { root, scrollDir, keys, payloadDir: join(root, '.scrollcase', 'build', scrollId, 'payload') };
   }
 
-  it('keeps loading a flat recipe without coupling its provenance identity to the directory', async () => {
-    await makeProject({ ...RECIPE, recipeId: 'something-else' }, { commit: false });
-    const { recipe } = await readRecipe(RECIPE.recipeId);
-    expect(recipe.recipeId).toBe('something-else');
+  it('rejects the removed flat scroll layout', async () => {
+    await makeProject(SCROLL, { commit: false, dirName: SCROLL.scrollId });
+    await expect(readScroll(SCROLL.scrollId)).rejects.toThrow(/contains no target scrolls/);
   });
 
-  it('loads a nested recipe from semantic box and target directories without a recipeId', async () => {
-    const targetId = boxTargetId(RECIPE.target);
-    const { recipeId: _recipeId, ...recipeWithoutId } = RECIPE;
-    await makeProject(recipeWithoutId, { commit: false, dirName: `${RECIPE.boxId}/${targetId}` });
+  it('loads a nested scroll from semantic box and target directories without a scrollId', async () => {
+    const targetId = boxTargetId(SCROLL.target);
+    const { scrollId: _scrollId, ...scrollWithoutId } = SCROLL;
+    await makeProject(scrollWithoutId, { commit: false, dirName: `${SCROLL.boxId}/${targetId}` });
 
-    const candidates = await recipeCandidates(RECIPE.boxId);
-    expect(candidates.map(({ reference }) => reference)).toEqual([`${RECIPE.boxId}/${targetId}`]);
-    const loaded = await readRecipe(RECIPE.boxId);
-    expect(loaded.reference).toBe(`${RECIPE.boxId}/${targetId}`);
-    expect(loaded.recipe.recipeId).toBe(`${RECIPE.boxId}-${targetId}`);
+    const candidates = await scrollCandidates(SCROLL.boxId);
+    expect(candidates.map(({ reference }) => reference)).toEqual([`${SCROLL.boxId}/${targetId}`]);
+    const loaded = await readScroll(SCROLL.boxId);
+    expect(loaded.reference).toBe(`${SCROLL.boxId}/${targetId}`);
+    expect(loaded.scroll.scrollId).toBe(`${SCROLL.boxId}-${targetId}`);
   });
 
-  it('requires an explicit target when a box contains several nested recipes', async () => {
-    const targetId = boxTargetId(RECIPE.target);
-    const { recipeId: _recipeId, ...recipeWithoutId } = RECIPE;
-    const { root } = await makeProject(recipeWithoutId, {
+  it('requires an explicit target when a box contains several nested scrolls', async () => {
+    const targetId = boxTargetId(SCROLL.target);
+    const { scrollId: _scrollId, ...scrollWithoutId } = SCROLL;
+    const { root } = await makeProject(scrollWithoutId, {
       commit: false,
-      dirName: `${RECIPE.boxId}/${targetId}`,
+      dirName: `${SCROLL.boxId}/${targetId}`,
     });
-    const alternateTarget = RECIPE.target.platform === 'macos'
-      ? { ...RECIPE.target, accelerator: 'metal' }
-      : { ...RECIPE.target, accelerator: 'cuda', cudaVersion: '12.4' };
+    const alternateTarget = SCROLL.target.platform === 'macos'
+      ? { ...SCROLL.target, accelerator: 'metal' }
+      : { ...SCROLL.target, accelerator: 'cuda', cudaVersion: '12.4' };
     const alternateTargetId = boxTargetId(alternateTarget);
-    const alternateDir = join(root, 'recipes', RECIPE.boxId, alternateTargetId);
+    const alternateDir = join(root, 'scrolls', SCROLL.boxId, alternateTargetId);
     await mkdir(alternateDir, { recursive: true });
-    await writeFile(join(alternateDir, 'recipe.json'), `${JSON.stringify({
-      ...recipeWithoutId,
+    await writeFile(join(alternateDir, 'scroll.json'), `${JSON.stringify({
+      ...scrollWithoutId,
       target: alternateTarget,
     }, null, 2)}\n`);
     await writeFile(join(alternateDir, 'pixi.toml'), '[project]\nname = "alternate"\n');
     await writeFile(join(alternateDir, 'pixi.lock'), 'version: 6\n');
 
-    await expect(readRecipe(RECIPE.boxId)).rejects.toThrow(/multiple recipe targets/);
-    const selected = await readRecipe(RECIPE.boxId, { targetId: alternateTargetId });
-    expect(selected.reference).toBe(`${RECIPE.boxId}/${alternateTargetId}`);
+    await expect(readScroll(SCROLL.boxId)).rejects.toThrow(/multiple scroll targets/);
+    const selected = await readScroll(SCROLL.boxId, { targetId: alternateTargetId });
+    expect(selected.reference).toBe(`${SCROLL.boxId}/${alternateTargetId}`);
   });
 
-  it('rejects a nested path whose box or target directory contradicts the recipe', async () => {
-    const targetId = boxTargetId(RECIPE.target);
-    await makeProject(RECIPE, { commit: false, dirName: `wrong-box/${targetId}` });
-    await expect(readRecipe('wrong-box')).rejects.toThrow(/box directory wrong-box.*boxId example-model/);
+  it('rejects a nested path whose box or target directory contradicts the scroll', async () => {
+    const targetId = boxTargetId(SCROLL.target);
+    await makeProject(SCROLL, { commit: false, dirName: `wrong-box/${targetId}` });
+    await expect(readScroll('wrong-box')).rejects.toThrow(/box directory wrong-box.*boxId example-model/);
 
     resetWorkspace();
-    await makeProject(RECIPE, { commit: false, dirName: `${RECIPE.boxId}/wrong-target` });
-    await expect(readRecipe(RECIPE.boxId)).rejects.toThrow(/target directory wrong-target.*target macos-|target directory wrong-target.*target linux-|target directory wrong-target.*target windows-/);
+    await makeProject(SCROLL, { commit: false, dirName: `${SCROLL.boxId}/wrong-target` });
+    await expect(readScroll(SCROLL.boxId)).rejects.toThrow(/target directory wrong-target.*target macos-|target directory wrong-target.*target linux-|target directory wrong-target.*target windows-/);
   });
 
-  it('rejects a recipe with no pixi version, and one whose entry point defies its target', async () => {
-    await makeProject({ ...RECIPE, pixiVersion: undefined }, { commit: false });
-    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/pixiVersion is required/);
+  it('rejects a scroll with no pixi version, and one whose entry point defies its target', async () => {
+    await makeProject({ ...SCROLL, pixiVersion: undefined }, { commit: false });
+    await expect(readScroll(SCROLL_REF)).rejects.toThrow(/pixiVersion is required/);
     resetWorkspace();
     // An entry point belonging to any *other* target must be refused on this one.
     const foreignEntryPoint = HOST_ADAPTER.platform === 'windows' ? 'venv/bin/python' : 'venv/python.exe';
-    await makeProject({ ...RECIPE, pythonEntryPoint: foreignEntryPoint }, { commit: false });
-    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/entry point/);
+    await makeProject({ ...SCROLL, pythonEntryPoint: foreignEntryPoint }, { commit: false });
+    await expect(readScroll(SCROLL_REF)).rejects.toThrow(/entry point/);
   });
 
   it.each([
-    ['an identity the release schema cannot carry', { ...RECIPE, boxId: 'Example Model' }],
+    ['an identity the release schema cannot carry', { ...SCROLL, boxId: 'Example Model' }],
     ['an invalid nested asset field', {
-      ...RECIPE,
+      ...SCROLL,
       assets: [{
         url: 'https://assets.example.org/weights.bin',
         relativePath: 'model-cache/weights.bin',
@@ -252,9 +255,9 @@ describe('the build pipeline', () => {
         sha256: 'a'.repeat(64),
       }],
     }],
-    ['empty imports', { ...RECIPE, selfTest: { imports: [], files: [] } }],
+    ['empty imports', { ...SCROLL, selfTest: { imports: [], files: [] } }],
     ['an escaping payload path', {
-      ...RECIPE,
+      ...SCROLL,
       assets: [{
         url: 'https://assets.example.org/weights.bin',
         relativePath: '../weights.bin',
@@ -263,25 +266,25 @@ describe('the build pipeline', () => {
       }],
     }],
     ['an invalid parity threshold', {
-      ...RECIPE,
+      ...SCROLL,
       parity: {
         script: 'checks/parity.py',
         accelerators: ['cpu', 'cuda'],
         tolerances: { absolute: 0 },
       },
     }],
-  ])('rejects %s against the complete recipe schema', async (_label, recipe) => {
-    await makeProject(recipe, { commit: false });
-    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/Invalid recipe/);
+  ])('rejects %s against the complete scroll schema', async (_label, scroll) => {
+    await makeProject(scroll, { commit: false, dirName: SCROLL_REF });
+    await expect(readScroll(SCROLL_REF)).rejects.toThrow(/Invalid scroll/);
   });
 
   it('rejects structurally invalid input without probing a process or fetching', async () => {
     const { keys } = await makeProject({
-      ...RECIPE,
+      ...SCROLL,
       selfTest: { imports: [], files: [] },
     });
     const calls = [];
-    await expect(buildBox(RECIPE.recipeId, {
+    await expect(buildBox(SCROLL_REF, {
       ...keys,
       run: (...args) => calls.push(['run', ...args]),
       runResult: (...args) => {
@@ -293,13 +296,25 @@ describe('the build pipeline', () => {
         throw new Error('unexpected fetch');
       },
       log: () => {},
-    })).rejects.toThrow(/Invalid recipe/);
+    })).rejects.toThrow(/Invalid scroll/);
+    expect(calls).toEqual([]);
+  });
+
+  it('rejects a channel outside the v2 contract before tool discovery', async () => {
+    const { keys } = await makeProject();
+    const calls = [];
+    await expect(buildBox(SCROLL_REF, {
+      ...keys,
+      channel: 'internal',
+      runResult: (...args) => calls.push(args),
+      log: () => {},
+    })).rejects.toThrow(/Unsupported channel/);
     expect(calls).toEqual([]);
   });
 
   it('rejects an on-demand archive before probing tools, fetching, or mutating the build tree', async () => {
-    const recipe = {
-      ...RECIPE,
+    const scroll = {
+      ...SCROLL,
       weights: 'on-demand',
       assetArchives: [{
         relativePath: 'model-cache/weights.zip',
@@ -307,9 +322,9 @@ describe('the build pipeline', () => {
         destination: 'model-cache',
       }],
     };
-    const { keys, payloadDir } = await makeProject(recipe);
+    const { keys, payloadDir } = await makeProject(scroll);
     const calls = [];
-    await expect(buildBox(RECIPE.recipeId, {
+    await expect(buildBox(SCROLL_REF, {
       ...keys,
       run: (...args) => calls.push(['run', ...args]),
       runResult: (...args) => {
@@ -328,7 +343,7 @@ describe('the build pipeline', () => {
 
   it('builds, signs, and verifies a box end to end', async () => {
     const { keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
 
     // The archive is content-addressed, and the release commits to that exact hash.
     const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
@@ -338,7 +353,7 @@ describe('the build pipeline', () => {
     expect(release.provenance.pixiVersion).toBe('0.73.0');
     expect(release.provenance.sourceTreeDirty).toBe(false);
     expect(release.provenance.builderRevision).toMatch(/^[a-f0-9]{40}$/);
-    expect(release.compatibility).toEqual(RECIPE.compatibility);
+    expect(release.compatibility).toEqual(SCROLL.compatibility);
     expect(release.installedSizeBytes).toBeGreaterThan(0);
     // Embed is the default, and a self-contained box says nothing about assets to fetch.
     expect(release.weights).toBeUndefined();
@@ -357,9 +372,32 @@ describe('the build pipeline', () => {
     expect(receipt.archiveSha256).toBe(built.archiveSha256);
   });
 
+  it('rejects a signed v1 release payload even inside a valid v2 envelope', async () => {
+    const { root, keys } = await makeProject();
+    const releasePath = join(root, 'v1.release.json');
+    const signed = await signDocument({
+      schemaVersion: 1,
+      kind: documentKinds().release,
+    }, keys);
+    await writeFile(releasePath, `${JSON.stringify(signed, null, 2)}\n`);
+
+    await expect(verifyBox(releasePath, { publicPath: keys.publicPath, log: () => {} }))
+      .rejects.toThrow('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
+  });
+
+  it('does not fall back to the pre-v2 stem-based archive name', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const oldArchivePath = join(dirname(built.releasePath), `${boxReleaseStem(SCROLL)}.zip`);
+    await rename(built.archivePath, oldArchivePath);
+
+    await expect(verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} }))
+      .rejects.toThrow(`Archive not found: ${built.archivePath}`);
+  });
+
   it('materialises a chained prefix symlink, and still refuses one that leaves the tree', async () => {
     const { keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
 
     // `pkgdata.inc -> current/pkgdata.inc -> 78.3/pkgdata.inc`: both hops resolved, real content.
     const icu = join(payloadDir, 'venv', 'lib', 'icu');
@@ -378,7 +416,7 @@ describe('the build pipeline', () => {
 
   it('ships conda records reduced to identity, and nothing an install or a machine varies', async () => {
     const { keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
 
     const metaDir = join(payloadDir, 'venv', 'conda-meta');
     const record = JSON.parse(await readFile(join(metaDir, 'bzip2-1.0.8-hd037594_9.json'), 'utf8'));
@@ -404,16 +442,16 @@ describe('the build pipeline', () => {
 
   it('lays dist out as the two things a publisher uploads, with nothing written twice', async () => {
     const { root, keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
     const dist = join(root, '.scrollcase', 'dist');
 
     // Everything under dist is either a box object or a channel pointer — no third category, and
     // no second copy of the archive under a friendlier name.
     const files = await collectFiles(dist);
-    const objectPrefix = `boxes/${RECIPE.boxId}/${RECIPE.version}/${boxTargetId(RECIPE.target)}`;
+    const objectPrefix = `boxes/${SCROLL.boxId}/${SCROLL.version}/${boxTargetId(SCROLL.target)}`;
     expect(files).toHaveLength(3);
     expect(files).toContain(`${objectPrefix}/${built.archiveSha256}.zip`);
-    expect(files).toContain(`channels/${RECIPE.boxId}/beta/${boxTargetId(RECIPE.target)}.json`);
+    expect(files).toContain(`channels/${SCROLL.boxId}/beta/${boxTargetId(SCROLL.target)}.json`);
     expect(files.filter((file) =>
       new RegExp(`(${objectPrefix}\/[a-f0-9]{64}.release.json)`).test(file))).toHaveLength(1);
 
@@ -421,7 +459,7 @@ describe('the build pipeline', () => {
     // stands puts every object exactly where its own URL already says it is.
     const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
     const objectKey = relative(dist, built.archivePath).split(sep).join('/');
-    expect(release.archive.url).toBe(`${RECIPE.assetBaseUrl}/${objectKey}`);
+    expect(release.archive.url).toBe(`${SCROLL.assetBaseUrl}/${objectKey}`);
 
     // And a release verifies where it lands, without being told where its archive is.
     const receipt = await verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} });
@@ -430,17 +468,17 @@ describe('the build pipeline', () => {
 
   it('produces a byte-identical archive when the same commit is rebuilt', async () => {
     const { keys, payloadDir } = await makeProject();
-    const first = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
-    const second = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const first = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const second = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
     expect(second.archiveSha256).toBe(first.archiveSha256);
   });
 
   it('refuses to build from a dirty tree unless that is made explicit', async () => {
     const { root, keys, payloadDir } = await makeProject();
-    await writeFile(join(root, 'recipes', RECIPE.recipeId, 'pixi.toml'), '[project]\nname = "edited"\n');
-    await expect(buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
+    await writeFile(join(root, 'scrolls', ...SCROLL_REF.split('/'), 'pixi.toml'), '[project]\nname = "edited"\n');
+    await expect(buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
       .rejects.toThrow(/dirty source tree/);
-    const built = await buildBox(RECIPE.recipeId, {
+    const built = await buildBox(SCROLL_REF, {
       ...keys, allowDirty: true, ...fakeToolchain(payloadDir), log: () => {},
     });
     const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
@@ -459,15 +497,15 @@ describe('the build pipeline', () => {
   });
 
   it('refuses to build where it cannot record the commit it came from', async () => {
-    const { keys, payloadDir } = await makeProject(RECIPE, { commit: false });
-    await expect(buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
+    const { keys, payloadDir } = await makeProject(SCROLL, { commit: false });
+    await expect(buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
       .rejects.toThrow(/git checkout/);
   });
 
   it('fails the build when pruning removed a file the self-test needs', async () => {
-    const recipe = { ...RECIPE, selfTest: { imports: ['json'], files: ['model-cache/weights.bin'] } };
-    const { keys, payloadDir } = await makeProject(recipe);
-    await expect(buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
+    const scroll = { ...SCROLL, selfTest: { imports: ['json'], files: ['model-cache/weights.bin'] } };
+    const { keys, payloadDir } = await makeProject(scroll);
+    await expect(buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} }))
       .rejects.toThrow(/Missing self-test file/);
   });
 
@@ -478,15 +516,15 @@ describe('the build pipeline', () => {
       sizeBytes: 4,
       sha256: 'b'.repeat(64),
     };
-    const recipe = {
-      ...RECIPE,
+    const scroll = {
+      ...SCROLL,
       assets: [asset],
       selfTest: { imports: ['json'], files: [asset.relativePath] },
     };
-    const { keys, payloadDir } = await makeProject(recipe);
+    const { keys, payloadDir } = await makeProject(scroll);
     // Nothing is downloaded: the fake toolchain would throw on an unexpected command, and the
     // self-test file that lives at the asset's path is legitimately absent from the payload.
-    const built = await buildBox(RECIPE.recipeId, {
+    const built = await buildBox(SCROLL_REF, {
       ...keys, weights: 'on-demand', ...fakeToolchain(payloadDir), log: () => {},
     });
     expect(built.weights).toBe('on-demand');
@@ -500,7 +538,7 @@ describe('the build pipeline', () => {
 
   it('detects an archive that no longer matches its signed release', async () => {
     const { keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
     await writeFile(built.archivePath, 'tampered');
     await expect(verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} }))
       .rejects.toThrow(/Archive size mismatch|Archive SHA-256 mismatch/);
@@ -508,7 +546,7 @@ describe('the build pipeline', () => {
 
   it('refuses a release signed by a key outside the trusted set', async () => {
     const { root, keys, payloadDir } = await makeProject();
-    const built = await buildBox(RECIPE.recipeId, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
     const stranger = {
       privatePath: join(root, 'other', 'private.pem'),
       publicPath: join(root, 'other', 'public.json'),
@@ -521,7 +559,7 @@ describe('the build pipeline', () => {
 
 describe('box manifest agreement', () => {
   const shared = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     boxId: 'example-model',
     modelId: 'example-org-example-model',
     runtimeId: 'example-runtime',
@@ -531,8 +569,8 @@ describe('box manifest agreement', () => {
     modelCacheSubdir: 'model-cache/example-model',
     selfTest: { pythonImports: ['json'], timeoutSeconds: 180 },
     provenance: {
-      recipeId: 'example-model-linux',
-      recipeVersion: '1.0.0',
+      scrollId: 'example-model-linux',
+      scrollVersion: '1.0.0',
       builderRevision: 'a'.repeat(40),
       sourceTreeDirty: false,
       sourceRevision: 'b'.repeat(40),
@@ -544,7 +582,7 @@ describe('box manifest agreement', () => {
   };
 
   it.each([
-    ['schemaVersion', 2],
+    ['schemaVersion', 1],
     ['boxId', 'other-box'],
     ['modelId', 'other-model'],
     ['runtimeId', 'other-runtime'],

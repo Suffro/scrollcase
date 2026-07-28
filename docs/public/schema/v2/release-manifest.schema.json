@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scrollcase.dev/schema/release-manifest.schema.json",
+  "$id": "https://scrollcase.dev/schema/v2/release-manifest.schema.json",
   "title": "Box release manifest",
   "description": "The immutable description of one built box: what it is, which target it runs on, where its archive lives, and how it was produced. Published as the payload of a signed document and never edited after signing; a correction ships as a new version.",
   "type": "object",
@@ -22,7 +22,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "kind": {
       "$ref": "#/$defs/kind",
@@ -42,7 +42,7 @@
       "minLength": 1
     },
     "target": {
-      "$ref": "https://scrollcase.dev/schema/target.schema.json"
+      "$ref": "https://scrollcase.dev/schema/v2/target.schema.json"
     },
     "compatibility": {
       "type": "object",
@@ -80,7 +80,7 @@
               "windows-wsl2"
             ]
           },
-          "description": "Host environments this payload was validated on. Absent in early releases, which predate the field."
+          "description": "Host environments this payload was validated on."
         }
       }
     },
@@ -132,7 +132,7 @@
         "pythonImports",
         "timeoutSeconds"
       ],
-      "description": "The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran these imports, plus any recipe-only Python-code and file assertions that schema version 1 does not carry.",
+      "description": "The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran the scroll's Python-code and file assertions, which are builder-only checks.",
       "properties": {
         "pythonImports": {
           "type": "array",
@@ -206,8 +206,8 @@
       "additionalProperties": false,
       "description": "How this box was produced. Every field is recorded by the builder from observed state, never accepted from caller input, so the record cannot be dressed up after the fact.",
       "required": [
-        "recipeId",
-        "recipeVersion",
+        "scrollId",
+        "scrollVersion",
         "builderRevision",
         "sourceTreeDirty",
         "sourceRevision",
@@ -217,11 +217,11 @@
         "pixiVersion"
       ],
       "properties": {
-        "recipeId": {
+        "scrollId": {
           "type": "string",
           "minLength": 1
         },
-        "recipeVersion": {
+        "scrollVersion": {
           "type": "string",
           "minLength": 1
         },
@@ -237,7 +237,7 @@
         "sourceRevision": {
           "type": "string",
           "minLength": 1,
-          "description": "Upstream revision of the packaged model source, as declared by the recipe."
+          "description": "Upstream revision of the packaged model source, as declared by the scroll."
         },
         "pythonVersion": {
           "type": "string",

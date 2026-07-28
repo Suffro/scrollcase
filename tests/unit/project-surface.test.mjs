@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { auditRecipe } from '../../src/build/audit.mjs';
+import { auditScroll } from '../../src/build/audit.mjs';
 import { diagnose, initProject } from '../../src/build/project.mjs';
 import { fileExists } from '../../src/build/filesystem.mjs';
 import { configureWorkspace, getWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
@@ -39,7 +39,7 @@ describe('setting a project up', () => {
     return root;
   }
 
-  it('scaffolds a config, an example recipe, and ignore rules', async () => {
+  it('scaffolds a config, an example scroll, and ignore rules', async () => {
     const root = await emptyProject();
     const result = await initProject({ root, target: TARGET, pixiVersion: '0.73.0' });
     expect(result.written.length).toBeGreaterThan(0);
@@ -47,16 +47,16 @@ describe('setting a project up', () => {
 
     const config = JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'));
     expect(config.version).toBe(1);
-    const recipe = JSON.parse(await readFile(join(result.recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.recipeId).toBeUndefined();
-    expect(recipe.target).toEqual(TARGET);
-    expect(recipe.pixiVersion).toBe('0.73.0');
-    expect(recipe.pythonEntryPoint).toBe('venv/bin/python');
-    expect(result.recipeRef).toBe('example-box/macos-aarch64-metal');
-    expect(result.recipeDir).toBe(join(root, 'recipes', 'example-box', 'macos-aarch64-metal'));
+    const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
+    expect(scroll.scrollId).toBeUndefined();
+    expect(scroll.target).toEqual(TARGET);
+    expect(scroll.pixiVersion).toBe('0.73.0');
+    expect(scroll.pythonEntryPoint).toBe('venv/bin/python');
+    expect(result.scrollRef).toBe('example-box/macos-aarch64-metal');
+    expect(result.scrollDir).toBe(join(root, 'scrolls', 'example-box', 'macos-aarch64-metal'));
     // The manifest's platform must be the target's conda subdirectory, or the solve is for the
     // wrong machine.
-    expect(await readFile(join(result.recipeDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["osx-arm64"]');
+    expect(await readFile(join(result.scrollDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["osx-arm64"]');
     expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.scrollcase/');
   });
 
@@ -79,9 +79,9 @@ describe('setting a project up', () => {
       root,
       target: { platform: 'windows', arch: 'x86_64', accelerator: 'cuda', cudaVersion: '12.8' },
     });
-    const recipe = JSON.parse(await readFile(join(result.recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.pythonEntryPoint).toBe('venv/python.exe');
-    expect(await readFile(join(result.recipeDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["win-64"]');
+    const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
+    expect(scroll.pythonEntryPoint).toBe('venv/python.exe');
+    expect(await readFile(join(result.scrollDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["win-64"]');
   });
 });
 
@@ -99,10 +99,10 @@ describe('diagnosing a machine', () => {
     return available.condaPack ? { status: 0, stdout: '' } : { status: 127, error: new Error('ENOENT') };
   };
 
-  it('passes when the recipes directory, git and both tools are present', async () => {
+  it('passes when the scrolls directory, git and both tools are present', async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-doctor-')));
     created.push(root);
-    await mkdir(join(root, 'recipes'), { recursive: true });
+    await mkdir(join(root, 'scrolls'), { recursive: true });
     configureWorkspace({ cwd: root });
     const { checks, ok } = await diagnose({
       workspace: getWorkspace(),
@@ -110,7 +110,7 @@ describe('diagnosing a machine', () => {
       runResult: toolchain({ git: true, pixi: '0.73.0', condaPack: true }),
     });
     expect(ok).toBe(true);
-    expect(checks.map((check) => check.name)).toEqual(['workspace', 'recipes', 'git', 'pixi', 'conda-pack']);
+    expect(checks.map((check) => check.name)).toEqual(['workspace', 'scrolls', 'git', 'pixi', 'conda-pack']);
   });
 
   it('reports every problem at once, each with what to do about it', async () => {
@@ -125,14 +125,14 @@ describe('diagnosing a machine', () => {
     expect(ok).toBe(false);
     const failed = checks.filter((check) => !check.ok);
     // One run must surface all of them: a user with nothing installed should not learn one per attempt.
-    expect(failed.map((check) => check.name)).toEqual(['recipes', 'git', 'pixi', 'conda-pack']);
+    expect(failed.map((check) => check.name)).toEqual(['scrolls', 'git', 'pixi', 'conda-pack']);
     expect(failed.every((check) => check.remedy)).toBe(true);
   });
 
   it('reports the wrong pixi version as a failure, not as absence', async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-doctor-')));
     created.push(root);
-    await mkdir(join(root, 'recipes'), { recursive: true });
+    await mkdir(join(root, 'scrolls'), { recursive: true });
     configureWorkspace({ cwd: root });
     const { checks } = await diagnose({
       workspace: getWorkspace(),
@@ -150,7 +150,7 @@ describe('diagnosing a machine', () => {
     configureWorkspace({ cwd: root });
     await diagnose({ workspace: getWorkspace(), runResult: toolchain({ git: true, condaPack: true }) });
     expect(await fileExists(join(root, 'scrollcase.config.json'))).toBe(false);
-    expect(await fileExists(join(root, 'recipes'))).toBe(false);
+    expect(await fileExists(join(root, 'scrolls'))).toBe(false);
   });
 });
 
@@ -166,17 +166,17 @@ describe('auditing dependency licences', () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-audit-')));
     created.push(root);
     const result = await initProject({ root, target: TARGET, pixiVersion: '0.73.0' });
-    const recipe = JSON.parse(await readFile(join(result.recipeDir, 'recipe.json'), 'utf8'));
-    if (auditPath) recipe.condaDependencyLicenseAudit = auditPath;
-    await writeFile(join(result.recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
-    await writeFile(join(result.recipeDir, 'pixi.lock'), LOCK);
+    const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
+    if (auditPath) scroll.condaDependencyLicenseAudit = auditPath;
+    await writeFile(join(result.scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
+    await writeFile(join(result.scrollDir, 'pixi.lock'), LOCK);
     configureWorkspace({ cwd: root });
-    return { root, recipeRef: result.recipeRef };
+    return { root, scrollRef: result.scrollRef };
   }
 
   it('summarises the inventory straight from the lock, with no build', async () => {
-    const { recipeRef } = await projectWithLock({ auditPath: null });
-    const { summary, inventory, reviewed } = await auditRecipe(recipeRef);
+    const { scrollRef } = await projectWithLock({ auditPath: null });
+    const { summary, inventory, reviewed } = await auditScroll(scrollRef);
     expect(summary.packageCount).toBe(2);
     expect(summary.licenses).toEqual([
       { license: 'Apache-2.0', count: 1 },
@@ -187,21 +187,21 @@ describe('auditing dependency licences', () => {
   });
 
   it('writes the reviewed audit only when asked, then matches it', async () => {
-    const { root, recipeRef } = await projectWithLock();
-    await expect(auditRecipe(recipeRef)).rejects.toThrow(/Reviewed licence audit is missing/);
-    const written = await auditRecipe(recipeRef, { write: true });
+    const { root, scrollRef } = await projectWithLock();
+    await expect(auditScroll(scrollRef)).rejects.toThrow(/Reviewed licence audit is missing/);
+    const written = await auditScroll(scrollRef, { write: true });
     expect(written.written).toBe(true);
     expect(await fileExists(join(root, 'legal/audit.json'))).toBe(true);
-    const checked = await auditRecipe(recipeRef);
+    const checked = await auditScroll(scrollRef);
     expect(checked.written).toBe(false);
   });
 
   it('fails when the lock no longer matches what was reviewed', async () => {
-    const { root, recipeRef } = await projectWithLock();
-    await auditRecipe(recipeRef, { write: true });
+    const { root, scrollRef } = await projectWithLock();
+    await auditScroll(scrollRef, { write: true });
     const stale = JSON.parse(await readFile(join(root, 'legal/audit.json'), 'utf8'));
     stale.packages.pop();
     await writeFile(join(root, 'legal/audit.json'), `${JSON.stringify(stale, null, 2)}\n`);
-    await expect(auditRecipe(recipeRef)).rejects.toThrow(/differ from the reviewed audit/);
+    await expect(auditScroll(scrollRef)).rejects.toThrow(/differ from the reviewed audit/);
   });
 });

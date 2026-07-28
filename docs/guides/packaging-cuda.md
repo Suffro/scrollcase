@@ -7,7 +7,7 @@ description: Build a GPU box whose CUDA ABI is part of its identity, and prove i
 
 A CUDA box is an ordinary box with one extra property: the CUDA ABI it was built against is part
 of its identity, so a CUDA 12.4 build can never be mistaken for a 12.8 one. This page covers what
-a CUDA recipe declares, and how to prove the result is genuinely a GPU build rather than CPU
+a CUDA scroll declares, and how to prove the result is genuinely a GPU build rather than CPU
 wheels wearing a CUDA name.
 
 ## Supported CUDA targets
@@ -20,12 +20,12 @@ wheels wearing a CUDA name.
 macOS has no CUDA target — use `metal`. The `12.4` values below are one concrete example, not the
 only CUDA ABI the contract accepts.
 
-## The recipe
+## The scroll
 
 ```json
 {
-  "schemaVersion": 1,
-  "recipeVersion": "1.0.0",
+  "schemaVersion": 2,
+  "scrollVersion": "1.0.0",
   "boxId": "my-model",
   "modelId": "example-org-my-model",
   "runtimeId": "my-model-runtime",
@@ -89,10 +89,10 @@ Then resolve and commit the lock:
 
 ```sh
 scrollcase lock my-model/linux-x86_64-cuda12.4
-git add recipes/my-model/linux-x86_64-cuda12.4/pixi.lock
+git add scrolls/my-model/linux-x86_64-cuda12.4/pixi.lock
 ```
 
-Run those commands with Pixi `0.73.0`, because that is the exact version this example recipe pins;
+Run those commands with Pixi `0.73.0`, because that is the exact version this example scroll pins;
 do not substitute another resolver version.
 
 ::: warning `cuda-version` pins the ABI, not the driver
@@ -108,7 +108,7 @@ Linux x86_64. There is no cross-building, because the self-test runs the box's o
 and that only proves anything on matching hardware.
 
 ```sh
-scrollcase doctor --recipe my-model/linux-x86_64-cuda12.4
+scrollcase doctor --scroll my-model/linux-x86_64-cuda12.4
 scrollcase build my-model/linux-x86_64-cuda12.4
 ```
 
@@ -153,18 +153,18 @@ box's own interpreter, on a matching native host:
 scrollcase verify .scrollcase/dist/boxes/my-model/1.0.0/linux-x86_64-cuda12.4/*.release.json --self-test
 ```
 
-This consumer check does **not** repeat recipe `pythonCode`, so it does not by itself prove
+This consumer check does **not** repeat scroll `pythonCode`, so it does not by itself prove
 `torch.cuda.is_available()`. That stronger assertion and parity are builder gates. Building a
-target proves packaging and declared gates; it never proves scientific parity unless the recipe
+target proves packaging and declared gates; it never proves scientific parity unless the scroll
 declares and passes a suitable parity check.
 
 ## One box per CUDA ABI
 
-Because `cudaVersion` is part of the identity, supporting two ABIs means two recipes, two locks,
+Because `cudaVersion` is part of the identity, supporting two ABIs means two scrolls, two locks,
 two boxes:
 
 ```text
-recipes/
+scrolls/
 └── my-model/
     ├── linux-x86_64-cuda12.4/
     └── linux-x86_64-cuda12.8/

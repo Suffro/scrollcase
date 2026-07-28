@@ -8,7 +8,7 @@ description: Scrollcase in a nutshell.
 The Scrollcase mental model is simple:
 
 ```text
-write a recipe
+write a scroll
 ↓
 define and lock dependencies
 ↓
@@ -19,7 +19,7 @@ build the box
 flowchart TB
     subgraph Dev ["1. Developer Workspace"]
         direction TB
-        A["Recipe & Code"]
+        A["Scroll & Code"]
         B["Dependencies"]
         C["Scrollcase CLI"]
     end
@@ -31,7 +31,7 @@ flowchart TB
 
     subgraph Package ["3. Build Result"]
         direction TB
-        F["Runtime Box (.zip)"]
+        F["Box (.zip)"]
         G["Signed Manifest"]
     end
 
@@ -51,7 +51,7 @@ flowchart TB
 
 1. run `npm install -g scrollcase` to install the [CLI](/reference/cli)
 2. run `scrollcase init`
-3. write the [recipe](/reference/recipe)
+3. write the [scroll](/reference/scroll)
 4. define the **dependencies**
 5. run `scrollcase lock`
 6. generate or configure the [signing key](/guides/signing-and-custody)
@@ -68,7 +68,7 @@ flowchart TB
 <Tabs :titles="['The Developer', 'Scrollcase', 'The Consuming Application', 'The End User']">
 <Tab title="The Developer">
 
-Decides what the box contains, writes the recipe, defines dependencies, runs the commands, publishes releases, and implements integration in the application.
+Decides what the box contains, writes the scroll, defines dependencies, runs the commands, publishes releases, and implements integration in the application.
 
 </Tab>
 <Tab title="Scrollcase">
@@ -91,7 +91,7 @@ Uses the feature exposed by the application; does not interact with Scrollcase d
 
 The most demanding parts are usually:
 
-- defining a correct recipe;
+- defining a correct scroll;
 - dealing with difficult scientific dependencies;
 - implementing download, verification, and execution in the consuming application.
 
@@ -115,4 +115,4 @@ Without a tool like this, the developer would have to manage:
 - tests;
 - distribution conventions.
 
-With Scrollcase, these concerns are collected into a recipe and a small number of commands.
+With Scrollcase, these concerns are collected into a scroll and a small number of commands.

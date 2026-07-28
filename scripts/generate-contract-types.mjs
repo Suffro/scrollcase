@@ -30,7 +30,7 @@ const OUTPUT_PATH = fileURLToPath(new URL('../src/contract/types/index.d.ts', im
  */
 const SCHEMAS = Object.freeze([
   { file: 'target.schema.json', name: 'BoxTarget' },
-  { file: 'recipe.schema.json', name: 'BoxRecipe' },
+  { file: 'scroll.schema.json', name: 'BoxScroll' },
   { file: 'box-manifest.schema.json', name: 'BoxManifest' },
   { file: 'release-manifest.schema.json', name: 'BoxReleaseManifest' },
   { file: 'channel-manifest.schema.json', name: 'BoxChannelManifest' },

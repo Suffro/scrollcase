@@ -1,5 +1,5 @@
 /**
- * Verifies the pinned pixi is installed. `build` and `lock` must use the same pixi the recipe was
+ * Verifies the pinned pixi is installed. `build` and `lock` must use the same pixi the scroll was
  * pinned against, never whatever happens to be on PATH: a different resolver version can select
  * different packages and silently change the box.
  * `runResult` is injectable so a caller can drive discovery without a real pixi on PATH.
@@ -42,7 +42,7 @@ export function probeCondaPack({ path, runResult }?: {
     path: string;
 } | null;
 /**
- * `lock` — resolves a recipe's pixi.toml into its committed pixi.lock without installing anything.
+ * `lock` — resolves a scroll's pixi.toml into its committed pixi.lock without installing anything.
  * Run by a human when dependencies change; the lock is committed and reviewed, and `build` then
  * only installs from it. The manifest itself pins the channels and the single target platform, so
  * resolution is host-independent without any per-invocation platform flag.
@@ -84,10 +84,10 @@ export function findCondaPack({ path, runResult }?: {
     runResult?: typeof defaultRunResult;
 }): string;
 /**
- * Builds the box's `venv/` prefix from a recipe's committed pixi.lock and packs it for relocation.
+ * Builds the box's `venv/` prefix from a scroll's committed pixi.lock and packs it for relocation.
  *
  * Flow: install the exact locked env into an isolated workspace so pixi's `.pixi/envs` never
- * lands in the tracked recipe dir; conda-pack the prefix into a relocatable tarball; extract it
+ * lands in the tracked scroll dir; conda-pack the prefix into a relocatable tarball; extract it
  * into `payloadDir/venv`; remove the service files that carry the build prefix (conda-unpack is
  * never run — see below); then dereference every symlink so the payload is link-free for the
  * archive layer. The multi-gigabyte workspace and tarball are removed before the payload is

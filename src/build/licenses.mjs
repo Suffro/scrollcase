@@ -107,13 +107,13 @@ export function lockedCondaDistributions(lockBytes) {
  * Builds the deterministic conda license audit bound to one pixi.lock and target.
  *
  * @param {{ lockBytes: Buffer, targetId: string, namespace?: string }} options
- * @returns {{ schemaVersion: 1, kind: string, targetId: string, dependencyLockSha256: string,
+ * @returns {{ schemaVersion: 2, kind: string, targetId: string, dependencyLockSha256: string,
  *   packages: LockedDistribution[] }}
  * @throws {Error} when a locked package declares no licence
  */
 export function createCondaDependencyLicenseAudit({ lockBytes, targetId, namespace = DEFAULT_DOCUMENT_NAMESPACE }) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: `${namespace}.dependency-license-audit`,
     targetId,
     dependencyLockSha256: sha256(lockBytes),
@@ -130,7 +130,7 @@ export function createCondaDependencyLicenseAudit({ lockBytes, targetId, namespa
  * @throws {Error} when the lock no longer matches what was reviewed
  */
 export function validateCondaDependencyLicenseAudit(reviewed, actual) {
-  if (reviewed?.schemaVersion !== 1 || reviewed.kind !== actual.kind) fail('reviewed conda audit contract is invalid');
+  if (reviewed?.schemaVersion !== 2 || reviewed.kind !== actual.kind) fail('reviewed conda audit contract is invalid');
   if (JSON.stringify(reviewed) !== JSON.stringify(actual)) {
     fail('locked conda dependency licenses differ from the reviewed audit');
   }

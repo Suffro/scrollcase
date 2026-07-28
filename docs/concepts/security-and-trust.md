@@ -17,7 +17,7 @@ and incomplete or corrupted downloaded assets. It records the source commit and 
 builder cannot silently present an uncommitted build as reproducible.
 
 The format does not protect a consumer that trusts an attacker's public key, a compromised signing
-key, a malicious recipe approved by the project, or a client that skips compatibility,
+key, a malicious scroll approved by the project, or a client that skips compatibility,
 revocation, rollout, and path-safety policy. Scrollcase is not a registry, transport, promotion
 service, revocation authority, or host installer.
 
@@ -56,16 +56,16 @@ together. Never commit the private key under `.scrollcase/keys/`.
 2. Require a release document, resolve its exact target adapter, and validate its interpreter path.
 3. Locate the archive and compare its byte size and SHA-256 with the signed release.
 4. List ZIP entries defensively, rejecting traversal, links, and special entries before extraction.
-5. Require `box.json` and recursively compare every shared schema-v1 field: identity and version,
+5. Require `box.json` and recursively compare every shared schema-v2 field: identity and version,
    complete target, entry point, cache subdirectory, consumer self-test, weights/assets policy,
    and provenance.
 6. Require the declared interpreter entry inside the archive.
 7. With `--self-test`, require a matching native host, extract to a temporary directory, compare
    the logical extracted payload size, and run the signed import check with the box's interpreter.
 
-The builder's richer recipe checks—optional `pythonCode` and post-prune file assertions—are not
-present in schema version 1 and therefore cannot be repeated by a consumer. See
-[The Recipe](/reference/recipe#self-test).
+The builder's richer scroll checks—optional `pythonCode` and post-prune file assertions—are not
+part of the signed release and therefore cannot be repeated by a consumer. See
+[The Scroll](/reference/scroll#self-test).
 
 ## Key custody
 

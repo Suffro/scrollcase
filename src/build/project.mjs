@@ -31,10 +31,10 @@ import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace
 const GITIGNORE_MARKER = '# scrollcase build state';
 
 /** The example a new project starts from: an environment with nothing in it but Python. */
-function exampleRecipe(boxId, target, recipeId = null) {
-  const recipe = {
-    schemaVersion: 1,
-    recipeVersion: '1.0.0',
+function exampleScroll(boxId, target, scrollId = null) {
+  const scroll = {
+    schemaVersion: 2,
+    scrollVersion: '1.0.0',
     boxId,
     modelId: `example-org-${boxId}`,
     runtimeId: `${boxId}-runtime`,
@@ -50,10 +50,10 @@ function exampleRecipe(boxId, target, recipeId = null) {
     assets: [],
     selfTest: { imports: ['json'], files: [] },
   };
-  // Accepted for callers migrating a provenance identity already in use. Fresh recipes omit the
-  // redundant field and let the reader derive `<boxId>-<targetId>` deterministically.
-  if (recipeId) recipe.recipeId = recipeId;
-  return recipe;
+  // A caller may supply an explicit provenance identity. Fresh scrolls omit the redundant field
+  // and let the reader derive `<boxId>-<targetId>` deterministically.
+  if (scrollId) scroll.scrollId = scrollId;
+  return scroll;
 }
 
 function exampleManifest(environmentName, target) {
@@ -71,7 +71,7 @@ python = "3.11.*"
 }
 
 /**
- * Scaffolds a project: a workspace config, one example recipe, and the ignore rules for generated
+ * Scaffolds a project: a workspace config, one example scroll, and the ignore rules for generated
  * state. Existing files are never overwritten — the command reports what it skipped and why, so a
  * half-configured project can be completed by running it again.
  */
@@ -80,14 +80,14 @@ export async function initProject({
   target,
   pixiVersion = null,
   boxId = 'example-box',
-  recipeId = null,
+  scrollId = null,
 }) {
   if (!/^[a-z0-9]+(?:[-.][a-z0-9]+)*$/.test(boxId)) {
     fail(`Invalid box ID ${boxId}; use lowercase letters, digits, dots and hyphens.`);
   }
   const targetId = boxTargetId(target);
-  const derivedRecipeId = `${boxId}-${targetId}`;
-  const recipeRef = `${boxId}/${targetId}`;
+  const derivedScrollId = `${boxId}-${targetId}`;
+  const scrollRef = `${boxId}/${targetId}`;
   const written = [];
   const skipped = [];
   const write = async (path, contents) => {
@@ -102,13 +102,13 @@ export async function initProject({
     paths: { ...DEFAULT_WORKSPACE_PATHS },
   }, null, 2)}\n`);
 
-  const recipeDir = join(root, DEFAULT_WORKSPACE_PATHS.recipes, boxId, targetId);
-  const recipe = exampleRecipe(boxId, target, recipeId);
-  if (pixiVersion) recipe.pixiVersion = pixiVersion;
-  await write(join(recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
-  await write(join(recipeDir, 'pixi.toml'), exampleManifest(derivedRecipeId, target));
+  const scrollDir = join(root, DEFAULT_WORKSPACE_PATHS.scrolls, boxId, targetId);
+  const scroll = exampleScroll(boxId, target, scrollId);
+  if (pixiVersion) scroll.pixiVersion = pixiVersion;
+  await write(join(scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
+  await write(join(scrollDir, 'pixi.toml'), exampleManifest(derivedScrollId, target));
 
-  // Build state is regenerated on every build and must never be committed; the lock and the recipe
+  // Build state is regenerated on every build and must never be committed; the lock and the scroll
   // must be. Appending rather than rewriting leaves an existing .gitignore alone.
   const gitignorePath = join(root, '.gitignore');
   const existing = await fileExists(gitignorePath) ? await readFile(gitignorePath, 'utf8') : '';
@@ -122,9 +122,9 @@ export async function initProject({
   return {
     written,
     skipped,
-    recipeId: recipeId ?? derivedRecipeId,
-    recipeRef,
-    recipeDir,
+    scrollId: scrollId ?? derivedScrollId,
+    scrollRef,
+    scrollDir,
     boxId,
     targetId,
   };
@@ -136,13 +136,13 @@ async function readConfig(configPath) {
   return JSON.parse(await readFile(configPath, 'utf8'));
 }
 
-/** Pins a scaffolded recipe to the pixi it will use, without overwriting an explicit choice. */
-async function pinRecipePixiVersion(recipePath, version) {
-  if (!recipePath || !version || !await fileExists(recipePath)) return false;
-  const recipe = JSON.parse(await readFile(recipePath, 'utf8'));
-  if (recipe.pixiVersion) return false;
-  recipe.pixiVersion = version;
-  await writeFile(recipePath, `${JSON.stringify(recipe, null, 2)}\n`);
+/** Pins a scaffolded scroll to the pixi it will use, without overwriting an explicit choice. */
+async function pinScrollPixiVersion(scrollPath, version) {
+  if (!scrollPath || !version || !await fileExists(scrollPath)) return false;
+  const scroll = JSON.parse(await readFile(scrollPath, 'utf8'));
+  if (scroll.pixiVersion) return false;
+  scroll.pixiVersion = version;
+  await writeFile(scrollPath, `${JSON.stringify(scroll, null, 2)}\n`);
   return true;
 }
 
@@ -153,9 +153,9 @@ async function pinRecipePixiVersion(recipePath, version) {
  * passes a flag, and CI without a terminal answers no. Nothing is downloaded before it returns
  * true, which is what keeps `init` a command that is always safe to run.
  *
- * The pixi version is the recipe's pin when there is one, the installed pixi's version when one is
+ * The pixi version is the scroll's pin when there is one, the installed pixi's version when one is
  * already present, and otherwise the newest release — resolved once and then written into the
- * recipe, because a toolchain nobody pinned is a box nobody can reproduce.
+ * scroll, because a toolchain nobody pinned is a box nobody can reproduce.
  *
  * The archive's verified digest and managed conda-pack version are recorded under `toolchain` in
  * the project config. The first pixi install trusts the checksum published beside the release;
@@ -166,7 +166,7 @@ export async function ensureToolchain({
   workspace,
   pixiVersion = null,
   confirm,
-  recipePath = null,
+  scrollPath = null,
   host = process,
   fetchImpl = fetch,
   run = defaultRun,
@@ -175,20 +175,20 @@ export async function ensureToolchain({
 }) {
   const discoveredPixi = probePixi({ runResult });
   // A present but different pixi is still missing for this project: resolver versions are part of
-  // the recipe's reproducibility contract, so `init --pixi-version` must install what it promises.
+  // the scroll's reproducibility contract, so `init --pixi-version` must install what it promises.
   const pixi = discoveredPixi && (!pixiVersion || discoveredPixi.version === pixiVersion)
     ? discoveredPixi
     : null;
   const condaPack = probeCondaPack({ runResult });
   const missing = [!pixi && 'pixi', !condaPack && 'conda-pack'].filter(Boolean);
   if (missing.length === 0) {
-    const pinnedRecipe = await pinRecipePixiVersion(recipePath, pixi.version);
+    const pinnedScroll = await pinScrollPixiVersion(scrollPath, pixi.version);
     return {
       installed: [],
       missing: [],
       pixiVersion: pixi.version,
       condaPackVersion: CONDA_PACK_VERSION,
-      pinnedRecipe,
+      pinnedScroll,
       declined: false,
     };
   }
@@ -206,7 +206,7 @@ export async function ensureToolchain({
   if (!pixi) {
     if (!version) {
       version = await latestPixiVersion({ fetchImpl });
-      log(`Newest pixi release is ${version}; pinning the recipe to it.`);
+      log(`Newest pixi release is ${version}; pinning the scroll to it.`);
     }
     const pinned = config.toolchain?.pixi?.version === version
       ? config.toolchain?.pixi?.assets?.[pixiReleaseAsset(host).asset] ?? null
@@ -243,16 +243,16 @@ export async function ensureToolchain({
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   }
 
-  // A recipe scaffolded without a pin gets the version that was just installed, so `lock` and
+  // A scroll scaffolded without a pin gets the version that was just installed, so `lock` and
   // `build` agree with the toolchain sitting next to them.
-  const pinnedRecipe = await pinRecipePixiVersion(recipePath, version);
+  const pinnedScroll = await pinScrollPixiVersion(scrollPath, version);
   return {
     installed,
     missing: [],
     declined: false,
     pixiVersion: version,
     condaPackVersion: CONDA_PACK_VERSION,
-    pinnedRecipe,
+    pinnedScroll,
     configPath,
   };
 }
@@ -270,13 +270,13 @@ export async function diagnose({ workspace, pixiVersion = null, pixiPath = null,
   record('workspace', true, workspace.configPath
     ? `config ${workspace.configPath}`
     : `no ${SCROLLCASE_CONFIG_FILENAME} found; using defaults under ${workspace.root}`);
-  record('recipes', await fileExists(workspace.recipesDir), workspace.recipesDir,
-    `Create it, or point "paths.recipes" at where your recipes live.`);
+  record('scrolls', await fileExists(workspace.scrollsDir), workspace.scrollsDir,
+    `Create it, or point "paths.scrolls" at where your scrolls live.`);
 
   const git = runResult('git', ['rev-parse', 'HEAD'], { capture: true, cwd: workspace.root });
   record('git', git.status === 0,
     git.status === 0 ? `HEAD ${git.stdout.trim().slice(0, 12)}` : 'not a git checkout',
-    'A box records the commit it was built from. Initialise a repository and commit your recipes.');
+    'A box records the commit it was built from. Initialise a repository and commit your scrolls.');
 
   if (pixiVersion) {
     try {
@@ -287,7 +287,7 @@ export async function diagnose({ workspace, pixiVersion = null, pixiPath = null,
         `Install pixi ${pixiVersion} from https://pixi.sh/, or pass --pixi <path>.`);
     }
   } else {
-    record('pixi', true, 'not checked: pass --pixi-version, or run doctor with a recipe');
+    record('pixi', true, 'not checked: pass --pixi-version, or run doctor with a scroll');
   }
 
   try {

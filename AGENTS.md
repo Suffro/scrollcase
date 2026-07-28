@@ -11,18 +11,24 @@ Before planning a multi-step or expensive task, and before delegating to subagen
 
 ## Project context
 
-**Scrollcase** turns a declarative **recipe** into a **box**: a portable, locked, self-contained
+**Scrollcase** turns a declarative **scroll** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other than
 where it was built, signed so a consumer can prove what they received, and accompanied by a
 dependency licence inventory.
 
 The substrate is **pixi + conda-pack + conda-forge**, and only that. `pixi` solves a committed
 `pixi.lock`, `conda-pack` relocates the resulting prefix, and the tree is extracted into the box's
-`venv/`. Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`.
+`venv/`. The released CLI currently has seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`,
+`build`, `verify`. v2 adds `new` and `run`.
 
-Scrollcase is **a library as well as a CLI**: `package.json` exports `./contract`,
-`./contract/browser`, `./build`, `./sign` and `./contract/types`. A change to any of those is a
-change to a public API.
+Scrollcase is **a library as well as a CLI**. Its public Node surfaces include the contract, build
+and signing APIs; v2 adds the local execution API at `scrollcase/consumer`. The Python consumer
+exposes the same semantics as `scrollcase_consumer`. A change to any public export is a change to a
+public API.
+
+The accepted v2 design is authoritative even while the working tree is migrated in phases. v2 is a
+clean break: do not add v1/v2 unions, legacy aliases, or dual code paths. Existing v1 releases remain
+historical artefacts for the old Scrollcase versions that produced them.
 
 It is open source and vendor-neutral, and must stay usable by projects that have nothing to do with
 the one that first needed it.
@@ -32,9 +38,9 @@ the one that first needed it.
 This boundary is the whole point of the project, and it is the thing most likely to erode.
 **A change that crosses it is wrong even when it would be convenient.**
 
-- **Not a distribution system.** Scrollcase stops at a signed, verified box on disk. Uploading,
-  serving a registry, promoting a channel, revoking a release — all of that belongs to whoever
-  consumes it. `publish`, `promote`, `revoke` and `serve` were deliberately left out.
+- **Not a distribution system.** Scrollcase may prepare and execute a caller-supplied local box, but
+  it does not select channels, download boxes, update installations, promote, revoke, publish, or
+  serve. Those lifecycle responsibilities belong to whoever consumes it.
 - **Not a CI system.** No model catalog, no runner allocation, no cost policy, no build-evidence
   records for someone else's pipeline.
 - **Not a scientific validator.** Scrollcase *enforces* a numerical tolerance its user declared (see
@@ -45,7 +51,7 @@ This boundary is the whole point of the project, and it is the thing most likely
 
 1. **No consumer's name in the tool.** Not in identifiers, error messages, environment variables,
    default paths, wire strings, or examples. A project-specific value is declared by the project
-   (config, recipe, or flag) and Scrollcase stays ignorant. Re-grep after every file move: moved
+   (config, scroll, or flag) and Scrollcase stays ignorant. Re-grep after every file move: moved
    files have smuggled such references back in twice already.
 2. **The document namespace belongs to the publishing project.** A `kind` is
    `<namespace>.release` / `.channel` / `.revocations`, built by `documentKinds(namespace)` and
@@ -53,9 +59,10 @@ This boundary is the whole point of the project, and it is the thing most likely
    namespace its clients recognise. Never hard-code one.
 3. **One substrate.** No second dependency backend. Two backends means proving every guarantee
    twice, and the guarantees are the product.
-4. **The wire format is frozen at `schemaVersion: 1`.** Published boxes and installed clients depend
-   on it. A breaking change needs a new `schemaVersion`, never a silent edit to a `kind` string, the
-   payload encoding, the signature algorithm, or a golden fixture.
+4. **Published v1 is immutable; active development is v2-only.** The v2 verifier rejects
+   `schemaVersion: 1` clearly instead of reinterpreting it. Never silently edit a `kind` string, the
+   payload encoding, the signature algorithm, or a golden fixture. Any future breaking wire change
+   needs another new `schemaVersion`.
 5. **Determinism is a promise.** Rebuilding the same commit must produce a byte-identical archive.
    Introduce nothing that varies per run: no clock read, no random value, no unsorted directory
    listing.
@@ -100,7 +107,7 @@ afterwards.**
 ## Naming (canonical terms — use exactly these)
 
 - **box** — the built artefact. Never "image", never "container", never a consumer's product term.
-- **recipe** — the declarative input (`recipe.json`), the only input a build accepts.
+- **scroll** — the declarative input (`scroll.json`), the only input a build accepts.
 - **target** — the `(platform, arch, accelerator)` triple, plus `cudaVersion` for CUDA.
 - **payload** — the tree assembled before archiving.
 - **release / channel / revocations** — the three signed document types.
@@ -121,6 +128,13 @@ without reading each hit.
   → `src/contract/types/index.d.ts`), never hand-written, and a test fails if the two disagree.
   Runtime declarations are generated by the same command from the typed JSDoc beside the
   JavaScript implementation; never hand-edit either generated surface.
+- **One contract, multiple implementations.** The Node consumer at `scrollcase/consumer` and the
+  Python `scrollcase_consumer` package implement the same local verification, extraction, execution,
+  receipt, and error semantics. They prove parity against shared language-neutral conformance
+  fixtures; neither maintains a second format definition.
+- **Verification precedes execution.** Consumer code may not run a box interpreter, script, module,
+  or import before signature, payload shape, archive size/hash, safe-entry, and manifest-agreement
+  checks succeed.
 - **`src/cli.mjs` stays thin.** Argument parsing and I/O only. User interaction such as a prompt
   lives at the CLI edge; modules take consent as an injected dependency, never by reading a terminal.
 - **Paths come from the project.** A workspace is declared by `scrollcase.config.json` and resolved
@@ -136,11 +150,11 @@ without reading each hit.
   envelope and namespacing (`documents.mjs`), `schema/`, `fixtures/`, generated `types/`.
 - `src/build/` — solving and packing (`pixi.mjs`), toolchain bootstrap (`toolchain.mjs`), relocation
   repair (`launchers.mjs`), archive and filesystem primitives, the lock-derived licence audit,
-  workspace resolution, recipe reading and provenance, asset staging, the build core (`box.mjs`),
+  workspace resolution, scroll reading and provenance, asset staging, the build core (`box.mjs`),
   `verify.mjs`, `audit.mjs`, `project.mjs` (init/doctor), and the parity gate.
 - `src/sign/` — key generation, local signing, external-signer dispatch, verification.
 - `src/cli.mjs` — argument parsing and dispatch. `scripts/` — dev tooling, not shipped.
-- `examples/` — a working recipe that builds in about a minute. `docs/` — the VitePress site.
+- `examples/` — a working scroll that builds in about a minute. `docs/` — the VitePress site.
 
 This list is not complete; read the files for more.
 
@@ -173,7 +187,7 @@ The commands, in full — there are only five:
 If one of these fails or no longer exists, read the `scripts` section of the relevant
 `package.json`, use what is there, and **update this file**.
 
-Building a box for real additionally needs `pixi` at the version the recipe pins, plus `conda-pack`.
+Building a box for real additionally needs `pixi` at the version the scroll pins, plus `conda-pack`.
 `scrollcase doctor` reports what is missing; `scrollcase init` offers to install them and must never
 do so without explicit consent.
 

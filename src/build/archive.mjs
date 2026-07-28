@@ -205,7 +205,7 @@ async function validateTarArchive(archivePath) {
 }
 
 /**
- * Extracts recipe assets using only pinned Node archive implementations.
+ * Extracts scroll assets using only pinned Node archive implementations.
  *
  * @param {string} archivePath
  * @param {'zip' | 'tar.gz'} format
@@ -213,7 +213,7 @@ async function validateTarArchive(archivePath) {
  * @param {number} [stripComponents]
  * @returns {Promise<void>}
  */
-export async function extractRecipeArchive(archivePath, format, destination, stripComponents = 0) {
+export async function extractScrollArchive(archivePath, format, destination, stripComponents = 0) {
   const tempRoot = await mkdtemp(join(tmpdir(), 'scrollcase-extract-'));
   try {
     if (format === 'zip') {
@@ -249,7 +249,7 @@ export async function extractRecipeArchive(archivePath, format, destination, str
     // Archives may add a subtree beside verified assets, but must never replace those assets.
     for (const file of files) {
       if (await fileExists(join(destination, ...file.split('/')))) {
-        fail(`Recipe archive entry already exists in destination: ${file}`);
+        fail(`Scroll archive entry already exists in destination: ${file}`);
       }
     }
     await mkdir(destination, { recursive: true });

@@ -25,7 +25,7 @@ export function lockedCondaDistributions(lockBytes: Buffer): LockedDistribution[
  * Builds the deterministic conda license audit bound to one pixi.lock and target.
  *
  * @param {{ lockBytes: Buffer, targetId: string, namespace?: string }} options
- * @returns {{ schemaVersion: 1, kind: string, targetId: string, dependencyLockSha256: string,
+ * @returns {{ schemaVersion: 2, kind: string, targetId: string, dependencyLockSha256: string,
  *   packages: LockedDistribution[] }}
  * @throws {Error} when a locked package declares no licence
  */
@@ -34,7 +34,7 @@ export function createCondaDependencyLicenseAudit({ lockBytes, targetId, namespa
     targetId: string;
     namespace?: string;
 }): {
-    schemaVersion: 1;
+    schemaVersion: 2;
     kind: string;
     targetId: string;
     dependencyLockSha256: string;

@@ -84,7 +84,7 @@ describe('CLI target selection', () => {
     expect(rendered).toContain('❯ macos-aarch64-cpu');
   });
 
-  it('honours an explicit target and rejects one outside the available recipes', async () => {
+  it('honours an explicit target and rejects one outside the available scrolls', async () => {
     const candidates = [
       candidate('macos-aarch64-cpu', macos),
       candidate('macos-aarch64-metal', macos),
@@ -120,11 +120,11 @@ describe('CLI target selection', () => {
       '--no-install-toolchain',
     ], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
-    const recipe = JSON.parse(await readFile(
-      join(root, 'recipes', 'example-box', 'macos-aarch64-metal', 'recipe.json'),
+    const scroll = JSON.parse(await readFile(
+      join(root, 'scrolls', 'example-box', 'macos-aarch64-metal', 'scroll.json'),
       'utf8',
     ));
-    expect(recipe.target.accelerator).toBe('metal');
+    expect(scroll.target.accelerator).toBe('metal');
   });
 
   it('scaffolds the exact nested target supplied to non-terminal init', async () => {
@@ -142,10 +142,10 @@ describe('CLI target selection', () => {
       '--no-install-toolchain',
     ], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
-    const recipePath = join(root, 'recipes', 'example-box', targetId, 'recipe.json');
-    const recipe = JSON.parse(await readFile(recipePath, 'utf8'));
-    expect(recipe.recipeId).toBeUndefined();
-    expect(recipe.target).toEqual({
+    const scrollPath = join(root, 'scrolls', 'example-box', targetId, 'scroll.json');
+    const scroll = JSON.parse(await readFile(scrollPath, 'utf8'));
+    expect(scroll.scrollId).toBeUndefined();
+    expect(scroll.target).toEqual({
       platform: adapter.platform,
       arch: adapter.arch,
       accelerator: 'cpu',
@@ -178,11 +178,11 @@ describe('CLI build choices', () => {
     )).resolves.toBe('on-demand');
   });
 
-  it('still accepts a custom channel through the explicit flag', async () => {
+  it('rejects a channel outside the v2 contract', async () => {
     await expect(chooseCliValue(
       'channel',
       ['beta', 'stable', 'nightly'],
-      { flag: 'internal', open: true },
-    )).resolves.toBe('internal');
+      { flag: 'internal' },
+    )).rejects.toThrow(/Unsupported channel/);
   });
 });

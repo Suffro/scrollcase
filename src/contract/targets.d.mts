@@ -28,7 +28,7 @@ export function assertNativeHost(adapter: BoxTargetAdapter, host?: {
     arch: string;
 }): void;
 /**
- * Ensures the recipe entry point agrees with the adapter's standalone Python layout.
+ * Ensures the scroll entry point agrees with the adapter's standalone Python layout.
  *
  * @param {BoxTargetAdapter} adapter
  * @param {string} entryPoint
@@ -50,15 +50,15 @@ export function boxTargetAdapters(): BoxTargetAdapter[];
  */
 export function condaSubdir(target: import("./types/index.d.ts").BoxTarget): "osx-arm64" | "linux-64" | "win-64";
 /**
- * Returns the conda accelerator descriptor a recipe selects, rejecting target drift. `metal` and
+ * Returns the conda accelerator descriptor a scroll selects, rejecting target drift. `metal` and
  * `cpu` need no extra conda knobs (osx-arm64 ships MPS in the pytorch build; cpu is the default build); `cuda` pins a
  * `cuda-version` and declares a CUDA system requirement so the solver picks the GPU pytorch build.
  *
- * @param {Pick<import('./types/index.d.ts').BoxRecipe, 'target'>} recipe
+ * @param {Pick<import('./types/index.d.ts').BoxScroll, 'target'>} scroll
  * @returns {{ accelerator: 'cpu' | 'metal' | 'cuda', cudaVersion: string | null }}
  * @throws {TypeError} when the accelerator is unsupported, or a CUDA target lacks a version
  */
-export function pixiAccelerator(recipe: Pick<import("./types/index.d.ts").BoxRecipe, "target">): {
+export function pixiAccelerator(scroll: Pick<import("./types/index.d.ts").BoxScroll, "target">): {
     accelerator: "cpu" | "metal" | "cuda";
     cudaVersion: string | null;
 };
@@ -81,7 +81,7 @@ export type BoxTargetAdapter = {
         arch: string;
     };
     /**
-     * the recipe's pixi `platforms` value
+     * the scroll's pixi `platforms` value
      */
     condaSubdir: "osx-arm64" | "linux-64" | "win-64";
     /**

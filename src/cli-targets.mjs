@@ -1,7 +1,7 @@
 /**
  * Target choices at the CLI edge.
  *
- * Modules beneath the CLI receive a resolved recipe or target and never read a terminal. This file
+ * Modules beneath the CLI receive a resolved scroll or target and never read a terminal. This file
  * owns the one interactive policy: choices are made through a keyboard menu, with a sole native
  * target as the default and Metal preferred on macOS. Non-interactive callers get the same
  * decision without ever blocking.

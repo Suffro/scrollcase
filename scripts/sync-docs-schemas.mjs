@@ -13,7 +13,7 @@ import { join } from 'node:path';
 const check = process.argv.includes('--check');
 const root = fileURLToPath(new URL('..', import.meta.url));
 const sourceDir = join(root, 'src', 'contract', 'schema');
-const publicDir = join(root, 'docs', 'public', 'schema');
+const publicDir = join(root, 'docs', 'public', 'schema', 'v2');
 const schemaNames = (await readdir(sourceDir))
   .filter((name) => name.endsWith('.schema.json'))
   .sort();

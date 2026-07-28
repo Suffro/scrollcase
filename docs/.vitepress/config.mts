@@ -88,7 +88,7 @@ export default defineConfig({
         items: [
           { text: 'CLI Commands', link: '/reference/cli' },
           { text: 'Workspace Configuration', link: '/reference/configuration' },
-          { text: 'The Recipe (recipe.json)', link: '/reference/recipe' },
+          { text: 'The Scroll (scroll.json)', link: '/reference/scroll' },
           { text: 'The Box Format', link: '/reference/box-format' },
           { text: 'JSON Schemas', link: '/reference/schemas' },
           { text: 'Node API', link: '/reference/api' }
@@ -115,7 +115,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: `Scrollcase v${packageVersion} · schema version 1 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md" target="_blank">Changelog</a>`,
+      message: `Scrollcase v${packageVersion} · schema version 2 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md" target="_blank">Changelog</a>`,
       copyright: 'Licensed under Apache-2.0'
     }
   }

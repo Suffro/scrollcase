@@ -6,7 +6,7 @@ description: From an empty directory to a signed, verified box in seven commands
 # Quickstart
 
 This walkthrough goes from an empty directory to a signed, verified box on disk. It uses the
-example recipe `init` scaffolds — an environment containing nothing but Python — so it runs in
+example scroll `init` scaffolds — an environment containing nothing but Python — so it runs in
 about a minute and produces a ~48 MB archive you can inspect by hand.
 
 Prerequisites: the CLI and toolchain from [Installation](/getting-started/installation).
@@ -44,10 +44,10 @@ scrollcase init
 
 `init` writes three things and never overwrites anything that already exists:
 
-- `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where recipes
+- `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where scrolls
   live and where builds, artefacts and keys go.
-- `recipes/example-box/<targetId>/` — an example
-  [recipe](/reference/recipe) (`recipe.json`) and its pixi manifest (`pixi.toml`), targeting this
+- `scrolls/example-box/<targetId>/` — an example
+  [scroll](/reference/scroll) (`scroll.json`) and its pixi manifest (`pixi.toml`), targeting this
   machine by default.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
@@ -60,9 +60,9 @@ Install them into /work/my-boxes/.scrollcase/toolchain? [y/N]
 ```
 
 Answer yes and both land inside the project, with the pixi download checksum-verified, conda-pack
-pinned to 0.9.2, and the installed pixi version pinned into the recipe for you. Answer no and
+pinned to 0.9.2, and the installed pixi version pinned into the scroll for you. Answer no and
 nothing is downloaded — install them yourself as described in
-[Installation](/getting-started/installation), and set `pixiVersion` in the recipe by hand. Either
+[Installation](/getting-started/installation), and set `pixiVersion` in the scroll by hand. Either
 way `init` never downloads anything you did not agree to, which is what makes it safe to re-run.
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
@@ -80,14 +80,14 @@ Without a terminal, an ambiguous target fails before any file is written.
 ## 4. `doctor` — check the machine
 
 ```sh
-scrollcase doctor --recipe example-box/macos-aarch64-metal
+scrollcase doctor --scroll example-box/macos-aarch64-metal
 ```
 
 Every failing check comes with a remedy. Fix what it names and re-run; `doctor` never modifies
 anything, so it is always safe.
 
-::: info Recipe references
-The exact reference is `<boxId>/<targetId>` under `recipes/` — here
+::: info Scroll references
+The exact reference is `<boxId>/<targetId>` under `scrolls/` — here
 `example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the reference `init`
 printed on your machine throughout. You may also pass `example-box --target
 macos-aarch64-metal`.
@@ -99,13 +99,13 @@ macos-aarch64-metal`.
 scrollcase lock example-box/macos-aarch64-metal
 ```
 
-`lock` runs the pinned pixi against the recipe's `pixi.toml` and writes `pixi.lock` next to it.
+`lock` runs the pinned pixi against the scroll's `pixi.toml` and writes `pixi.lock` next to it.
 This is the only step that resolves anything: `build` later *installs* exactly what the lock
 pins, and never resolves. Commit the lock — it is what makes a build reproducible and what the
 licence audit reads.
 
 ```sh
-git add . && git commit -m "Example box recipe and lock"
+git add . && git commit -m "Example box scroll and lock"
 ```
 
 Committing now also matters for the next steps: `build` refuses a dirty tree without
@@ -155,16 +155,16 @@ scrollcase verify .scrollcase/dist/boxes/example-box/1.0.0/macos-aarch64-metal/*
 `verify` mirrors the format checks available to an installing client: trusted signature, archive
 size and SHA-256, safe entry names, recursive agreement between `box.json` and the signed release,
 and the declared interpreter. With `--self-test` it extracts to a temporary directory and imports
-the signed modules **with the box's own Python**. Recipe-only `pythonCode` and file assertions ran
-on the builder but are not carried by schema version 1.
+the signed modules **with the box's own Python**. Scroll-only `pythonCode` and file assertions ran
+on the builder but are not carried by the signed release.
 
 ## Where to go next
 
 - Package something real: declare model weights and data files —
   [Managing Model Weights](/guides/managing-weights).
-- Understand every field you just used: [The Recipe](/reference/recipe) and
+- Understand every field you just used: [The Scroll](/reference/scroll) and
   [CLI Commands](/reference/cli).
-- Review dependency licences before building: run `scrollcase audit <recipe>` — see
+- Review dependency licences before building: run `scrollcase audit <scroll>` — see
   [CLI Commands](/reference/cli#audit).
 - See how the whole pipeline fits together: [Architecture](/concepts/architecture).
 

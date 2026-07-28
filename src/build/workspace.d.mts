@@ -63,7 +63,7 @@ export function resetWorkspace(): void;
  * @property {string} root the project root the config was found in, and the git checkout provenance
  *   is recorded from
  * @property {string | null} configPath the config that produced it, or null when defaults applied
- * @property {string} recipesDir
+ * @property {string} scrollsDir
  * @property {string} buildDir
  * @property {string} distDir
  * @property {string} keysDir
@@ -75,7 +75,7 @@ export function resetWorkspace(): void;
  * @typedef {object} WorkspaceOverrides
  * @property {string} [projectRoot]
  * @property {string} [config]
- * @property {string} [recipes]
+ * @property {string} [scrolls]
  * @property {string} [build]
  * @property {string} [dist]
  * @property {string} [keys]
@@ -83,12 +83,12 @@ export function resetWorkspace(): void;
  */
 export const SCROLLCASE_CONFIG_FILENAME: "scrollcase.config.json";
 /**
- * The layout a project gets when it declares nothing. A project that already keeps its recipes
+ * The layout a project gets when it declares nothing. A project that already keeps its scrolls
  * elsewhere — or that adopted the tool after building its own convention — overrides these in its
  * config rather than moving its files.
  */
 export const DEFAULT_WORKSPACE_PATHS: Readonly<{
-    recipes: "recipes";
+    scrolls: "scrolls";
     build: ".scrollcase/build";
     dist: ".scrollcase/dist";
     keys: ".scrollcase/keys";
@@ -107,7 +107,7 @@ export type Workspace = {
      * the config that produced it, or null when defaults applied
      */
     configPath: string | null;
-    recipesDir: string;
+    scrollsDir: string;
     buildDir: string;
     distDir: string;
     keysDir: string;
@@ -119,7 +119,7 @@ export type Workspace = {
 export type WorkspaceOverrides = {
     projectRoot?: string;
     config?: string;
-    recipes?: string;
+    scrolls?: string;
     build?: string;
     dist?: string;
     keys?: string;

@@ -6,8 +6,8 @@ description: Minimal target and shell examples for macOS CPU, Linux CPU/CUDA, an
 # Platform Examples
 
 Every box is built natively for one exact target. These snippets show target declarations and shell
-syntax; they do not claim that a particular recipe or scientific workload has been validated.
-Replace `my-recipe` and use the exact `pixiVersion` pinned by that recipe.
+syntax; they do not claim that a particular scroll or scientific workload has been validated.
+Replace `my-scroll` and use the exact `pixiVersion` pinned by that scroll.
 
 <Tabs :titles="['macOS CPU', 'Linux CPU', 'Linux CUDA', 'Windows CPU', 'Windows CUDA']">
   <Tab title="macOS CPU">
@@ -17,10 +17,10 @@ Replace `my-recipe` and use the exact `pixiVersion` pinned by that recipe.
 ```
 
 ```sh
-scrollcase doctor --recipe my-recipe
-scrollcase lock my-recipe
-scrollcase audit my-recipe
-scrollcase build my-recipe
+scrollcase doctor --scroll my-scroll
+scrollcase lock my-scroll
+scrollcase audit my-scroll
+scrollcase build my-scroll
 ```
 
 The interpreter is `venv/bin/python`; the target ID is `macos-aarch64-cpu`.
@@ -33,10 +33,10 @@ The interpreter is `venv/bin/python`; the target ID is `macos-aarch64-cpu`.
 ```
 
 ```sh
-scrollcase doctor --recipe my-recipe
-scrollcase lock my-recipe
-scrollcase audit my-recipe
-scrollcase build my-recipe
+scrollcase doctor --scroll my-scroll
+scrollcase lock my-scroll
+scrollcase audit my-scroll
+scrollcase build my-scroll
 ```
 
 The interpreter is `venv/bin/python`; the target ID is `linux-x86_64-cpu`.
@@ -54,10 +54,10 @@ The interpreter is `venv/bin/python`; the target ID is `linux-x86_64-cpu`.
 ```
 
 ```sh
-scrollcase doctor --recipe my-recipe
-scrollcase lock my-recipe
-scrollcase audit my-recipe
-scrollcase build my-recipe
+scrollcase doctor --scroll my-scroll
+scrollcase lock my-scroll
+scrollcase audit my-scroll
+scrollcase build my-scroll
 ```
 
 `12.4` is an example ABI. The generic target suffix is `cuda<major.minor>`. A successful native
@@ -71,10 +71,10 @@ build proves packaging and declared gates, not scientific parity with another ac
 ```
 
 ```powershell
-scrollcase doctor --recipe my-recipe
-scrollcase lock my-recipe
-scrollcase audit my-recipe
-scrollcase build my-recipe
+scrollcase doctor --scroll my-scroll
+scrollcase lock my-scroll
+scrollcase audit my-scroll
+scrollcase build my-scroll
 ```
 
 The interpreter is `venv/python.exe`; the target ID is `windows-x86_64-cpu`.
@@ -92,10 +92,10 @@ The interpreter is `venv/python.exe`; the target ID is `windows-x86_64-cpu`.
 ```
 
 ```powershell
-scrollcase doctor --recipe my-recipe
-scrollcase lock my-recipe
-scrollcase audit my-recipe
-scrollcase build my-recipe
+scrollcase doctor --scroll my-scroll
+scrollcase lock my-scroll
+scrollcase audit my-scroll
+scrollcase build my-scroll
 ```
 
 Windows CUDA is defined by the target contract and is buildable on a matching native host. This

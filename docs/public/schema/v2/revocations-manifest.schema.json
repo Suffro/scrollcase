@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scrollcase.dev/schema/revocations-manifest.schema.json",
+  "$id": "https://scrollcase.dev/schema/v2/revocations-manifest.schema.json",
   "title": "Box revocations manifest",
   "description": "The signed list of releases that must no longer be installed or activated. A published release is immutable, so withdrawing one is an explicit statement rather than a deletion: clients keep honouring this list even when the archive is still reachable.",
   "type": "object",
@@ -13,7 +13,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "kind": {
       "type": "string",
@@ -46,7 +46,7 @@
             "minLength": 1
           },
           "target": {
-            "$ref": "https://scrollcase.dev/schema/target.schema.json",
+            "$ref": "https://scrollcase.dev/schema/v2/target.schema.json",
             "description": "Omitted when every target of that version is revoked."
           },
           "reason": {

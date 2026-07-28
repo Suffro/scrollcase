@@ -79,7 +79,7 @@ export function breachedTolerance(measured, tolerances) {
 }
 
 /**
- * Runs the recipe's parity check across the declared accelerators and enforces its tolerances.
+ * Runs the scroll's parity check across the declared accelerators and enforces its tolerances.
  *
  * The first accelerator listed is the reference every other run is compared against — conventionally
  * `cpu`, because it is the one available everywhere and the least likely to be wrong. Returns the

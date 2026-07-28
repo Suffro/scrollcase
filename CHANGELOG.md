@@ -8,6 +8,15 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Changed
 
+- **Breaking (next major):** adopt the v2-only contract and canonical **scroll** authoring model.
+  The declarative source becomes `scroll.json` under `scrolls/`; v2 does not accept v1 documents,
+  legacy input aliases, or dual code paths. Existing v1 boxes remain historical artefacts for the
+  Scrollcase versions that produced them.
+- Define matching local consumer surfaces for Node/TypeScript (`scrollcase/consumer`) and Python
+  (`scrollcase_consumer`), held to one canonical contract and shared conformance cases. Consumers
+  may verify, safely extract, inspect, and execute caller-supplied local boxes only after all trust
+  checks pass; distribution, download, update, registry, channel, revocation, publication, runner,
+  and application-lifecycle responsibilities remain out of scope.
 - Improve human CLI readability with restrained, TTY-aware coloured status symbols across setup,
   diagnostics, locking, auditing, and building. Successful builds now end with one relative-path
   summary naming the box directory and channel document that must be distributed.
@@ -15,13 +24,11 @@ All notable changes to Scrollcase are documented here. The format follows
   with an explicit `scrollcase keygen` remedy; `build` never generates identity material itself.
   Incomplete pairs and missing external-signer trust keys also fail without overwriting anything.
 - Present target, weights, and suggested channel choices as navigable arrow-key menus. Channel
-  suggestions now include `nightly` alongside `beta` and `stable`; explicit custom channel names
-  remain supported.
-- Organise new recipes as `recipes/<boxId>/<targetId>/`, validating both path components against
-  the recipe's declared `boxId` and canonical target. `recipeId` is now optional input and is
-  derived as `<boxId>-<targetId>` for release provenance; existing flat recipes and explicit
-  provenance identities remain supported.
-- Let `lock`, `audit`, `build`, and recipe-aware `doctor` select a nested target through
+  choices are closed to `nightly`, `beta`, and `stable`, with `beta` remaining the build default.
+- Organise new scrolls as `scrolls/<boxId>/<targetId>/`, validating both path components against
+  the scroll's declared `boxId` and canonical target. `scrollId` is now optional input and is
+  derived as `<boxId>-<targetId>` for release provenance; the flat v1 layout is rejected.
+- Let `lock`, `audit`, `build`, and scroll-aware `doctor` select a nested target through
   `<boxId>/<targetId>`, `--target`, or a navigable keyboard menu. A sole host target is the default,
   and Metal is preferred on macOS; other non-terminal ambiguities fail with an explicit `--target`
   remedy. `init` follows the same policy and scaffolds the nested layout.
@@ -45,8 +52,8 @@ All notable changes to Scrollcase are documented here. The format follows
   create a link whose target passes through another one — a defence against writing file content
   through a link — and conda-forge now ships exactly that shape in a plain `python` environment
   (`libsqlite` 3.53.4 pulls in `icu`, which lays out `current -> <version>` and then
-  `pkgdata.inc -> current/pkgdata.inc`). Any recipe locked after that release failed to build at
-  all. Links are now created in a second pass, once every regular entry is on disk and nothing can
+  `pkgdata.inc -> current/pkgdata.inc`). Any environment locked after that release failed to build
+  at all. Links are now created in a second pass, once every regular entry is on disk and nothing can
   be written through one; targets are still resolved afterwards, and a link that dangles or leaves
   the tree is still dropped rather than pulling a host file into the box.
 
@@ -65,9 +72,9 @@ All notable changes to Scrollcase are documented here. The format follows
   `embed` as defaults. Guards are deliberately not asked about: `--allow-dirty` and `keygen --force`
   stay explicit flags, because a question nobody reads is not a guard. With no terminal to ask, the
   default is taken and reported.
-- The bundled example recipe declares `condaDependencyLicenseAudit`, so a box built by following
+- The bundled example build input declares `condaDependencyLicenseAudit`, so a box built by following
   the quickstart ships the dependency licence inventory rather than silently omitting it. The
-  reviewed inventory is committed beside the recipe.
+  reviewed inventory is committed beside that input.
 
 ### Removed
 
@@ -160,7 +167,7 @@ namespaces are configurable, and the tool carries no consumer's name.
   licence record that can affect deterministic archive bytes.
 - Keep generated-type drift checks portable on Windows by running the generator under Node and
   normalising checkout-dependent CRLF/LF line endings before comparison.
-- Pin a newly scaffolded recipe when the requested pixi is already available, and install the
+- Pin a newly scaffolded build input when the requested pixi is already available, and install the
   requested resolver when a different pixi version is present.
 - Preserve quoted external-signer arguments, including empty values and paths containing spaces or
   backslashes, while keeping all subprocesses behind the injectable process runner.
@@ -168,7 +175,7 @@ namespaces are configurable, and the tool carries no consumer's name.
   payload substitution and signature failures with dedicated regressions.
 - Update the direct `tar` dependency to 7.5.22.
 - Use GitHub's canonical repository URL in npm metadata, documentation, and status links.
-- Validate complete recipe structure from the shipped schemas before probing tools, fetching, or
+- Validate the complete declarative input from the shipped schemas before probing tools, fetching, or
   mutating build state, while keeping the runtime dependency surface unchanged.
 - Treat untracked files as dirty provenance while respecting Git ignore rules.
 - Compare every shared schema-v1 field recursively between `box.json` and the signed release,

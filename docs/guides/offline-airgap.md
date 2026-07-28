@@ -127,7 +127,7 @@ connected machine or an internal mirror before building — `build` installs str
 committed `pixi.lock` and never resolves, so nothing new is chosen, but the package files still
 have to come from somewhere.
 
-Assets declared in the recipe are downloaded at build time too. The payload directory is wiped at
+Assets declared in the scroll are downloaded at build time too. The payload directory is wiped at
 the start of every build, so pre-staging files there does not help — mirror the assets behind a
-URL the build machine can reach and point the recipe's `url` at it. The declared size and SHA-256
+URL the build machine can reach and point the scroll's `url` at it. The declared size and SHA-256
 are what keep that safe: a mirror serving different bytes fails the build.

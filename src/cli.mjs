@@ -3,7 +3,7 @@
 /**
  * The Scrollcase command line.
  *
- * One job: turn a recipe into a portable, locked, self-contained box and prove it works. `init` and
+ * One job: turn a scroll into a portable, locked, self-contained box and prove it works. `init` and
  * `doctor` get a machine ready, `lock` resolves dependencies once so a human can review and commit
  * the result, `audit` reports what licences that pulls in, `build` installs only from the lock,
  * `verify` re-runs a consumer's install-time checks, and `keygen` produces the signing key that makes
@@ -15,18 +15,19 @@
 
 import { createInterface } from 'node:readline/promises';
 import { join, resolve } from 'node:path';
-import { auditRecipe } from './build/audit.mjs';
+import { auditScroll } from './build/audit.mjs';
 import { buildBox } from './build/box.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
 import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
-import { recipeCandidates, readRecipe } from './build/recipe.mjs';
+import { scrollCandidates, readScroll } from './build/scroll.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
+import { CHANNELS } from './contract/index.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
 const success = (message) => console.log(statusLine('success', message));
@@ -79,16 +80,16 @@ async function keygen(flags) {
 }
 
 /**
- * `lock` — resolve the recipe's pixi manifest into a fully pinned lock file.
+ * `lock` — resolve the scroll's pixi manifest into a fully pinned lock file.
  *
  * Run by a human when dependencies change; the result is committed and reviewed. Builds then only
  * *install* from it, so what ships is exactly what was reviewed. The manifest pins the channels and
  * the single target platform, which is what makes resolution independent of the machine doing it.
  */
 async function lock(name, flags) {
-  const reference = await selectRecipeReference(name, flags);
-  const { dir, recipe } = await readRecipe(reference);
-  const pixi = findPixi({ requiredVersion: recipe.pixiVersion, path: text(flags, 'pixi') });
+  const reference = await selectScrollReference(name, flags);
+  const { dir, scroll } = await readScroll(reference);
+  const pixi = findPixi({ requiredVersion: scroll.pixiVersion, path: text(flags, 'pixi') });
   run(pixi, pixiLockArguments(join(dir, 'pixi.toml')));
   success(`Updated ${join(dir, 'pixi.lock')}`);
 }
@@ -110,8 +111,8 @@ async function confirm(question) {
 }
 
 /** Resolves a box shorthand at the CLI edge, where an ambiguous target can be asked about. */
-async function selectRecipeReference(name, flags) {
-  const candidates = await recipeCandidates(name);
+async function selectScrollReference(name, flags) {
+  const candidates = await scrollCandidates(name);
   return (await chooseTarget(candidates, { requested: text(flags, 'target') })).reference;
 }
 
@@ -181,16 +182,11 @@ async function initTarget(flags) {
 async function init(flags) {
   const workspace = getWorkspace();
   const target = await initTarget(flags);
-  const explicitBoxId = text(flags, 'box-id');
-  const legacyBoxId = text(flags, 'recipe-id');
-  if (explicitBoxId && legacyBoxId && explicitBoxId !== legacyBoxId) {
-    fail('--box-id and the legacy --recipe-id alias cannot name different boxes.');
-  }
   const result = await initProject({
     root: workspace.root,
     target,
     pixiVersion: text(flags, 'pixi-version'),
-    boxId: explicitBoxId || legacyBoxId || 'example-box',
+    boxId: text(flags, 'box-id') || 'example-box',
   });
   for (const path of result.written) success(`Created ${path}`);
   for (const path of result.skipped) info(`Kept ${path} (already present)`);
@@ -200,7 +196,7 @@ async function init(flags) {
   const toolchain = await ensureToolchain({
     workspace,
     pixiVersion: text(flags, 'pixi-version'),
-    recipePath: join(result.recipeDir, 'recipe.json'),
+    scrollPath: join(result.scrollDir, 'scroll.json'),
     confirm: async (missing) => {
       if (never) return false;
       if (always) return true;
@@ -212,7 +208,7 @@ async function init(flags) {
   if (toolchain.installed.length > 0) {
     success(`Installed ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
     info('Nothing was added to PATH; scrollcase finds them there on its own.');
-    if (toolchain.pinnedRecipe) success(`Pinned pixi ${toolchain.pixiVersion} in ${result.recipeDir}/recipe.json`);
+    if (toolchain.pinnedScroll) success(`Pinned pixi ${toolchain.pixiVersion} in ${result.scrollDir}/scroll.json`);
     if (toolchain.configPath) success(`Recorded the toolchain pins in ${toolchain.configPath}`);
   } else if (toolchain.unsupportedHost) {
     warning(`pixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
@@ -221,22 +217,22 @@ async function init(flags) {
     info('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
   }
 
-  if (!text(flags, 'pixi-version') && !toolchain.pinnedRecipe) {
-    warning(`Set pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
+  if (!text(flags, 'pixi-version') && !toolchain.pinnedScroll) {
+    warning(`Set pixiVersion in ${result.scrollDir}/scroll.json to the pixi release you build with.`);
   }
   console.log('\nNext:');
-  console.log(`  scrollcase lock ${result.recipeRef}`);
+  console.log(`  scrollcase lock ${result.scrollRef}`);
   console.log(`  scrollcase keygen`);
-  console.log(`  scrollcase build ${result.recipeRef}`);
+  console.log(`  scrollcase build ${result.scrollRef}`);
 }
 
 /** `doctor` — report whether this machine can build a box. Reads only; never writes. */
 async function doctor(flags) {
   let pixiVersion = text(flags, 'pixi-version');
-  const recipeName = text(flags, 'recipe');
-  if (!pixiVersion && recipeName) {
-    const reference = await selectRecipeReference(recipeName, flags);
-    pixiVersion = (await readRecipe(reference)).recipe.pixiVersion;
+  const scrollName = text(flags, 'scroll');
+  if (!pixiVersion && scrollName) {
+    const reference = await selectScrollReference(scrollName, flags);
+    pixiVersion = (await readScroll(reference)).scroll.pixiVersion;
   }
   const { checks, ok } = await diagnose({
     workspace: getWorkspace(),
@@ -253,20 +249,20 @@ async function doctor(flags) {
 
 /** `audit` — the dependency licence inventory, derived from the lock without building. */
 async function audit(name, flags) {
-  const reference = await selectRecipeReference(name, flags);
+  const reference = await selectScrollReference(name, flags);
   const write = Boolean(flags.get('write'));
-  const { summary, reviewed, written } = await auditRecipe(reference, {
+  const { summary, reviewed, written } = await auditScroll(reference, {
     write,
     namespace: text(flags, 'namespace') || undefined,
   });
-  info(`${summary.packageCount} packages for ${summary.recipeId} (${summary.targetId})`);
+  info(`${summary.packageCount} packages for ${summary.scrollId} (${summary.targetId})`);
   for (const entry of summary.licenses) console.log(`  ${String(entry.count).padStart(4)}  ${entry.license}`);
   if (written) success(`Wrote reviewed audit: ${reviewed}`);
   else if (reviewed) success(`Matches the reviewed audit: ${reviewed}`);
 }
 
 async function build(name, flags) {
-  const reference = await selectRecipeReference(name, flags);
+  const reference = await selectScrollReference(name, flags);
   const signing = {
     ...keyPaths(flags),
     signerCommand: text(flags, 'signer-command'),
@@ -275,8 +271,8 @@ async function build(name, flags) {
   // Asked at the CLI edge and passed down: buildBox never reads a terminal itself.
   const channel = await chooseCliValue(
     'channel',
-    ['beta', 'stable', 'nightly'],
-    { flag: text(flags, 'channel'), open: true },
+    ['beta', ...CHANNELS.filter((value) => value !== 'beta')],
+    { flag: text(flags, 'channel') },
   );
   const weights = await chooseCliValue(
     'weights mode',
@@ -314,12 +310,12 @@ function usage() {
   console.log(`Usage: scrollcase <command> [options]
 
 Commands:
-  init                       Scaffold a config, an example recipe, and ignore rules
+  init                       Scaffold a config, an example scroll, and ignore rules
   doctor                     Report whether this machine can build a box
   keygen                     Create a local ed25519 signing key
-  lock <recipe>              Resolve the recipe's pixi manifest into pixi.lock
-  audit <recipe>             Dependency licence inventory, derived from the lock
-  build <recipe>             Build, self-test, archive, and sign a box
+  lock <scroll>              Resolve the scroll's pixi manifest into pixi.lock
+  audit <scroll>             Dependency licence inventory, derived from the lock
+  build <scroll>             Build, self-test, archive, and sign a box
   verify <release.json>      Verify signature, archive hash, and layout
 
 Init options:
@@ -328,17 +324,16 @@ Init options:
   --platform <name>          Restrict the target choice to macos, linux or windows
   --accelerator <name>       Restrict the target choice to cpu, metal or cuda
   --cuda-version <version>   CUDA major.minor ABI when selecting a CUDA target
-  --pixi-version <version>   Pin the example recipe to this pixi release
+  --pixi-version <version>   Pin the example scroll to this pixi release
   --box-id <name>            Name the example box (default example-box)
-  --recipe-id <name>         Legacy alias for --box-id
   --install-toolchain        Install missing pixi/conda-pack without asking
   --no-install-toolchain     Never install them; just report what is missing
                              With neither flag, init asks before downloading anything, and
                              installs into <toolchain> after a verified checksum check.
 
 Doctor options:
-  --recipe <name>            Take the required pixi version from this recipe
-  --target <targetId>        Select a target when <name> is a box with several recipes
+  --scroll <name>            Take the required pixi version from this scroll
+  --target <targetId>        Select a target when <name> is a box with several scrolls
   --pixi-version <version>   Check for this pixi release
 
 Keygen options:
@@ -346,25 +341,25 @@ Keygen options:
   --force                    Overwrite both named key files; unsafe for rotation
 
 Audit options:
-  --target <targetId>        Select a target when <recipe> names a box
-  --write                    Write the inventory to the recipe's reviewed audit path
+  --target <targetId>        Select a target when <scroll> names a box
+  --write                    Write the inventory to the scroll's reviewed audit path
   --namespace <ns>           Document kind namespace (default scrollcase.box)
 
 Build options:
-  --target <targetId>        Select a target when <recipe> names a box
-  --channel <name>           Channel the signed pointer names (menu: beta/stable/nightly;
-                             default beta; explicit custom names are supported)
+  --target <targetId>        Select a target when <scroll> names a box
+  --channel <name>           Channel the signed pointer names (nightly, beta, or stable;
+                             default beta)
   --weights <mode>           embed (default: assets packed in, works air-gapped) or
                              on-demand (fetched by the consumer at install time)
                              Without either flag, build shows an arrow-key menu. With no
                              terminal to ask, it says which default it took and carries on.
-  --asset-base-url <url>     Override the recipe's published base URL
+  --asset-base-url <url>     Override the scroll's published base URL
   --namespace <ns>           Document kind namespace (default scrollcase.box)
   --allow-dirty              Permit a build from an uncommitted source tree
   --pixi <path>              Use this pixi executable
   --conda-pack <path>        Use this conda-pack executable (managed installs pin 0.9.2)
 
-Recipe targets:
+Scroll targets:
   lock, audit and build accept either <boxId>/<targetId> or a box ID plus
   --target <targetId>. With only a box ID, a terminal shows an arrow-key menu.
   A sole target for this host is the default; Metal is preferred on macOS.
@@ -388,7 +383,7 @@ Workspace:
   up from the working directory, and can be overridden per invocation:
   --config <file>            Use this workspace config explicitly
   --project-root <dir>       Treat this directory as the project root
-  --recipes-dir <dir>        Where recipes live (default recipes)
+  --scrolls-dir <dir>        Where scrolls live (default scrolls)
   --build-dir <dir>          Payload scratch space (default .scrollcase/build)
   --out-dir <dir>            Built artefacts (default .scrollcase/dist)
   --keys-dir <dir>           Local signing keys (default .scrollcase/keys)
@@ -405,9 +400,9 @@ async function main() {
   if (command === 'init') return init(flags);
   if (command === 'doctor') return doctor(flags);
   if (command === 'keygen') return keygen(flags);
-  if (command === 'audit') return audit(positional[0] || fail('audit requires a recipe name.'), flags);
-  if (command === 'lock') return lock(positional[0] || fail('lock requires a recipe name.'), flags);
-  if (command === 'build') return build(positional[0] || fail('build requires a recipe name.'), flags);
+  if (command === 'audit') return audit(positional[0] || fail('audit requires a scroll name.'), flags);
+  if (command === 'lock') return lock(positional[0] || fail('lock requires a scroll name.'), flags);
+  if (command === 'build') return build(positional[0] || fail('build requires a scroll name.'), flags);
   if (command === 'verify') return verify(positional[0] || fail('verify requires a signed release document.'), flags);
   fail(`Unknown command: ${command}`);
 }

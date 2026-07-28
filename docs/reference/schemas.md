@@ -8,13 +8,13 @@ description: Public schema URLs, package imports, offline registration, generate
 The shipped JSON Schemas are available both from the package and at stable public URLs:
 
 ```text
-https://scrollcase.dev/schema/target.schema.json
-https://scrollcase.dev/schema/recipe.schema.json
-https://scrollcase.dev/schema/box-manifest.schema.json
-https://scrollcase.dev/schema/release-manifest.schema.json
-https://scrollcase.dev/schema/channel-manifest.schema.json
-https://scrollcase.dev/schema/revocations-manifest.schema.json
-https://scrollcase.dev/schema/signed-document.schema.json
+https://scrollcase.dev/schema/v2/target.schema.json
+https://scrollcase.dev/schema/v2/scroll.schema.json
+https://scrollcase.dev/schema/v2/box-manifest.schema.json
+https://scrollcase.dev/schema/v2/release-manifest.schema.json
+https://scrollcase.dev/schema/v2/channel-manifest.schema.json
+https://scrollcase.dev/schema/v2/revocations-manifest.schema.json
+https://scrollcase.dev/schema/v2/signed-document.schema.json
 ```
 
 The documentation build fails unless these public files are byte-identical to
@@ -25,7 +25,7 @@ The documentation build fails unless these public files are byte-identical to
 Node can import an individual schema through the package export:
 
 ```js
-import recipeSchema from 'scrollcase/contract/schema/recipe.schema.json'
+import scrollSchema from 'scrollcase/contract/schema/scroll.schema.json'
   with { type: 'json' };
 ```
 
@@ -35,7 +35,7 @@ Or resolve a shipped file without relying on JSON module syntax:
 import { readFile } from 'node:fs/promises';
 import { schemaUrl } from 'scrollcase/contract';
 
-const recipeSchema = JSON.parse(await readFile(schemaUrl('recipe'), 'utf8'));
+const scrollSchema = JSON.parse(await readFile(schemaUrl('scroll'), 'utf8'));
 ```
 
 ## Offline validation
@@ -48,14 +48,14 @@ it must not fetch the network during validation.
 import Ajv2020 from 'ajv/dist/2020.js';
 import targetSchema from 'scrollcase/contract/schema/target.schema.json'
   with { type: 'json' };
-import recipeSchema from 'scrollcase/contract/schema/recipe.schema.json'
+import scrollSchema from 'scrollcase/contract/schema/scroll.schema.json'
   with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 ajv.addSchema(targetSchema);
-const validateRecipe = ajv.compile(recipeSchema);
+const validateScroll = ajv.compile(scrollSchema);
 
-if (!validateRecipe(recipe)) throw new Error(ajv.errorsText(validateRecipe.errors));
+if (!validateScroll(scroll)) throw new Error(ajv.errorsText(validateScroll.errors));
 ```
 
 Register `release-manifest.schema.json` before `box-manifest.schema.json`, because the latter
@@ -75,7 +75,8 @@ Never hand-edit `src/contract/types/index.d.ts`; the drift test checks the gener
 
 ## Compatibility
 
-All current schemas describe `schemaVersion: 1`. Target IDs, document-kind strings, payload
-encoding, the signature algorithm, and golden fixtures are frozen for that version. A breaking
-format change requires a new schema version; it is never introduced by silently changing a schema
-at an existing `$id`.
+All active schemas describe `schemaVersion: 2`. A v2 verifier rejects v1 rather than interpreting
+it through the new contract; historical v1 boxes remain usable with the immutable Scrollcase
+versions that produced them. Target IDs, document-kind strings, payload encoding, signature
+algorithm, and golden fixtures do not change silently at an existing `$id`. A future breaking
+change requires another schema version.

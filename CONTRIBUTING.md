@@ -7,19 +7,26 @@ knowing them first will save you a rejected pull request.
 
 - **One substrate.** pixi + conda-pack + conda-forge, and only that. A second dependency backend
   means proving every guarantee twice, and the guarantees are the product.
-- **The wire format is frozen at `schemaVersion: 1`.** Published boxes and installed clients
-  depend on it. A breaking change needs a new `schemaVersion` — never a silent edit to a `kind`
-  string, the payload encoding, the signature algorithm, or the golden fixtures under
-  `src/contract/fixtures/`.
+- **Published v1 is immutable; the next major line is v2-only.** Existing v1 boxes stay with their old
+  Scrollcase versions. New code must not add a v1/v2 union, compatibility aliases, or dual paths;
+  the v2 verifier rejects v1 clearly. Never silently edit a `kind` string, payload encoding,
+  signature algorithm, or golden fixture under `src/contract/fixtures/`.
 - **Determinism is a promise.** Rebuilding the same commit must produce a byte-identical archive.
   Do not introduce anything that varies per run: a clock read, a random value, an unsorted
   directory listing.
-- **Scope stops at a signed box on disk.** Distribution, registries, channels, revocation
-  services and CI orchestration belong to consumers of the tool. Read
+- **Consumer scope stays local.** Scrollcase may verify, safely extract, inspect, and run
+  caller-supplied local boxes. Distribution, downloads, registries, channel selection, updates,
+  promotion, revocation services, application lifecycle policy, and CI orchestration belong to
+  consuming projects. Read
   [docs/concepts/design-decisions.md](docs/concepts/design-decisions.md) before proposing a
   feature that looks missing — it may have been left out on purpose.
 - **The tool names no consumer.** Project-specific values (namespaces, paths, tolerances) are
-  declared by the project in config, recipe or flags; the tool stays ignorant of who uses it.
+  declared by the project in config, scroll or flags; the tool stays ignorant of who uses it.
+- **One contract, multiple implementations.** `src/contract/` and its schemas are authoritative.
+  `scrollcase/consumer` and Python's `scrollcase_consumer` must prove the same observable behavior
+  against shared language-neutral conformance fixtures; neither defines a parallel format.
+- **Verification precedes execution.** No consumer path may start box code before signature,
+  payload-shape, archive size/hash, safe-entry, and manifest-agreement checks succeed.
 
 ## Development
 
@@ -32,7 +39,7 @@ The suite (vitest) needs no network and no pixi/conda-pack toolchain: the enviro
 stubbed, and everything after the solve is the real implementation. CI runs it on macOS, Linux
 and Windows.
 
-Building for real additionally needs `pixi` at the version a recipe pins, plus `conda-pack` 0.9.2;
+Building for real additionally needs `pixi` at the version a scroll pins, plus `conda-pack` 0.9.2;
 `scrollcase doctor` reports what is missing.
 
 ## Tests

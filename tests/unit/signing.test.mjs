@@ -36,7 +36,7 @@ if (mode === 'substitute') payload = Buffer.from('{"substituted":true}\\n');
 const metadata = JSON.parse(readFileSync(publicPath, 'utf8'));
 const signature = sign(null, payload, createPrivateKey(readFileSync(privatePath)));
 const document = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   payloadEncoding: 'base64-json-utf8',
   payloadBase64: payload.toString('base64'),
   payloadSha256: createHash('sha256').update(payload).digest('hex'),

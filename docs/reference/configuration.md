@@ -1,16 +1,16 @@
 ---
 title: Workspace Configuration
-description: scrollcase.config.json — where recipes live and where builds, artefacts and keys go.
+description: scrollcase.config.json — where scrolls live and where builds, artefacts and keys go.
 ---
 
 # Workspace Configuration
 
 Paths come from the project, not from Scrollcase. A `scrollcase.config.json` at the project root
-declares where recipes live and where Scrollcase writes what it builds; the CLI discovers it by
+declares where scrolls live and where Scrollcase writes what it builds; the CLI discovers it by
 walking up from the working directory, so every command works from anywhere inside the project.
 
 A project that declares nothing gets sensible defaults — the config file exists for projects that
-already keep their recipes elsewhere, or that adopted Scrollcase after building their own
+already keep their scrolls elsewhere, or that adopted Scrollcase after building their own
 convention.
 
 ## The file
@@ -19,7 +19,7 @@ convention.
 {
   "version": 1,
   "paths": {
-    "recipes": "recipes",
+    "scrolls": "scrolls",
     "build": ".scrollcase/build",
     "dist": ".scrollcase/dist",
     "keys": ".scrollcase/keys",
@@ -30,7 +30,7 @@ convention.
 
 | Key | Default | What lives there |
 | --- | --- | --- |
-| `paths.recipes` | `recipes` | One directory per box, then one per target; each target holds `recipe.json`, `pixi.toml`, and the committed `pixi.lock` |
+| `paths.scrolls` | `scrolls` | One directory per box, then one per target; each target holds `scroll.json`, `pixi.toml`, and the committed `pixi.lock` |
 | `paths.build` | `.scrollcase/build` | Payload scratch space, wiped and regenerated on every build |
 | `paths.dist` | `.scrollcase/dist` | Built artefacts under publish-ready `boxes/` and `channels/` trees |
 | `paths.keys` | `.scrollcase/keys` | Local signing keys (`signing-private.pem`, `signing-public.json`) |
@@ -45,7 +45,7 @@ Rules:
 - Relative paths in the config resolve **against the project root** (the config's directory), so
   the file is portable across machines and checkouts.
 
-Commit the config and the recipes; never commit `.scrollcase/` (build state and artefacts are
+Commit the config and the scrolls; never commit `.scrollcase/` (build state and artefacts are
 regenerated, and the private key must not enter history — `init` writes the ignore rules for
 you).
 
@@ -61,7 +61,7 @@ The project root is chosen with this precedence, highest first:
 
 Each individual path is then resolved with its own precedence, highest first:
 
-1. **CLI flag** — `--recipes-dir`, `--build-dir`, `--out-dir`, `--keys-dir`,
+1. **CLI flag** — `--scrolls-dir`, `--build-dir`, `--out-dir`, `--keys-dir`,
    `--toolchain-dir`. Flag values resolve
    against the **current working directory**, which is what a shell user expects.
 2. **Config value** — resolves against the **project root**.
@@ -71,7 +71,7 @@ Each individual path is then resolved with its own precedence, highest first:
 | --- | --- |
 | `--config <file>` | Use this workspace config explicitly |
 | `--project-root <dir>` | Treat this directory as the project root |
-| `--recipes-dir <dir>` | `paths.recipes` |
+| `--scrolls-dir <dir>` | `paths.scrolls` |
 | `--build-dir <dir>` | `paths.build` |
 | `--out-dir <dir>` | `paths.dist` |
 | `--keys-dir <dir>` | `paths.keys` |
@@ -79,10 +79,10 @@ Each individual path is then resolved with its own precedence, highest first:
 
 ## Examples
 
-Run against the example recipes shipped in the Scrollcase repository, from your own project:
+Run against the example scrolls shipped in the Scrollcase repository, from your own project:
 
 ```sh
-scrollcase build hello-box/macos-aarch64-metal --recipes-dir ../scrollcase/examples
+scrollcase build hello-box/macos-aarch64-metal --scrolls-dir ../scrollcase/examples
 ```
 
 A monorepo that keeps packaging assets under `packaging/`:
@@ -91,7 +91,7 @@ A monorepo that keeps packaging assets under `packaging/`:
 {
   "version": 1,
   "paths": {
-    "recipes": "packaging/recipes",
+    "scrolls": "packaging/scrolls",
     "build": "packaging/.build",
     "dist": "packaging/dist",
     "keys": "packaging/keys"
@@ -132,6 +132,6 @@ per host asset. The conda-pack entry records the exact package release the manag
 pixi to install.
 
 Scrollcase writes the block itself; you never have to author it. To change Pixi intentionally,
-edit the recipe's `pixiVersion`, install that exact release with consent, relock, rerun the licence
+edit the scroll's `pixiVersion`, install that exact release with consent, relock, rerun the licence
 audit, review the changes, and rebuild. Removing `.scrollcase/toolchain/` only removes managed
 executables; it does not erase the committed pin or make a floating resolver acceptable.

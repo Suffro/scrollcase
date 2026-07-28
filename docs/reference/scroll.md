@@ -1,35 +1,35 @@
 ---
-title: The Recipe (recipe.json)
-description: Every field of a Scrollcase recipe — identity, target, dependencies, assets, self-test, parity.
+title: The Scroll (scroll.json)
+description: Every field of a Scrollcase scroll — identity, target, dependencies, assets, self-test, parity.
 ---
 
-# The Recipe
+# The Scroll
 
-A recipe is the only input a build accepts. It is a `recipe.json` checked into your repository,
+A scroll is the only input a build accepts. It is a `scroll.json` checked into your repository,
 next to the `pixi.toml` that declares its dependencies and the `pixi.lock` that pins them:
 
 ```text
-recipes/
+scrolls/
 └── my-model/
     └── macos-aarch64-metal/
-        ├── recipe.json     # this document
+        ├── scroll.json     # this document
         ├── pixi.toml       # dependency declaration, solved by `scrollcase lock`
         └── pixi.lock       # the pinned result — committed, reviewed, and installed verbatim
 ```
 
-The parent directory is the recipe's declared `boxId`; the child is the canonical ID computed from
-its declared `target`. Scrollcase checks both, so the path cannot mislabel the recipe, but neither
-value is written twice inside `recipe.json`. Existing flat recipe directories remain supported.
+The parent directory is the scroll's declared `boxId`; the child is the canonical ID computed from
+its declared `target`. Scrollcase checks both, so the path cannot mislabel the scroll, but neither
+value is written twice inside `scroll.json`. Flat source directories are not accepted in v2.
 
-The machine-readable definition is [`recipe.schema.json`](/schema/recipe.schema.json), also shipped
+The machine-readable definition is [`scroll.schema.json`](/schema/v2/scroll.schema.json), also shipped
 through the package export. See [JSON Schemas](/reference/schemas).
 
 ## A complete example
 
 ```json
 {
-  "schemaVersion": 1,
-  "recipeVersion": "1.0.0",
+  "schemaVersion": 2,
+  "scrollVersion": "1.0.0",
   "boxId": "hello-box",
   "modelId": "example-org-hello",
   "runtimeId": "hello-box-runtime",
@@ -51,21 +51,20 @@ through the package export. See [JSON Schemas](/reference/schemas).
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `schemaVersion` | yes | Always `1`. The [wire format is frozen](/reference/box-format#versioning) |
-| `recipeId` | no | Legacy provenance identity. When omitted, Scrollcase derives `<boxId>-<targetId>`; release schema v1 still records that derived value |
-| `recipeVersion` | yes | Version of the recipe itself — bump it when you change how the box is built |
+| `schemaVersion` | yes | Always `2`. See [versioning](/reference/box-format#versioning) |
+| `scrollId` | no | Provenance identity. When omitted, Scrollcase derives `<boxId>-<targetId>` |
+| `scrollVersion` | yes | Version of the scroll itself — bump it when you change how the box is built |
 | `boxId` | yes | Identity of the box across versions. Appears in archive names, object keys, and the channel pointer |
 | `modelId` | yes | Identity of the packaged model |
 | `runtimeId` | yes | Identity of the runtime environment the box provides |
-| `version` | yes | Version of the box this recipe produces, as it appears in the release manifest |
+| `version` | yes | Version of the box this scroll produces, as it appears in the release manifest |
 | `sourceRevision` | yes | Upstream revision of the packaged source, recorded verbatim into provenance |
 
 `boxId`, `modelId` and `runtimeId` are lowercase identifiers (`^[a-z0-9]+(?:[-.][a-z0-9]+)*$`) in
 the published manifests — keep them to that shape.
 
-`recipeId` is accepted so an existing project can preserve the provenance identity already present
-in its published releases. New recipes omit it: `boxId` and `target` already contain the meaningful
-identity, and the derived value is deterministic.
+An explicit `scrollId` lets a project choose its source identity. It may be omitted because `boxId`
+and `target` already contain the meaningful identity and the derived value is deterministic.
 
 ::: tip Three identifiers, three questions
 `boxId` answers *which artefact is this a version of?*, `modelId` answers *what model is inside?*,
@@ -92,7 +91,7 @@ and cannot be built, signed, or routed:
 `cudaVersion` (a `major.minor` string) is **required for and only for** CUDA targets: it is part
 of the box's identity, so a CUDA 12.4 build can never be mistaken for a 12.8 one. See
 [The Box Format](/reference/box-format#targets) for the resulting target IDs, and
-[Packaging CUDA Boxes](/guides/packaging-cuda) for what a CUDA recipe declares.
+[Packaging CUDA Boxes](/guides/packaging-cuda) for what a CUDA scroll declares.
 
 ## Environment
 
@@ -281,11 +280,11 @@ is acceptable, belong to your project. Full treatment in
 Validation is ordered so malformed input cannot trigger a process, fetch, or build-directory
 mutation:
 
-1. Parse `recipe.json` and validate its complete nested structure against the shipped recipe and
+1. Parse `scroll.json` and validate its complete nested structure against the shipped scroll and
    target schemas.
-2. For a nested recipe, require the parent and child directories to match `boxId` and the
+2. For a nested scroll, require the parent and child directories to match `boxId` and the
    canonical target; reject invalid target/entry-point combinations and default on-demand weights
-   with `assetArchives`. Flat recipes skip only the path-shape check.
+   with `assetArchives`. Flat scrolls skip only the path-shape check.
 3. Resolve a build-time `--weights` override and repeat the archive/policy check.
 4. Require a matching native host, discover the exact tools, and require `pixi.lock`.
 5. Record Git provenance and reject a dirty tree unless `--allow-dirty` was explicit.

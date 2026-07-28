@@ -21,11 +21,11 @@ setting `NO_COLOR` disables colour explicitly.
 **Exit convention.** Every failure, anywhere in the pipeline, exits non-zero with a single
 `scrollcase: <message>` line on stderr — safe to rely on from shell scripts and CI.
 
-**Workspace flags** (`--config`, `--project-root`, `--recipes-dir`, `--build-dir`, `--out-dir`,
+**Workspace flags** (`--config`, `--project-root`, `--scrolls-dir`, `--build-dir`, `--out-dir`,
 `--keys-dir`, `--toolchain-dir`) apply to every command and are resolved before anything else runs. They are
 documented in [Workspace Configuration](/reference/configuration).
 
-## Recipe arguments and target selection
+## Scroll arguments and target selection
 
 `lock`, `audit` and `build` accept an exact nested reference:
 
@@ -39,16 +39,16 @@ They also accept a box ID, with an optional target flag:
 scrollcase build hello-box --target macos-aarch64-metal
 ```
 
-With only `hello-box`, a terminal shows a navigable target menu for the recipes under
-`recipes/hello-box/`: use ↑/↓ and Enter. Exactly one target matching the host OS and architecture is
+With only `hello-box`, a terminal shows a navigable target menu for the scrolls under
+`scrolls/hello-box/`: use ↑/↓ and Enter. Exactly one target matching the host OS and architecture is
 offered as the default; on macOS, Metal is preferred when both CPU and Metal are available. With no
 terminal, the same default is selected and reported; any other ambiguous selection fails and tells
-the caller to pass `--target`. An existing flat `recipes/<recipe>/recipe.json` remains an exact,
-unambiguous recipe reference.
+the caller to pass `--target`. v2 accepts only the nested
+`scrolls/<boxId>/<targetId>/scroll.json` layout.
 
 ## `init`
 
-Scaffold a project: a `scrollcase.config.json`, one example recipe (with its `pixi.toml`), and
+Scaffold a project: a `scrollcase.config.json`, one example scroll (with its `pixi.toml`), and
 `.gitignore` rules for `.scrollcase/`. Scaffolding **never overwrites** — existing files are
 reported as `Kept`, so re-running on a half-configured project completes it.
 
@@ -69,16 +69,15 @@ scrollcase init [--target <targetId>]
 | `--platform` | this machine | Restrict an interactive target choice to this platform |
 | `--accelerator` | ask | Restrict the target choice to one accelerator |
 | `--cuda-version` | ask for CUDA | Required `major.minor` ABI component of a CUDA target |
-| `--pixi-version` | none | Pin the example recipe to this pixi release, and install exactly that one. Without it, the installed version is pinned for you; declining the install leaves `pixiVersion` for you to set |
+| `--pixi-version` | none | Pin the example scroll to this pixi release, and install exactly that one. Without it, the installed version is pinned for you; declining the install leaves `pixiVersion` for you to set |
 | `--box-id` | `example-box` | Box directory and declared `boxId` |
-| `--recipe-id` | none | Legacy alias for `--box-id` |
 | `--install-toolchain` | ask | Install missing tools without prompting |
 | `--no-install-toolchain` | ask | Never install; just report what is missing |
 
 Without `--target`, `init` applies the same target-choice rule described above. On macOS, Metal is
 the default; on another host with multiple matching targets, a non-terminal invocation supplies
 `--target` or fails before writing anything. The scaffold lands at
-`recipes/<boxId>/<targetId>/`.
+`scrolls/<boxId>/<targetId>/`.
 
 ### The toolchain step
 
@@ -98,7 +97,7 @@ When you agree, `init`:
 4. records the verified pixi digest and the conda-pack version under `toolchain` in
    `scrollcase.config.json`, so later pixi installs are checked against the committed digest — see
    [Workspace Configuration](/reference/configuration#toolchain);
-5. writes the installed version into the recipe's `pixiVersion` if it had none.
+5. writes the installed version into the scroll's `pixiVersion` if it had none.
 
 Nothing is added to `PATH` and nothing is installed system-wide; later commands find the tools
 because [tool discovery](#tool-discovery) looks in the toolchain directory. Deleting
@@ -113,12 +112,12 @@ Report whether this machine can build a box. Reads only; never writes. Each fail
 a remedy, and all checks run even when an early one fails.
 
 ```sh
-scrollcase doctor [--recipe <name>] [--target <targetId>] [--pixi-version <version>]
+scrollcase doctor [--scroll <name>] [--target <targetId>] [--pixi-version <version>]
                   [--pixi <path>] [--conda-pack <path>]
 ```
 
-Checks: the workspace resolution, the recipes directory, being inside a git checkout, pixi at the
-required version (from `--pixi-version` or `--recipe`; skipped when neither is given), and
+Checks: the workspace resolution, the scrolls directory, being inside a git checkout, pixi at the
+required version (from `--pixi-version` or `--scroll`; skipped when neither is given), and
 conda-pack. The managed installer pins conda-pack 0.9.2; because its `--version` output is not
 reliable, `doctor` can only prove that an externally supplied conda-pack executable runs. Exits
 non-zero if any check fails.
@@ -146,12 +145,12 @@ the only copy of an established signing identity.
 
 ## `lock`
 
-Resolve the recipe's `pixi.toml` into a fully pinned `pixi.lock`, written next to the manifest.
+Resolve the scroll's `pixi.toml` into a fully pinned `pixi.lock`, written next to the manifest.
 Run by a human when dependencies change; the lock is committed and reviewed, and `build` then
-only installs from it. Requires pixi at the recipe's pinned version.
+only installs from it. Requires pixi at the scroll's pinned version.
 
 ```sh
-scrollcase lock <recipe> [--target <targetId>] [--pixi <path>]
+scrollcase lock <scroll> [--target <targetId>] [--pixi <path>]
 ```
 
 The manifest itself pins the channels and the single target platform, so resolution does not
@@ -164,16 +163,16 @@ anything. The lock carries an SPDX licence per package; a package **without a de
 fails the parse outright** — an unlicensed dependency is a legal problem, not a reporting gap.
 
 ```sh
-scrollcase audit <recipe> [--target <targetId>] [--write] [--namespace <ns>]
+scrollcase audit <scroll> [--target <targetId>] [--write] [--namespace <ns>]
 ```
 
 Two modes:
 
-- **Check (default).** If the recipe declares a `condaDependencyLicenseAudit` path, the computed
+- **Check (default).** If the scroll declares a `condaDependencyLicenseAudit` path, the computed
   inventory is compared byte-for-byte against that reviewed file and any difference fails. This
   is what `build` enforces too, so licence review happens when dependencies change — not at the
   end of a multi-gigabyte build.
-- **Write (`--write`).** Write the inventory to the recipe's declared path, for a human to review
+- **Write (`--write`).** Write the inventory to the scroll's declared path, for a human to review
   and commit. Writing is explicit because silently overwriting the reviewed file is exactly how
   an unreviewed licence change would slip through.
 
@@ -191,14 +190,14 @@ Output is a per-licence package count, for example:
 
 ## `build`
 
-Turn a recipe into a signed box: install the locked environment, pack and relocate it, stage
+Turn a scroll into a signed box: install the locked environment, pack and relocate it, stage
 assets, prune, audit licences, self-test with the box's own interpreter, run the optional
 [parity gate](/guides/accelerator-parity), archive deterministically, and sign a release document
 plus a channel pointer. The full pipeline is narrated in
 [Architecture](/concepts/architecture).
 
 ```sh
-scrollcase build <recipe> [--target <targetId>]
+scrollcase build <scroll> [--target <targetId>]
                  [--channel <name>] [--weights embed|on-demand]
                  [--asset-base-url <url>] [--namespace <ns>] [--allow-dirty]
                  [--pixi <path>] [--conda-pack <path>]
@@ -207,10 +206,10 @@ scrollcase build <recipe> [--target <targetId>]
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--target` | ask when a box has several recipes | Canonical target recipe to build |
+| `--target` | ask when a box has several scrolls | Canonical target scroll to build |
 | `--channel` | `beta` | Channel the signed pointer names. The menu suggests `beta`, `stable`, and `nightly`; an explicit flag may supply a custom project channel |
-| `--weights` | recipe's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the consumer to fetch and verify at install time |
-| `--asset-base-url` | recipe's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |
+| `--weights` | scroll's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the consumer to fetch and verify at install time |
+| `--asset-base-url` | scroll's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |
 | `--namespace` | `scrollcase.box` | Document `kind` namespace — a project with boxes already in the field keeps emitting its own |
 | `--allow-dirty` | off | Permit a build from an uncommitted tree; recorded as `sourceTreeDirty: true` in the box |
 | `--signer-command` | none | Sign through an external command instead of the local key — see [Signing & Key Custody](/guides/signing-and-custody#external-signers) |
@@ -227,7 +226,7 @@ under `boxes/<boxId>/<version>/<targetId>/` and the signed pointer at
 unchanged.
 
 `build` refuses to run when: the workspace is not a git checkout; the tree is dirty and
-`--allow-dirty` is absent; `pixi.lock` is missing; the pixi on hand is not the recipe's pinned
+`--allow-dirty` is absent; `pixi.lock` is missing; the pixi on hand is not the scroll's pinned
 version; or the host OS/architecture does not match the target — boxes are proven on the hardware
 they ship for. Dirty detection includes untracked files and excludes files ignored by Git.
 
@@ -254,7 +253,7 @@ scrollcase verify <release.json> [--archive <path>] [--self-test] [--public-key 
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--archive` | `<stem>.zip` next to the release document | The archive to check |
+| `--archive` | `<archive.sha256>.zip` next to the release document | The archive to check |
 | `--self-test` | off | Extract to a temporary directory and import the declared modules with the box's own interpreter. Only runs on a matching native host |
 | `--public-key` | `<keys>/signing-public.json` | Trusted key file (a single key, or a `{ "keys": [...] }` bundle) |
 
@@ -263,8 +262,8 @@ target and entry point; archive size and SHA-256; safe entry names; recursively 
 `box.json` fields (identity/version, full target, entry point, cache subdirectory, consumer
 self-test, weights/assets, and provenance); and the declared interpreter. `--self-test`
 additionally requires a matching native host, extracts to a temporary directory, checks logical
-payload size, and runs the signed import check. It does not repeat recipe-only `pythonCode` or file
-assertions, which schema version 1 does not carry.
+payload size, and runs the signed import check. It does not repeat scroll-only `pythonCode` or file
+assertions, which are builder-only checks.
 
 ## Tool discovery {#tool-discovery}
 
@@ -277,7 +276,7 @@ first:
    `init` installs, which is why nothing has to be added to `PATH` afterwards.
 4. **`PATH`** — the bare `pixi` / `conda-pack` name.
 
-`build` and `lock` additionally require pixi to be at the exact version the recipe pins; a
+`build` and `lock` additionally require pixi to be at the exact version the scroll pins; a
 different version is an error rather than a silent substitution.
 
 ## Environment variables

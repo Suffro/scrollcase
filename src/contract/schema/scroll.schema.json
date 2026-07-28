@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scrollcase.dev/schema/recipe.schema.json",
-  "title": "Box recipe",
-  "description": "The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A recipe is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.",
+  "$id": "https://scrollcase.dev/schema/v2/scroll.schema.json",
+  "title": "Box scroll",
+  "description": "The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A scroll is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schemaVersion",
-    "recipeVersion",
+    "scrollVersion",
     "boxId",
     "modelId",
     "runtimeId",
@@ -24,14 +24,14 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
-    "recipeId": {
+    "scrollId": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional legacy provenance identity. New recipes derive it deterministically from boxId and the canonical target instead of repeating a directory name."
+      "description": "Optional provenance identity. When omitted, Scrollcase derives it deterministically from boxId and the canonical target."
     },
-    "recipeVersion": {
+    "scrollVersion": {
       "type": "string",
       "minLength": 1
     },
@@ -47,7 +47,7 @@
     "version": {
       "type": "string",
       "minLength": 1,
-      "description": "Version of the box this recipe produces, as it will appear in the release manifest."
+      "description": "Version of the box this scroll produces, as it will appear in the release manifest."
     },
     "sourceRevision": {
       "type": "string",
@@ -55,7 +55,7 @@
       "description": "Upstream revision of the packaged source, recorded verbatim into provenance."
     },
     "target": {
-      "$ref": "https://scrollcase.dev/schema/target.schema.json"
+      "$ref": "https://scrollcase.dev/schema/v2/target.schema.json"
     },
     "compatibility": {
       "type": "object",
@@ -216,7 +216,7 @@
         "imports",
         "files"
       ],
-      "description": "Builder checks run with the payload's own interpreter before archiving. Schema version 1 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.",
+      "description": "Builder checks run with the payload's own interpreter before archiving. Schema version 2 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.",
       "properties": {
         "imports": {
           "type": "array",

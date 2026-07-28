@@ -19,7 +19,7 @@ import { verifySignedDocument } from 'scrollcase/sign';
 The JSON Schemas and golden fixtures are exported as files too:
 
 ```js
-import recipeSchema from 'scrollcase/contract/schema/recipe.schema.json' with { type: 'json' };
+import scrollSchema from 'scrollcase/contract/schema/scroll.schema.json' with { type: 'json' };
 import targetCases from 'scrollcase/contract/fixtures/target-id-contract.json' with { type: 'json' };
 ```
 
@@ -30,7 +30,7 @@ The box format's types are **generated from the JSON Schemas** and shipped with 
 ```ts
 import type {
   BoxTarget,
-  BoxRecipe,
+  BoxScroll,
   BoxManifest,
   BoxReleaseManifest,
   BoxChannelManifest,
@@ -73,7 +73,7 @@ The single source of truth for what a box is. See [The Box Format](/reference/bo
 | `boxTargetAdapter` | `(target) => Adapter` | The adapter for a validated target: Python layout, archive backend, native-library inspection, validation environments |
 | `boxTargetAdapters` | `() => Adapter[]` | Every adapter, for enumerating supported targets |
 | `condaSubdir` | `(target) => string` | The conda platform subdir (`osx-arm64`, `linux-64`, `win-64`) |
-| `pixiAccelerator` | `(recipe) => { accelerator, cudaVersion }` | The conda accelerator descriptor a recipe selects, rejecting target drift |
+| `pixiAccelerator` | `(scroll) => { accelerator, cudaVersion }` | The conda accelerator descriptor a scroll selects, rejecting target drift |
 | `assertNativeHost` | `(adapter, host = process) => void` | Throws unless the current host matches the adapter's OS and architecture |
 | `assertPythonEntryPoint` | `(adapter, entryPoint) => void` | Throws unless the entry point matches the adapter's layout |
 
@@ -95,9 +95,9 @@ boxTargetId({ platform: 'linux', arch: 'x86_64', accelerator: 'cuda', cudaVersio
 | `schemaUrl` | `(name) => URL` | Absolute URL of a shipped JSON Schema |
 | `fixtureUrl` | `(name) => URL` | Absolute URL of a shipped fixture |
 
-Constants: `BOX_SCHEMA_VERSION` (`1`), `PAYLOAD_ENCODING` (`'base64-json-utf8'`),
+Constants: `BOX_SCHEMA_VERSION` (`2`), `PAYLOAD_ENCODING` (`'base64-json-utf8'`),
 `SIGNATURE_ALGORITHM` (`'ed25519'`), `DEFAULT_DOCUMENT_NAMESPACE` (`'scrollcase.box'`),
-`CHANNELS` (`['development', 'beta', 'stable']`).
+`CHANNELS` (`['nightly', 'beta', 'stable']`).
 
 ## `scrollcase/contract/browser`
 
@@ -177,8 +177,8 @@ client that computes the same hashes.
 ```js
 import { resolveWorkspace } from 'scrollcase/build';
 
-const workspace = resolveWorkspace({ cwd: '/work/my-project/recipes/my-model/macos-aarch64-metal' });
-// → { root, configPath, recipesDir, buildDir, distDir, keysDir, toolchainDir }
+const workspace = resolveWorkspace({ cwd: '/work/my-project/scrolls/my-model/macos-aarch64-metal' });
+// → { root, configPath, scrollsDir, buildDir, distDir, keysDir, toolchainDir }
 ```
 
 Details in [Workspace Configuration](/reference/configuration).
@@ -200,7 +200,7 @@ Details in [Workspace Configuration](/reference/configuration).
 | `boxReleaseStem(release)` | `<boxId>-<version>-<targetId>` |
 | `boxReleaseObjectPrefix(release)` | `boxes/<boxId>/<version>/<targetId>` |
 | `builderVersionFields(source)` | The builder-identity fields recorded in provenance |
-| `findPixi({ requiredVersion, path, runResult })` | Locate pixi and enforce the recipe's pin |
+| `findPixi({ requiredVersion, path, runResult })` | Locate pixi and enforce the scroll's pin |
 | `findCondaPack({ path, runResult })` | Locate conda-pack |
 | `CONDA_PACK_VERSION` | The exact conda-pack release installed by Scrollcase (`0.9.2`) |
 | `pixiLockArguments`, `pixiInstallArguments`, `condaPackArguments` | The exact argument vectors the build uses |
@@ -221,7 +221,7 @@ import { readFile } from 'node:fs/promises';
 import { createCondaDependencyLicenseAudit } from 'scrollcase/build';
 
 const audit = createCondaDependencyLicenseAudit({
-  lockBytes: await readFile('recipes/my-model/macos-aarch64-metal/pixi.lock'),
+  lockBytes: await readFile('scrolls/my-model/macos-aarch64-metal/pixi.lock'),
   targetId: 'macos-aarch64-metal',
 });
 // → { schemaVersion, kind, targetId, dependencyLockSha256, packages: [...] }
@@ -237,6 +237,7 @@ pipeline without a real toolchain.
 
 ## Stability
 
-The exported surface follows the package version. The **format** — target IDs, document kinds,
-payload encoding, signature algorithm — is frozen at `schemaVersion: 1` independently of it, and
-a breaking format change ships as a new schema version.
+The exported surface follows the package version. The active v2 **format** — target IDs, document
+kinds, payload encoding, and signature algorithm — changes only through an explicit new schema
+version. The v2 API rejects v1 rather than widening its types or runtime paths into a compatibility
+union.

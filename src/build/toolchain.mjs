@@ -21,7 +21,7 @@ import { chmod, mkdir, mkdtemp, rm, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { extractRecipeArchive } from './archive.mjs';
+import { extractScrollArchive } from './archive.mjs';
 import { collectFiles, fileExists, sha256File } from './filesystem.mjs';
 import { fail, run as defaultRun } from './process.mjs';
 
@@ -179,7 +179,7 @@ export async function installPixi({
     // Unpacked through the same guarded extractor the payload uses, so a hostile archive cannot
     // write outside the staging directory even though this one came from a known publisher.
     const unpacked = join(staging, 'unpacked');
-    await extractRecipeArchive(archivePath, release.format, unpacked);
+    await extractScrollArchive(archivePath, release.format, unpacked);
     const entry = (await collectFiles(unpacked)).find((file) => file.split('/').pop() === release.binary);
     if (!entry) fail(`The pixi archive did not contain ${release.binary}.`);
 

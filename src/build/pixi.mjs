@@ -43,7 +43,7 @@ function toolCandidate({ path, environmentVariable, toolchainKey, name }) {
 }
 
 /**
- * Verifies the pinned pixi is installed. `build` and `lock` must use the same pixi the recipe was
+ * Verifies the pinned pixi is installed. `build` and `lock` must use the same pixi the scroll was
  * pinned against, never whatever happens to be on PATH: a different resolver version can select
  * different packages and silently change the box.
  * `runResult` is injectable so a caller can drive discovery without a real pixi on PATH.
@@ -57,7 +57,7 @@ export function findPixi({ requiredVersion, path = null, runResult = defaultRunR
   if (!found) {
     fail(`pixi ${requiredVersion} is required. Install it from https://pixi.sh/, run \`scrollcase init --install-toolchain\`, or pass --pixi <path>.`);
   }
-  if (found.version !== requiredVersion) fail(`Recipe requires pixi ${requiredVersion}, found ${found.version}.`);
+  if (found.version !== requiredVersion) fail(`Scroll requires pixi ${requiredVersion}, found ${found.version}.`);
   return found.path;
 }
 
@@ -101,7 +101,7 @@ export function probeCondaPack({ path = null, runResult = defaultRunResult } = {
 }
 
 /**
- * `lock` — resolves a recipe's pixi.toml into its committed pixi.lock without installing anything.
+ * `lock` — resolves a scroll's pixi.toml into its committed pixi.lock without installing anything.
  * Run by a human when dependencies change; the lock is committed and reviewed, and `build` then
  * only installs from it. The manifest itself pins the channels and the single target platform, so
  * resolution is host-independent without any per-invocation platform flag.
@@ -266,10 +266,10 @@ async function dereferenceSymlinksInPlace(root, current = root) {
 }
 
 /**
- * Builds the box's `venv/` prefix from a recipe's committed pixi.lock and packs it for relocation.
+ * Builds the box's `venv/` prefix from a scroll's committed pixi.lock and packs it for relocation.
  *
  * Flow: install the exact locked env into an isolated workspace so pixi's `.pixi/envs` never
- * lands in the tracked recipe dir; conda-pack the prefix into a relocatable tarball; extract it
+ * lands in the tracked scroll dir; conda-pack the prefix into a relocatable tarball; extract it
  * into `payloadDir/venv`; remove the service files that carry the build prefix (conda-unpack is
  * never run — see below); then dereference every symlink so the payload is link-free for the
  * archive layer. The multi-gigabyte workspace and tarball are removed before the payload is
@@ -303,7 +303,7 @@ export async function installAndPackPixiEnvironment({
   await rm(workspace, { recursive: true, force: true });
   await mkdir(workspace, { recursive: true });
   // pixi installs from the manifest+lock sitting next to each other; stage both into the workspace
-  // so the resulting `.pixi/envs/default` prefix is build-local, never inside the recipe.
+  // so the resulting `.pixi/envs/default` prefix is build-local, never inside the scroll.
   await copyFile(manifestPath, join(workspace, 'pixi.toml'));
   await copyFile(lockPath, join(workspace, 'pixi.lock'));
   run(pixi, pixiInstallArguments(join(workspace, 'pixi.toml')));

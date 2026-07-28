@@ -21,7 +21,7 @@
  * @property {'macos' | 'linux' | 'windows'} platform
  * @property {'aarch64' | 'x86_64'} arch
  * @property {{ platform: string, arch: string }} host the Node platform/arch a build must run on
- * @property {'osx-arm64' | 'linux-64' | 'win-64'} condaSubdir the recipe's pixi `platforms` value
+ * @property {'osx-arm64' | 'linux-64' | 'win-64'} condaSubdir the scroll's pixi `platforms` value
  * @property {{ payloadRoot: string, entryPoint: string, scriptsDirectory: string,
  *   executableSuffix: string, launcherKind: string }} python layout of the interpreter in the box
  * @property {{ format: 'zip', writer: string, reader: string, assetTarReader: string,
@@ -54,7 +54,7 @@ const TARGET_ADAPTERS = Object.freeze([
     platform: 'macos',
     arch: 'aarch64',
     host: Object.freeze({ platform: 'darwin', arch: 'arm64' }),
-    // conda platform subdir: the `platforms` value in the recipe's pixi.toml.
+    // conda platform subdir: the `platforms` value in the scroll's pixi.toml.
     condaSubdir: 'osx-arm64',
     python: Object.freeze({
       payloadRoot: 'venv',
@@ -190,7 +190,7 @@ export function assertNativeHost(adapter, host = process) {
 }
 
 /**
- * Ensures the recipe entry point agrees with the adapter's standalone Python layout.
+ * Ensures the scroll entry point agrees with the adapter's standalone Python layout.
  *
  * @param {BoxTargetAdapter} adapter
  * @param {string} entryPoint
@@ -200,7 +200,7 @@ export function assertNativeHost(adapter, host = process) {
 export function assertPythonEntryPoint(adapter, entryPoint) {
   if (entryPoint !== adapter.python.entryPoint) {
     throw new TypeError(
-      `${adapter.id} box recipes must use Python entry point ${adapter.python.entryPoint}`,
+      `${adapter.id} scrolls must use Python entry point ${adapter.python.entryPoint}`,
     );
   }
 }
@@ -226,21 +226,21 @@ export function condaSubdir(target) {
 }
 
 /**
- * Returns the conda accelerator descriptor a recipe selects, rejecting target drift. `metal` and
+ * Returns the conda accelerator descriptor a scroll selects, rejecting target drift. `metal` and
  * `cpu` need no extra conda knobs (osx-arm64 ships MPS in the pytorch build; cpu is the default build); `cuda` pins a
  * `cuda-version` and declares a CUDA system requirement so the solver picks the GPU pytorch build.
  *
- * @param {Pick<import('./types/index.d.ts').BoxRecipe, 'target'>} recipe
+ * @param {Pick<import('./types/index.d.ts').BoxScroll, 'target'>} scroll
  * @returns {{ accelerator: 'cpu' | 'metal' | 'cuda', cudaVersion: string | null }}
  * @throws {TypeError} when the accelerator is unsupported, or a CUDA target lacks a version
  */
-export function pixiAccelerator(recipe) {
-  const accelerator = recipe?.target?.accelerator;
+export function pixiAccelerator(scroll) {
+  const accelerator = scroll?.target?.accelerator;
   if (accelerator === 'metal' || accelerator === 'cpu') {
     return Object.freeze({ accelerator, cudaVersion: null });
   }
   if (accelerator === 'cuda') {
-    const cudaVersion = recipe?.target?.cudaVersion;
+    const cudaVersion = scroll?.target?.cudaVersion;
     if (typeof cudaVersion !== 'string' || !CUDA_VERSION.test(cudaVersion)) {
       throw new TypeError('A CUDA box target requires a numeric major.minor CUDA version');
     }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "scrollcase.box.dependency-license-audit",
   "targetId": "macos-aarch64-metal",
   "dependencyLockSha256": "0d5d213e0ead8c625711d11dcb6550fd831d256a061337665ac2dd7e61fda1c3",

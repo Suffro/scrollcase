@@ -201,12 +201,12 @@ describe('offering the toolchain during init', () => {
     expect(await fileExists(join(root, '.scrollcase', 'toolchain'))).toBe(false);
   });
 
-  it('asks only for what is missing, and pins the recipe without asking when both are present', async () => {
-    const { workspace, recipeDir } = await project();
+  it('asks only for what is missing, and pins the scroll without asking when both are present', async () => {
+    const { workspace, scrollDir } = await project();
     const asked = [];
     const outcome = await ensureToolchain({
       workspace,
-      recipePath: join(recipeDir, 'recipe.json'),
+      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async (missing) => { asked.push(missing); return false; },
       runResult: presentTools({ pixi: '0.73.0', condaPack: true }),
       fetchImpl: async () => { throw new Error('the network must not be touched'); },
@@ -215,19 +215,19 @@ describe('offering the toolchain during init', () => {
     expect(asked).toEqual([]);
     expect(outcome.missing).toEqual([]);
     expect(outcome.pixiVersion).toBe('0.73.0');
-    expect(outcome.pinnedRecipe).toBe(true);
-    const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.pixiVersion).toBe('0.73.0');
+    expect(outcome.pinnedScroll).toBe(true);
+    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
+    expect(scroll.pixiVersion).toBe('0.73.0');
   });
 
-  it('records both managed toolchain pins and pins the recipe after installation', async () => {
-    const { workspace, root, recipeDir } = await project();
+  it('records both managed toolchain pins and pins the scroll after installation', async () => {
+    const { workspace, root, scrollDir } = await project();
     const { bytes } = await fakePixiRelease();
     const condaPackPath = toolchainPaths(workspace.toolchainDir).condaPack;
     const outcome = await ensureToolchain({
       workspace,
       pixiVersion: '0.73.0',
-      recipePath: join(recipeDir, 'recipe.json'),
+      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async () => true,
       host: HOST,
       runResult: presentTools({ pixi: null, condaPack: false }),
@@ -247,19 +247,19 @@ describe('offering the toolchain during init', () => {
     expect(config.toolchain.pixi.version).toBe('0.73.0');
     expect(config.toolchain.pixi.assets['pixi-aarch64-apple-darwin.tar.gz']).toBe(sha256(bytes));
     expect(config.toolchain.condaPack).toEqual({ version: CONDA_PACK_VERSION });
-    // The scaffolded recipe carried no pin; it now names the pixi that was actually installed.
-    const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.pixiVersion).toBe('0.73.0');
-    expect(outcome.pinnedRecipe).toBe(true);
+    // The scaffolded scroll carried no pin; it now names the pixi that was actually installed.
+    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
+    expect(scroll.pixiVersion).toBe('0.73.0');
+    expect(outcome.pinnedScroll).toBe(true);
   });
 
   it('installs the requested pixi when a different resolver version is already present', async () => {
-    const { workspace, recipeDir } = await project();
+    const { workspace, scrollDir } = await project();
     const { bytes } = await fakePixiRelease();
     const outcome = await ensureToolchain({
       workspace,
       pixiVersion: '0.73.0',
-      recipePath: join(recipeDir, 'recipe.json'),
+      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async (missing) => {
         expect(missing).toEqual(['pixi']);
         return true;
@@ -272,8 +272,8 @@ describe('offering the toolchain during init', () => {
 
     expect(outcome.installed).toEqual(['pixi 0.73.0']);
     expect(outcome.pixiVersion).toBe('0.73.0');
-    const recipe = JSON.parse(await readFile(join(recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.pixiVersion).toBe('0.73.0');
+    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
+    expect(scroll.pixiVersion).toBe('0.73.0');
   });
 
   it('reports an unsupported host instead of downloading a guessed URL', async () => {

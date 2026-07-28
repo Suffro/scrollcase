@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
-  "recipeId": "example-model-linux-x86_64-cuda12.9",
-  "recipeVersion": "1.0.0",
+  "schemaVersion": 2,
+  "scrollId": "example-model-linux-x86_64-cuda12.9",
+  "scrollVersion": "1.0.0",
   "boxId": "example-model",
   "modelId": "example-org-example-model",
   "runtimeId": "example-model-runtime",

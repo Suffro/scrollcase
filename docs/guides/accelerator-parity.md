@@ -43,7 +43,7 @@ rejected.
 ## The check script
 
 The script ships inside the box — either produced by the environment, or copied in through
-[`localFiles`](/reference/recipe#localfiles):
+[`localFiles`](/reference/scroll#localfiles):
 
 ```jsonc
 "localFiles": [
@@ -111,7 +111,7 @@ procedure:
 1. Build with a deliberately loose tolerance and read what the build reports.
 2. Set the bound a little above the observed spread — tight enough to catch a real regression,
    loose enough to survive legitimate floating-point differences between devices.
-3. Record why you chose it, next to the recipe.
+3. Record why you chose it, next to the scroll.
 
 The project must derive bounds from its workload, numeric precision, fixture, and scientific
 requirements. Scrollcase cannot infer a safe threshold from the accelerator name.
@@ -142,4 +142,4 @@ record it in its own pipeline.
 Parity needs at least two accelerators available on the build machine — a CPU/CUDA gate needs a
 GPU present. If a box has only one meaningful accelerator, or your CI cannot provide the second
 device, leave `parity` out and lean on the self-test's `pythonCode` instead. The gate is optional
-by design; a recipe without it is complete.
+by design; a scroll without it is complete.

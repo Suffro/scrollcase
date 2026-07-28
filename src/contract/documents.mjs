@@ -33,6 +33,9 @@ export {
  * @throws {Error} when the embedded payload hash does not match the bytes
  */
 export function decodeDocumentPayload(document) {
+  if (document?.schemaVersion === 1) {
+    throw new TypeError('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
+  }
   if (!isSignedBoxDocument(document)) {
     throw new TypeError('Not a signed box document');
   }

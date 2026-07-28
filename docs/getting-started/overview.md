@@ -16,7 +16,7 @@ Scrollcase is a tool for packaging and distributing complete Python environments
 
 Its purpose is to avoid forcing each end user to install Python, native libraries, model dependencies, and model files manually.
 
-The developer describes what the runtime box should contain, runs a small number of commands, and Scrollcase produces a package that can be published and later installed by another application.
+The developer describes what the box should contain, runs a small number of commands, and Scrollcase produces a package that can be published and later installed by another application.
 
 ## Who Uses Scrollcase
 
@@ -70,7 +70,7 @@ Scrollcase automatically handles:
 - making the environment relocatable;
 - copying local code and files;
 - running configured tests;
-- creating the runtime box;
+- creating the box;
 - generating the ZIP archive;
 - generating release manifests;
 - calculating hashes;
@@ -111,9 +111,9 @@ The private key must be stored securely and must not be committed to the reposit
 
 The public key must be distributed to the consuming application so that it can verify releases.
 
-## Writing a Recipe
+## Writing a Scroll
 
-A recipe is the configuration that describes the box to build.
+A scroll is the configuration that describes the box to build.
 
 The developer specifies information such as:
 
@@ -128,7 +128,7 @@ The developer specifies information such as:
 - Python modules to import during tests;
 - optional custom checks.
 
-Conceptually, the recipe says:
+Conceptually, the scroll says:
 
 ```text
 Box: model-x
@@ -142,11 +142,11 @@ Weights: URL, file size, SHA-256
 Tests: import torch, import model_x
 ```
 
-The recipe describes the desired result. It does not require the developer to implement the internal packaging process.
+The scroll describes the desired result. It does not require the developer to implement the internal packaging process.
 
 ## Defining Dependencies
 
-Dependencies are declared in the dependency file used by the recipe, normally through Pixi.
+Dependencies are declared in the dependency file used by the scroll, normally through Pixi.
 
 Conceptual example:
 
@@ -168,7 +168,7 @@ It does not necessarily select the exact build of every package yet.
 After defining the dependencies, run:
 
 ```bash
-scrollcase lock recipe-name
+scrollcase lock scroll-name
 ```
 
 This generates a lock file containing the exact resolved dependency versions.
@@ -178,7 +178,7 @@ This generates a lock file containing the exact resolved dependency versions.
 
 Run it:
 
-- the first time the recipe is created;
+- the first time the scroll is created;
 - when a dependency changes;
 - when upgrading a library;
 - when changing the environment configuration.
@@ -190,13 +190,13 @@ It does not need to be rerun for every build if the dependencies have not change
 Before building, the developer can run:
 
 ```bash
-scrollcase doctor --recipe recipe-name
+scrollcase doctor --scroll scroll-name
 ```
 
 This checks things such as:
 
 - workspace configuration;
-- recipe availability;
+- scroll availability;
 - Git repository state;
 - required tools;
 - whether the current machine can build the selected target;
@@ -214,7 +214,7 @@ The practical workflow for the first box is:
 scrollcase init
 ```
 
-### 2. Write the Recipe
+### 2. Write the Scroll
 
 Define:
 
@@ -228,12 +228,12 @@ Define:
 ### 3. Lock Dependencies
 
 ```bash
-scrollcase lock recipe-name
+scrollcase lock scroll-name
 ```
 
 ### 4. Commit the Configuration
 
-Commit the recipe and lock file to Git.
+Commit the scroll and lock file to Git.
 
 ### 5. Generate or Configure the Signing Key
 
@@ -244,7 +244,7 @@ scrollcase keygen
 ### 6. Build the Box
 
 ```bash
-scrollcase build recipe-name
+scrollcase build scroll-name
 ```
 
 ### 7. Review the Output
@@ -272,7 +272,7 @@ Scrollcase prepares the files, but does not upload them anywhere.
 From the developer's perspective, the build is a single command:
 
 ```bash
-scrollcase build recipe-name
+scrollcase build scroll-name
 ```
 
 Scrollcase then performs the internal packaging steps automatically.
@@ -326,7 +326,7 @@ After the initial setup, publishing a new version requires fewer steps.
 4. publish the new files.
 
 ```bash
-scrollcase build recipe-name
+scrollcase build scroll-name
 ```
 
 ### Case 2: Dependencies Change
@@ -338,13 +338,13 @@ scrollcase build recipe-name
 5. publish the new files.
 
 ```bash
-scrollcase lock recipe-name
-scrollcase build recipe-name
+scrollcase lock scroll-name
+scrollcase build scroll-name
 ```
 
 ### Case 3: Model Weights Change
 
-1. update the asset URL, file size, and hash in the recipe;
+1. update the asset URL, file size, and hash in the scroll;
 2. increase the version;
 3. run the build;
 4. publish the new release.
@@ -362,24 +362,24 @@ Examples include:
 - Windows x86_64 with CPU;
 - Windows x86_64 with CUDA.
 
-Supporting several targets requires several builds and usually separate target-specific recipes or configurations.
+Supporting several targets requires several builds and usually separate target-specific scrolls or configurations.
 
 The workflow becomes:
 
 ```text
-macOS recipe
+macOS scroll
 ↓
 macOS build
 
-Linux CPU recipe
+Linux CPU scroll
 ↓
 Linux CPU build
 
-Linux CUDA recipe
+Linux CUDA scroll
 ↓
 Linux CUDA build
 
-Windows recipe
+Windows scroll
 ↓
 Windows build
 ```
@@ -478,7 +478,7 @@ Without a tool like this, the developer would have to manage:
 - tests;
 - distribution conventions.
 
-With Scrollcase, these concerns are collected into a recipe and a small number of commands.
+With Scrollcase, these concerns are collected into a scroll and a small number of commands.
 
 ## TL;DR
 

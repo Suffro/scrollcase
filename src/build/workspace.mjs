@@ -1,7 +1,7 @@
 /**
  * Scrollcase workspace resolution.
  *
- * Where a project keeps its recipes, and where the tool writes what it builds, is the project's
+ * Where a project keeps its scrolls, and where the tool writes what it builds, is the project's
  * decision, not the tool's. A workspace is declared by a `scrollcase.config.json` at the project
  * root, discovered by walking up from the working directory and overridable per invocation by CLI
  * flags. A project that declares nothing gets the defaults below.
@@ -21,7 +21,7 @@ import { fail } from './process.mjs';
  * @property {string} root the project root the config was found in, and the git checkout provenance
  *   is recorded from
  * @property {string | null} configPath the config that produced it, or null when defaults applied
- * @property {string} recipesDir
+ * @property {string} scrollsDir
  * @property {string} buildDir
  * @property {string} distDir
  * @property {string} keysDir
@@ -34,7 +34,7 @@ import { fail } from './process.mjs';
  * @typedef {object} WorkspaceOverrides
  * @property {string} [projectRoot]
  * @property {string} [config]
- * @property {string} [recipes]
+ * @property {string} [scrolls]
  * @property {string} [build]
  * @property {string} [dist]
  * @property {string} [keys]
@@ -44,12 +44,12 @@ import { fail } from './process.mjs';
 export const SCROLLCASE_CONFIG_FILENAME = 'scrollcase.config.json';
 
 /**
- * The layout a project gets when it declares nothing. A project that already keeps its recipes
+ * The layout a project gets when it declares nothing. A project that already keeps its scrolls
  * elsewhere — or that adopted the tool after building its own convention — overrides these in its
  * config rather than moving its files.
  */
 export const DEFAULT_WORKSPACE_PATHS = Object.freeze({
-  recipes: 'recipes',
+  scrolls: 'scrolls',
   build: '.scrollcase/build',
   dist: '.scrollcase/dist',
   keys: '.scrollcase/keys',
@@ -58,7 +58,7 @@ export const DEFAULT_WORKSPACE_PATHS = Object.freeze({
 
 /** Config path key -> resolved workspace field. */
 const PATH_FIELDS = Object.freeze({
-  recipes: 'recipesDir',
+  scrolls: 'scrollsDir',
   build: 'buildDir',
   dist: 'distDir',
   keys: 'keysDir',
@@ -67,7 +67,7 @@ const PATH_FIELDS = Object.freeze({
 
 /** CLI flag -> config path key. */
 const PATH_FLAGS = Object.freeze({
-  'recipes-dir': 'recipes',
+  'scrolls-dir': 'scrolls',
   'build-dir': 'build',
   'out-dir': 'dist',
   'keys-dir': 'keys',

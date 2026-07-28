@@ -7,12 +7,12 @@ packed into a relocatable box. No model weights, no assets, nothing to download 
 interpreter itself — so it exercises the whole pipeline in about a minute and produces a ~48 MB
 archive you can inspect by hand.
 
-Run it from the Scrollcase checkout, using `examples/` as the recipes root:
+Run it from the Scrollcase checkout, using `examples/` as the scrolls root:
 
 ```sh
-scrollcase lock hello-box/macos-aarch64-metal --recipes-dir examples
+scrollcase lock hello-box/macos-aarch64-metal --scrolls-dir examples
 scrollcase keygen
-scrollcase build hello-box/macos-aarch64-metal --recipes-dir examples
+scrollcase build hello-box/macos-aarch64-metal --scrolls-dir examples
 scrollcase verify .scrollcase/dist/boxes/hello-box/1.0.0/macos-aarch64-metal/*.release.json --self-test
 ```
 

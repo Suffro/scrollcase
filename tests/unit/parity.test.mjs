@@ -86,7 +86,7 @@ describe('the parity gate', () => {
       .rejects.toThrow(/no validation environment/);
   });
 
-  it('is optional: a recipe without a parity block skips the gate entirely', async () => {
+  it('is optional: a scroll without a parity block skips the gate entirely', async () => {
     expect(await checkParity({ parity: undefined, adapter, interpreter: 'x', payloadDir: '/box', run: () => '' }))
       .toBeNull();
   });

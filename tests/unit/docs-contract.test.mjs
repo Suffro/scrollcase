@@ -10,7 +10,7 @@ import * as sign from '../../src/sign/index.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const schemaSource = join(root, 'src', 'contract', 'schema');
-const schemaPublic = join(root, 'docs', 'public', 'schema');
+const schemaPublic = join(root, 'docs', 'public', 'schema', 'v2');
 
 async function markdownFiles(directory) {
   const found = [];
@@ -40,8 +40,8 @@ describe('public documentation routes', () => {
     for (const name of names) {
       const source = await readFile(join(schemaSource, name), 'utf8');
       const schema = JSON.parse(source);
-      expect(new URL(schema.$id).pathname).toBe(`/schema/${name}`);
-      for (const match of source.matchAll(/"\$ref":\s*"(https:\/\/scrollcase\.dev\/schema\/([^"#]+)(?:#[^"]*)?)"/g)) {
+      expect(new URL(schema.$id).pathname).toBe(`/schema/v2/${name}`);
+      for (const match of source.matchAll(/"\$ref":\s*"(https:\/\/scrollcase\.dev\/schema\/v2\/([^"#]+)(?:#[^"]*)?)"/g)) {
         expect(published.has(match[2]), match[1]).toBe(true);
       }
     }
@@ -92,20 +92,20 @@ describe('public documentation routes', () => {
     expect(reference).toContain('scrollcase/contract/types');
   });
 
-  it('parses every full JSON example and validates complete recipes', async () => {
-    const [recipeSchema, targetSchema] = await Promise.all([
-      readFile(join(schemaSource, 'recipe.schema.json'), 'utf8').then(JSON.parse),
+  it('parses every full JSON example and validates complete scrolls', async () => {
+    const [scrollSchema, targetSchema] = await Promise.all([
+      readFile(join(schemaSource, 'scroll.schema.json'), 'utf8').then(JSON.parse),
       readFile(join(schemaSource, 'target.schema.json'), 'utf8').then(JSON.parse),
     ]);
     const ajv = new Ajv({ strict: true, strictRequired: false, allErrors: true });
     ajv.addSchema(targetSchema);
-    const validateRecipe = ajv.compile(recipeSchema);
+    const validateScroll = ajv.compile(scrollSchema);
     for (const path of await markdownFiles(join(root, 'docs'))) {
       const markdown = await readFile(path, 'utf8');
       for (const match of markdown.matchAll(/^```json\n([\s\S]*?)^```$/gm)) {
         const example = JSON.parse(match[1]);
-        if (example?.schemaVersion === 1 && typeof example?.recipeVersion === 'string' && example?.target) {
-          expect(validateRecipe(example), `${path}: ${ajv.errorsText(validateRecipe.errors)}`).toBe(true);
+        if (example?.schemaVersion === 2 && typeof example?.scrollVersion === 'string' && example?.target) {
+          expect(validateScroll(example), `${path}: ${ajv.errorsText(validateScroll.errors)}`).toBe(true);
         }
       }
     }

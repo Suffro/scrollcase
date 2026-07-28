@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
-  "recipeId": "example-model-macos-arm64-metal",
-  "recipeVersion": "1.0.0",
+  "schemaVersion": 2,
+  "scrollId": "example-model-macos-arm64-metal",
+  "scrollVersion": "1.0.0",
   "boxId": "example-model",
   "modelId": "example-org-example-model",
   "runtimeId": "example-model-runtime",

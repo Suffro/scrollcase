@@ -3,7 +3,7 @@
   <img src="https://scrollcase.dev/static/png/labeled/neutral-colored.png" alt="Scrollcase logo" width="220">
 </p>
 
-[**Scrollcase**](https://scrollcase.dev) turns a declarative **recipe** into a **box**: a portable, locked, self-contained
+[**Scrollcase**](https://scrollcase.dev) turns a declarative **scroll** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
 than where it was built, signed so a consumer can prove what they received, and accompanied by a
 dependency licence inventory.
@@ -28,7 +28,7 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
   through any external signer you already trust.
 - **Verified.** `verify` mirrors what an installing client does: signature, archive size and
   hash, safe entry names, manifest agreement, and — with `--self-test` — a real extraction whose
-  own interpreter imports the modules the recipe declares.
+  own interpreter imports the modules the scroll declares.
 - **Audited.** `audit` derives a licence inventory per package straight from the lock, and a
   dependency without a declared licence fails the parse.
 - **Honest about provenance.** A box records the commit it was built from. Building outside a git
@@ -38,7 +38,7 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 ## Requirements
 
 - Node.js ≥ 20 for the CLI.
-- For real builds: `pixi` at the version the recipe pins and `conda-pack` 0.9.2. Point Scrollcase
+- For real builds: `pixi` at the version the scroll pins and `conda-pack` 0.9.2. Point Scrollcase
   at them with `--pixi` / `--conda-pack` or `SCROLLCASE_PIXI` /
   `SCROLLCASE_CONDA_PACK` if they are not on `PATH`. `scrollcase doctor` reports exactly what is
   missing and how to install it. `init` installs the pinned conda-pack release automatically.
@@ -60,10 +60,10 @@ cd scrollcase && npm install && npm link
 ## Quickstart
 
 ```sh
-scrollcase init                     # choose a target; scaffold config, recipe, and ignore rules
+scrollcase init                     # choose a target; scaffold config, scroll, and ignore rules
 scrollcase doctor                   # can this machine build?
 scrollcase keygen                   # create a local ed25519 signing key
-scrollcase lock my-box/macos-aarch64-metal     # resolve the recipe's pixi manifest into pixi.lock
+scrollcase lock my-box/macos-aarch64-metal     # resolve the scroll's pixi manifest into pixi.lock
 scrollcase audit my-box/macos-aarch64-metal    # licence inventory, derived from the lock
 scrollcase build my-box/macos-aarch64-metal    # install, self-test, archive, sign
 scrollcase verify .scrollcase/dist/boxes/<box>/<version>/<target>/<sha256>.release.json --self-test
@@ -79,12 +79,12 @@ was built. See [examples/README.md](examples/README.md).
 
 | Command | What it does |
 | --- | --- |
-| `init` | Scaffold a config, an example recipe, and ignore rules |
+| `init` | Scaffold a config, an example scroll, and ignore rules |
 | `doctor` | Report whether this machine can build a box |
 | `keygen` | Create a local ed25519 signing key |
-| `lock <recipe>` | Resolve the recipe's pixi manifest into `pixi.lock` |
-| `audit <recipe>` | Dependency licence inventory, derived from the lock |
-| `build <recipe>` | Build, self-test, archive, and sign a box |
+| `lock <scroll>` | Resolve the scroll's pixi manifest into `pixi.lock` |
+| `audit <scroll>` | Dependency licence inventory, derived from the lock |
+| `build <scroll>` | Build, self-test, archive, and sign a box |
 | `verify <release.json>` | Verify signature, archive hash, and layout |
 
 `scrollcase help` documents every option.
@@ -96,8 +96,8 @@ Projects that consume the box contract directly can import the full Node surface
 ## Workspace
 
 Paths come from the project, not from the tool. A `scrollcase.config.json` at the project root —
-discovered by walking up from the working directory — declares where recipes live and where
-builds, artefacts and keys go. Defaults are `recipes/` and `.scrollcase/{build,dist,keys}`, and
+discovered by walking up from the working directory — declares where scrolls live and where
+builds, artefacts and keys go. Defaults are `scrolls/` and `.scrollcase/{build,dist,keys}`, and
 every path can be overridden per invocation.
 
 ## Signing and key custody
@@ -121,7 +121,7 @@ declared hash commits to exactly which bytes the box expects, whatever host serv
 
 ## Accelerator parity
 
-A recipe may declare a `parity` block: a check script inside the box, the accelerators to run it
+A scroll may declare a `parity` block: a check script inside the box, the accelerators to run it
 under, and tolerances (`absolute`, `relative`, `minimumCosine`). The tool runs the check once per
 accelerator, compares every run against the first, and fails the build on a breach. It catches the
 failures a packaging tool is responsible for — the wrong wheels solved in, a CPU-only build

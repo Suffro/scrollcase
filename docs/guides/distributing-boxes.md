@@ -88,7 +88,7 @@ separation is the point: **promoting a build never requires re-signing it**.
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "scrollcase.box.channel",
   "channel": "beta",
   "boxId": "my-model",
@@ -102,7 +102,7 @@ separation is the point: **promoting a build never requires re-signing it**.
 ```
 
 A freshly built channel goes out at 100%. The schema can represent multiple release percentages,
-but schema version 1 does **not** specify an interoperable cohort algorithm: it defines no identity
+but schema version 2 does **not** specify an interoperable cohort algorithm: it defines no identity
 normalisation, byte framing, hash algorithm, integer extraction, percentage mapping, ordering, or
 boundary fixtures. A consuming project may define and test those rules for its own clients, but
 must not claim that unrelated implementations derive the same cohort from this format alone.
@@ -111,7 +111,7 @@ must not claim that unrelated implementations derive the same cohort from this f
 not define how a client combines it with an identity. Until a future version supplies normative
 fixtures, the only cross-client behavior documented here is a 100% release.
 
-Promotion between channels (`development` → `beta` → `stable`) is publishing a channel document
+Promotion between channels (`nightly` → `beta` → `stable`) is publishing a channel document
 naming the release you already built. Build once per channel name with `--channel`, or write the
 promoted document yourself and sign it with the same key.
 
@@ -152,7 +152,7 @@ flowchart TD
 Whatever installs your boxes should do exactly what `scrollcase verify` does, in the same order:
 
 1. Fetch the channel document, verify its signature, and apply the consuming project's release
-   policy. Schema version 1 guarantees interoperability only for the 100% case.
+   policy. Schema version 2 guarantees interoperability only for the 100% case.
 2. Fetch the release document by the URL the channel names; verify its signature.
 3. Check `compatibility` against the host — and **refuse a constraint it cannot evaluate** rather
    than assuming it passes.

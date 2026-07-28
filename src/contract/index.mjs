@@ -36,7 +36,7 @@ export {
 /**
  * Absolute URL of a shipped JSON Schema, for consumers that validate documents themselves.
  *
- * @param {'target' | 'recipe' | 'box-manifest' | 'release-manifest' | 'channel-manifest'
+ * @param {'target' | 'scroll' | 'box-manifest' | 'release-manifest' | 'channel-manifest'
  *   | 'revocations-manifest' | 'signed-document'} name
  * @returns {URL}
  */

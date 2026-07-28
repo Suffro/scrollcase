@@ -3,8 +3,8 @@
  *
  * Ajv remains a development dependency because adding a fourth runtime package would widen the
  * installed surface for one narrow job. This validator implements the 2020-12 keywords used by the
- * recipe and target schemas, including local and absolute references and target conditionals. The
- * schemas remain the source of truth; this module deliberately contains no recipe field list.
+ * scroll and target schemas, including local and absolute references and target conditionals. The
+ * schemas remain the source of truth; this module deliberately contains no scroll field list.
  */
 
 import { isDeepStrictEqual } from 'node:util';

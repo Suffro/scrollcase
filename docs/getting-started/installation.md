@@ -14,7 +14,7 @@ box for real additionally needs `pixi` and `conda-pack` on the machine that buil
 | You want to… | You need |
 | --- | --- |
 | Scaffold, audit, keygen, or verify without a self-test | Node.js ≥ 20 |
-| Resolve a lock (`lock`) | Node.js ≥ 20 and `pixi` at the recipe's pinned version |
+| Resolve a lock (`lock`) | Node.js ≥ 20 and `pixi` at the scroll's pinned version |
 | Build a box (`build`) | Node.js ≥ 20, pinned `pixi`, conda-pack, and a local key or external signer |
 | Verify with `--self-test` | The same OS and architecture the box targets |
 
@@ -54,7 +54,7 @@ What you get is verified, not just fetched:
 - the verified digest is recorded under `toolchain` in `scrollcase.config.json`, so the next
   machine — a teammate's, a CI runner's — is checked against the value **your project committed**
   rather than whatever the server offers that day;
-- if the recipe carries no `pixiVersion` yet, the version that was actually installed is written
+- if the scroll carries no `pixiVersion` yet, the version that was actually installed is written
   into it, so `lock` and `build` agree with the toolchain sitting next to them.
 
 For unattended setups, answer up front:
@@ -69,7 +69,7 @@ what is missing. Silence is not consent.
 
 ::: tip Pin the version you want
 `--pixi-version 0.73.0` installs exactly that release. Without it, the newest release is resolved
-once and then pinned into the recipe, so the choice is still recorded rather than floating.
+once and then pinned into the scroll, so the choice is still recorded rather than floating.
 :::
 
 ## Install the toolchain yourself
@@ -79,8 +79,8 @@ install — Scrollcase is happy to use it. Install both tools and skip the step 
 
 ### pixi
 
-[pixi](https://pixi.sh) solves and installs the conda-forge environment. Every recipe **pins the
-exact pixi version** it was locked with (`pixiVersion` in `recipe.json`), and Scrollcase refuses
+[pixi](https://pixi.sh) solves and installs the conda-forge environment. Every scroll **pins the
+exact pixi version** it was locked with (`pixiVersion` in `scroll.json`), and Scrollcase refuses
 to run `lock` or `build` with any other version — a different resolver can select different
 packages and silently change the box.
 
@@ -91,7 +91,7 @@ example:
 curl -fsSL https://pixi.sh/install.sh | sh
 ```
 
-If you need a specific release to match a recipe's pin, download the matching release from the
+If you need a specific release to match a scroll's pin, download the matching release from the
 pixi GitHub releases page, or use the version-pinned form of the install script documented by
 pixi.
 
@@ -115,7 +115,7 @@ If `pixi` and `conda-pack` are on `PATH`, nothing more is needed. If they live e
 dedicated toolchain directory, a CI cache — point Scrollcase at them per invocation:
 
 ```sh
-scrollcase build my-recipe --pixi /opt/toolchain/bin/pixi --conda-pack /opt/toolchain/bin/conda-pack
+scrollcase build my-scroll --pixi /opt/toolchain/bin/pixi --conda-pack /opt/toolchain/bin/conda-pack
 ```
 
 or once, through the environment:
@@ -132,11 +132,11 @@ project-local toolchain, which wins over `PATH`.
 
 Changing resolver versions is a dependency change, not a tool repair:
 
-1. edit the recipe's `pixiVersion` to the intended release;
+1. edit the scroll's `pixiVersion` to the intended release;
 2. initialise or install that exact version with explicit consent, or point `--pixi` at it;
-3. run `scrollcase lock <recipe>` and review the new `pixi.lock`;
-4. run `scrollcase audit <recipe>` and review/write any intentional licence change;
-5. commit the recipe, lock, audit, and toolchain digest;
+3. run `scrollcase lock <scroll>` and review the new `pixi.lock`;
+4. run `scrollcase audit <scroll>` and review/write any intentional licence change;
+5. commit the scroll, lock, audit, and toolchain digest;
 6. rebuild the box.
 
 Do not delete the pin and accept whichever resolver happens to be newest.
@@ -148,15 +148,15 @@ missing. It only reads; it never writes and never touches the network.
 
 ```sh
 scrollcase doctor --pixi-version 0.73.0
-# or take the required pixi version from a recipe:
-scrollcase doctor --recipe my-recipe
+# or take the required pixi version from a scroll:
+scrollcase doctor --scroll my-scroll
 ```
 
 Sample output:
 
 ```text
 ok    workspace   config /work/my-project/scrollcase.config.json
-ok    recipes     /work/my-project/recipes
+ok    scrolls     /work/my-project/scrolls
 ok    git         HEAD 3f9c2ab17d42
 ok    pixi        pixi at 0.73.0
 ok    conda-pack  conda-pack

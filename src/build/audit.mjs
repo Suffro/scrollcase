@@ -16,23 +16,23 @@ import { boxTargetId } from '../contract/targets.mjs';
 import { compareStableStrings, fileExists, safeRelativePath } from './filesystem.mjs';
 import { createCondaDependencyLicenseAudit, validateCondaDependencyLicenseAudit } from './licenses.mjs';
 import { fail } from './process.mjs';
-import { readRecipe } from './recipe.mjs';
+import { readScroll } from './scroll.mjs';
 import { getWorkspace } from './workspace.mjs';
 
 /**
- * Produces the inventory for a recipe, and either checks it against the reviewed copy or writes it.
+ * Produces the inventory for a scroll, and either checks it against the reviewed copy or writes it.
  *
  * Writing is explicit (`write: true`) because overwriting the reviewed file is how an unreviewed
  * licence change would slip through: the default is to compare and fail on any difference.
  */
-export async function auditRecipe(name, { write = false, namespace } = {}) {
+export async function auditScroll(name, { write = false, namespace } = {}) {
   const workspace = getWorkspace();
-  const { dir, recipe } = await readRecipe(name);
+  const { dir, scroll } = await readScroll(name);
   const lockPath = join(dir, 'pixi.lock');
   if (!await fileExists(lockPath)) fail(`Missing dependency lock: ${lockPath}`);
   const inventory = createCondaDependencyLicenseAudit({
     lockBytes: await readFile(lockPath),
-    targetId: boxTargetId(recipe.target),
+    targetId: boxTargetId(scroll.target),
     ...(namespace ? { namespace } : {}),
   });
 
@@ -43,7 +43,7 @@ export async function auditRecipe(name, { write = false, namespace } = {}) {
     licences.set(entry.declaredLicense, (licences.get(entry.declaredLicense) ?? 0) + 1);
   }
   const summary = {
-    recipeId: recipe.recipeId,
+    scrollId: scroll.scrollId,
     targetId: inventory.targetId,
     packageCount: inventory.packages.length,
     licenses: [...licences]
@@ -51,11 +51,11 @@ export async function auditRecipe(name, { write = false, namespace } = {}) {
       .map(([license, count]) => ({ license, count })),
   };
 
-  if (!recipe.condaDependencyLicenseAudit) {
-    if (write) fail('The recipe declares no condaDependencyLicenseAudit path to write to.');
+  if (!scroll.condaDependencyLicenseAudit) {
+    if (write) fail('The scroll declares no condaDependencyLicenseAudit path to write to.');
     return { inventory, summary, reviewed: null };
   }
-  const reviewedPath = join(workspace.root, safeRelativePath(recipe.condaDependencyLicenseAudit));
+  const reviewedPath = join(workspace.root, safeRelativePath(scroll.condaDependencyLicenseAudit));
   if (write) {
     await mkdir(dirname(reviewedPath), { recursive: true });
     await writeFile(reviewedPath, `${JSON.stringify(inventory, null, 2)}\n`);

@@ -148,7 +148,7 @@ signature_b64=$(your-kms sign --key-id "$KEY_ID" --algorithm ed25519 --input "$p
 
 cat <<JSON
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "payloadEncoding": "base64-json-utf8",
   "payloadBase64": "$payload_b64",
   "payloadSha256": "$payload_sha",

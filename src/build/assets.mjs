@@ -1,7 +1,7 @@
 /**
  * Fetching and staging the files a box carries.
  *
- * Every asset is declared with a size and a SHA-256 in the recipe, and nothing enters the payload
+ * Every asset is declared with a size and a SHA-256 in the scroll, and nothing enters the payload
  * before both match. That is what makes a box reproducible even though its inputs live on servers
  * outside anyone's control: if an upstream file is moved, replaced, or silently re-uploaded, the
  * build fails instead of quietly producing a different box under the same version.
@@ -11,14 +11,14 @@ import { createWriteStream } from 'node:fs';
 import { copyFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { extractRecipeArchive as extractArchive } from './archive.mjs';
+import { extractScrollArchive as extractArchive } from './archive.mjs';
 import { fileExists, safeRelativePath, sha256File } from './filesystem.mjs';
 import { fail } from './process.mjs';
 
 const MAX_DOWNLOAD_ATTEMPTS = 5;
 
 /**
- * Downloads an asset and enforces the recipe's declared size and hash.
+ * Downloads an asset and enforces the scroll's declared size and hash.
  *
  * Model files are large, so retries inside one download operation resume from a `.part` file with a
  * Range request. Two safeguards matter — a complete destination is reused only after size and hash

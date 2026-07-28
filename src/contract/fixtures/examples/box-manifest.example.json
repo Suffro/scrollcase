@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "boxId": "example-model",
   "modelId": "example-org-example-model",
   "runtimeId": "example-model-runtime",
@@ -19,8 +19,8 @@
     "timeoutSeconds": 180
   },
   "provenance": {
-    "recipeId": "example-model-macos-arm64-metal",
-    "recipeVersion": "1.0.0",
+    "scrollId": "example-model-macos-arm64-metal",
+    "scrollVersion": "1.0.0",
     "builderRevision": "4c1d9b7e2a0f5836d419e7c05b3a8f61d2704e93",
     "sourceTreeDirty": false,
     "sourceRevision": "9f0d3a1c4b5e6f7081920a3b4c5d6e7f80910a2b",

@@ -1,16 +1,45 @@
 ---
 title: Architecture
-description: How a recipe becomes a signed box — the pipeline, the guarantees, and the code that holds them.
+description: How a scroll becomes a signed box, and how local consumers prepare and run it.
 ---
 
 # Architecture
 
-Scrollcase turns a declarative **recipe** into a **box**: a portable, locked, self-contained
+Scrollcase turns a declarative **scroll** into a **box**: a portable, locked, self-contained
 Python environment for one operating system and accelerator, packed so it runs somewhere other
 than where it was built, signed so a consumer can prove what they received, and accompanied by a
 dependency licence inventory.
 
 This page explains how, and — more usefully — *why each step is where it is*.
+
+## The v2 consumer boundary
+
+Scrollcase has one canonical contract and two local consumer implementations: the Node/TypeScript
+API at `scrollcase/consumer` and the Python package imported as `scrollcase_consumer`.
+`scrollcase run` delegates to the Node API instead of implementing a third path.
+
+```mermaid
+flowchart LR
+  C["canonical v2 contract<br/>schemas + fixtures"] --> N["Node consumer<br/>scrollcase/consumer"]
+  C --> P["Python consumer<br/>scrollcase_consumer"]
+  F["caller-supplied release, archive,<br/>trust keys, destination"] --> N
+  F --> P
+  N --> L["verified local box<br/>or child process"]
+  P --> L
+```
+
+Both consumers must agree on verification, safe extraction, execution, receipts, errors, signals,
+cleanup, and on-demand assets by passing the same language-neutral conformance cases. Generated or
+checked schema copies are projections of the canonical contract, never independent definitions.
+
+The security order is fixed: validate the signed document and release shape, verify the archive
+size and hash, validate every archive entry, extract safely, compare `box.json` with the signed
+release, and validate execution prerequisites before starting box code. A consumer never launches
+the interpreter, a script, a module, or an import earlier.
+
+All inputs are local and caller-selected. Consumer code does not choose a channel, download a box,
+update an installation, promote, revoke, publish, serve, allocate a runner, or own application
+lifecycle policy.
 
 ## The substrate
 
@@ -28,11 +57,11 @@ flowchart LR
 prefix, and the tree is extracted into the box as `venv/`. There is deliberately no second
 dependency backend — the reasoning is in [Why Pixi & Conda-Forge](/concepts/why-pixi).
 
-## The pipeline
+## The build pipeline
 
 ```mermaid
 flowchart TD
-  R["recipe.json + pixi.lock"] --> V["1. validate<br/>identity, target, host, lock, git state"]
+  R["scroll.json + pixi.lock"] --> V["1. validate<br/>identity, target, host, lock, git state"]
   V --> P["2. install from lock, pack, relocate"]
   P --> A["3. stage assets<br/>download + verify, local files, archives"]
   A --> PR["4. prune what is not needed at run time"]
@@ -47,7 +76,7 @@ flowchart TD
 
 Each step earns its position:
 
-**Validate first.** The complete nested recipe is checked against the shipped schemas before a
+**Validate first.** The complete nested scroll is checked against the shipped schemas before a
 tool is probed, a fetch is made, or build state is mutated. Identity, target/entry-point,
 weights/archive policy, native host, lock presence, and Git state follow in that order.
 
@@ -69,8 +98,8 @@ reviewed copy. A licence problem is a legal problem, and it is cheaper to hit it
 expensive checks.
 
 **Self-test with the box's own interpreter.** The builder runs post-prune file assertions, the
-target assertion, imports, and optional recipe `pythonCode`. Schema version 1 signs the target
-assertion and import subset for a consumer to repeat; the richer recipe-only checks are not
+target assertion, imports, and optional scroll `pythonCode`. Schema version 2 signs the target
+assertion and import subset for a consumer to repeat; the richer scroll-only checks are not
 misrepresented as consumer checks.
 
 **Parity after the self-test, on the same payload.** There is no point comparing accelerators in
@@ -148,8 +177,8 @@ is verified locally before the build continues. See
 ### Verified
 
 `verify` checks signature, archive size and hash, safe entry names, recursive agreement of all
-shared schema-v1 manifest fields, and the declared interpreter. With `--self-test`, it temporarily
-extracts and runs the signed import subset. It does not repeat recipe-only Python or file checks.
+shared schema-v2 manifest fields, and the declared interpreter. With `--self-test`, it temporarily
+extracts and runs the signed import subset. It does not repeat scroll-only Python or file checks.
 
 ### Honest about provenance
 
@@ -176,7 +205,7 @@ src/
 │   ├── assets.mjs       verified downloads, local files, archive expansion
 │   ├── licenses.mjs     the lock-derived licence inventory
 │   ├── workspace.mjs    project path resolution
-│   ├── recipe.mjs       recipe reading and provenance
+│   ├── scroll.mjs       scroll reading and provenance
 │   ├── box.mjs          the build core
 │   ├── verify.mjs       the consumer's checks, run locally
 │   ├── audit.mjs        the licence audit verb
@@ -195,7 +224,7 @@ client, a Worker, and this builder stay in agreement without sharing a runtime.
 Two boundaries hold everything else up.
 
 **Paths come from the project, not from Scrollcase.** A `scrollcase.config.json` declares where
-recipes live and where artefacts go, discovered by walking up from the working directory,
+scrolls live and where artefacts go, discovered by walking up from the working directory,
 overridable per invocation. A tool that derives its paths from its own location on disk only works
 while it lives inside the project it serves; making the layout the project's declaration is what
 lets Scrollcase run from anywhere against any project.

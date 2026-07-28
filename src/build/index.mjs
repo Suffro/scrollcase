@@ -1,5 +1,5 @@
 /**
- * The build layer: everything needed to turn a recipe into a packed, relocatable box.
+ * The build layer: everything needed to turn a scroll into a packed, relocatable box.
  *
  * One substrate only — pixi solves a conda-forge environment from a committed `pixi.lock`, conda-pack
  * relocates it, and the result is extracted into the box's `venv/`. There is deliberately no second

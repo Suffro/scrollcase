@@ -22,7 +22,7 @@ every platform, for every release: two relocation strategies, two lock formats, 
 parsers, two sets of platform quirks. The guarantees are the product, so Scrollcase keeps exactly
 one way of producing them.
 
-Projects already on `uv` convert their recipes once. Scrollcase avoids a permanent double burden.
+Projects already on `uv` convert their scrolls once. Scrollcase avoids a permanent double burden.
 
 ## Why conda-forge
 
@@ -56,7 +56,7 @@ scrollcase build my-model    # install --frozen — never resolves
 `pixi install --frozen` installs exactly the locked packages without touching or re-checking the
 lock, so **what ships is byte-for-byte what was reviewed**.
 
-**The resolver version is part of the recipe.** A recipe pins `pixiVersion`, and both `lock` and
+**The resolver version is part of the scroll.** A scroll pins `pixiVersion`, and both `lock` and
 `build` refuse any other version — a different resolver can select different packages and
 silently change the box. Determinism is not just about the lock; it is about everything that
 touched it.
@@ -99,7 +99,7 @@ Being honest about the trade-offs:
   [Managing Model Weights](/guides/managing-weights).
 - **Builds are native.** No cross-building: a Windows box is built on Windows. The self-test runs
   the box's own interpreter, and that only proves anything on matching hardware.
-- **Two tools must be present.** `pixi` at the recipe's pinned version, and `conda-pack` 0.9.2.
+- **Two tools must be present.** `pixi` at the scroll's pinned version, and `conda-pack` 0.9.2.
   Scrollcase installs that exact conda-pack release itself; for externally managed executables,
   `doctor` can confirm only that conda-pack runs because its version output is unreliable.
 

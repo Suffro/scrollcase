@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
 import yazl from 'yazl';
 import {
-  extractRecipeArchive,
+  extractScrollArchive,
   extractZipArchive,
   listZipEntries,
 } from '../../src/build/archive.mjs';
@@ -80,7 +80,7 @@ describe('archive boundaries', () => {
     await expect(listZipEntries(archive)).rejects.toThrow(/links and special entries/);
   });
 
-  it('rejects links in recipe tarballs before copying any extracted asset', async () => {
+  it('rejects links in scroll tarballs before copying any extracted asset', async () => {
     const root = await scratch();
     const staging = join(root, 'staging');
     await mkdir(staging);
@@ -89,7 +89,7 @@ describe('archive boundaries', () => {
     const archive = join(root, 'link.tar.gz');
     await tar.c({ file: archive, cwd: staging, gzip: true }, ['link']);
     const destination = join(root, 'destination');
-    await expect(extractRecipeArchive(archive, 'tar.gz', destination))
+    await expect(extractScrollArchive(archive, 'tar.gz', destination))
       .rejects.toThrow(/links and special entries/);
     expect(await fileExists(destination)).toBe(false);
   });

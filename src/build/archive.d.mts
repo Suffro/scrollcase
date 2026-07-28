@@ -42,7 +42,7 @@ export function readZipEntry(archivePath: string, wantedPath: string, maximumByt
  */
 export function extractZipArchive(archivePath: string, destination: string): Promise<void>;
 /**
- * Extracts recipe assets using only pinned Node archive implementations.
+ * Extracts scroll assets using only pinned Node archive implementations.
  *
  * @param {string} archivePath
  * @param {'zip' | 'tar.gz'} format
@@ -50,4 +50,4 @@ export function extractZipArchive(archivePath: string, destination: string): Pro
  * @param {number} [stripComponents]
  * @returns {Promise<void>}
  */
-export function extractRecipeArchive(archivePath: string, format: "zip" | "tar.gz", destination: string, stripComponents?: number): Promise<void>;
+export function extractScrollArchive(archivePath: string, format: "zip" | "tar.gz", destination: string, stripComponents?: number): Promise<void>;

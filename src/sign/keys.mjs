@@ -20,6 +20,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fail } from '../build/process.mjs';
 import { fileExists } from '../build/filesystem.mjs';
+import { BOX_SCHEMA_VERSION, PAYLOAD_ENCODING } from '../contract/document-shape.mjs';
 
 /**
  * A published public key, as written by `keygen` and read back when verifying.
@@ -104,8 +105,8 @@ function trustedKeyEntries(value) {
  */
 export function signWithLocalKey(payloadBytes, { privateKey, metadata }) {
   return {
-    schemaVersion: 1,
-    payloadEncoding: 'base64-json-utf8',
+    schemaVersion: BOX_SCHEMA_VERSION,
+    payloadEncoding: PAYLOAD_ENCODING,
     payloadBase64: payloadBytes.toString('base64'),
     payloadSha256: sha256Hex(payloadBytes),
     signatures: [{
@@ -124,7 +125,10 @@ export function signWithLocalKey(payloadBytes, { privateKey, metadata }) {
  * @throws {Error} when the envelope is unsupported or its checksum does not match
  */
 export function decodeSignedDocument(document) {
-  if (document?.schemaVersion !== 1 || document?.payloadEncoding !== 'base64-json-utf8') {
+  if (document?.schemaVersion === 1) {
+    fail('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
+  }
+  if (document?.schemaVersion !== BOX_SCHEMA_VERSION || document?.payloadEncoding !== PAYLOAD_ENCODING) {
     fail('Unsupported signed document.');
   }
   const bytes = Buffer.from(document.payloadBase64, 'base64');

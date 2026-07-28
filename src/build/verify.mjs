@@ -9,13 +9,12 @@
  * The point is that a box which would fail on a user's machine fails here instead.
  */
 
-import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { assertNativeHost, assertPythonEntryPoint, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
-import { parseDocumentKind } from '../contract/documents.mjs';
+import { BOX_SCHEMA_VERSION, parseDocumentKind } from '../contract/documents.mjs';
 import { verifySignedDocument } from '../sign/index.mjs';
 
 const AGREEMENT_FIELDS = [
@@ -36,9 +35,9 @@ const AGREEMENT_FIELDS = [
 /**
  * Binds the self-description inside the archive to the signed release outside it.
  *
- * Only fields present in both schema-version-1 documents belong here. Release-only transport and
- * compatibility data has no counterpart in box.json; every shared identity, target, layout,
- * consumer self-test, asset-policy, and provenance field must agree recursively.
+ * Only fields present in both schema-version-2 documents belong here. Release-only transport data
+ * has no counterpart in box.json; every shared identity, target, layout, consumer self-test,
+ * asset-policy, and provenance field must agree recursively.
  */
 export function assertBoxManifestAgreement(box, release) {
   for (const field of AGREEMENT_FIELDS) {
@@ -47,7 +46,6 @@ export function assertBoxManifestAgreement(box, release) {
 }
 import { extractZipArchive, listZipEntries, readZipEntry } from './archive.mjs';
 import { fileExists, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
-import { boxReleaseStem } from './identity.mjs';
 import { fail, run as runProcess } from './process.mjs';
 
 /**
@@ -68,18 +66,22 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   const releasePath = resolve(releaseDocumentPath);
   const signed = JSON.parse(await readFile(releasePath, 'utf8'));
   const release = await verifySignedDocument(signed, publicPath);
+  if (release?.schemaVersion === 1) {
+    fail('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
+  }
+  if (release?.schemaVersion !== BOX_SCHEMA_VERSION) {
+    fail(`Unsupported schemaVersion ${String(release?.schemaVersion)}; expected ${BOX_SCHEMA_VERSION}.`);
+  }
   if (parseDocumentKind(release.kind)?.type !== 'release') fail('Document is not a box release.');
   const adapter = boxTargetAdapter(release.target);
   assertPythonEntryPoint(adapter, release.pythonEntryPoint);
 
   // The archive sits next to its release document under the hash that document commits to — the
   // same name it is published under, so this resolves identically against a local dist tree and a
-  // directory downloaded from a mirror. The older stem-based name is still accepted so a release
-  // built before that layout can be verified without being rebuilt.
-  const beside = (name) => join(dirname(releasePath), name);
-  const candidates = [`${release.archive.sha256}.zip`, `${boxReleaseStem(release)}.zip`].map(beside);
-  const found = archiveOverride ? resolve(archiveOverride) : candidates.find(existsSync);
-  const archivePath = found ?? candidates[0];
+  // directory downloaded from a mirror.
+  const archivePath = archiveOverride
+    ? resolve(archiveOverride)
+    : join(dirname(releasePath), `${release.archive.sha256}.zip`);
   if (!await fileExists(archivePath)) fail(`Archive not found: ${archivePath}`);
   if ((await stat(archivePath)).size !== release.archive.sizeBytes) fail('Archive size mismatch.');
   if (await sha256File(archivePath) !== release.archive.sha256) fail('Archive SHA-256 mismatch.');

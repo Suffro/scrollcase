@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const distDir = resolve(process.argv[2] ?? join(root, 'docs', '.vitepress', 'dist'));
 const schemaSource = join(root, 'src', 'contract', 'schema');
-const schemaDist = join(distDir, 'schema');
+const schemaDist = join(distDir, 'schema', 'v2');
 
 async function requireFile(path, label) {
   try {

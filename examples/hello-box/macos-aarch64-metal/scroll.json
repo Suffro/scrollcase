@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "recipeVersion": "1.0.0",
+  "schemaVersion": 2,
+  "scrollVersion": "1.0.0",
   "boxId": "hello-box",
   "modelId": "example-org-hello",
   "runtimeId": "hello-box-runtime",

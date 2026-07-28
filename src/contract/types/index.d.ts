@@ -26,20 +26,20 @@ export type PayloadPath = string;
 export type Sha256 = string;
 
 /**
- * The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A recipe is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.
+ * The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A scroll is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.
  */
-export interface BoxRecipe {
-  schemaVersion: 1;
+export interface BoxScroll {
+  schemaVersion: 2;
   /**
-   * Optional legacy provenance identity. New recipes derive it deterministically from boxId and the canonical target instead of repeating a directory name.
+   * Optional provenance identity. When omitted, Scrollcase derives it deterministically from boxId and the canonical target.
    */
-  recipeId?: string;
-  recipeVersion: string;
+  scrollId?: string;
+  scrollVersion: string;
   boxId: Identifier;
   modelId: Identifier;
   runtimeId: Identifier;
   /**
-   * Version of the box this recipe produces, as it will appear in the release manifest.
+   * Version of the box this scroll produces, as it will appear in the release manifest.
    */
   version: string;
   /**
@@ -111,7 +111,7 @@ export interface BoxRecipe {
    */
   prunePaths?: PayloadPath[];
   /**
-   * Builder checks run with the payload's own interpreter before archiving. Schema version 1 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.
+   * Builder checks run with the payload's own interpreter before archiving. Schema version 2 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.
    */
   selfTest: {
     /**
@@ -160,7 +160,7 @@ export interface BoxRecipe {
  * The platform, architecture and accelerator a box is built for. The supported combinations are closed: a target outside this matrix has no defined identifier and cannot be built, signed, or routed.
  */
 export interface BoxManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   boxId: string;
   modelId: string;
   runtimeId: string;
@@ -204,8 +204,8 @@ export interface BoxManifest {
  * How this box was produced. Every field is recorded by the builder from observed state, never accepted from caller input, so the record cannot be dressed up after the fact.
  */
 export interface Provenance {
-  recipeId: string;
-  recipeVersion: string;
+  scrollId: string;
+  scrollVersion: string;
   /**
    * Exact commit of the builder source that produced the box.
    */
@@ -215,7 +215,7 @@ export interface Provenance {
    */
   sourceTreeDirty: boolean;
   /**
-   * Upstream revision of the packaged model source, as declared by the recipe.
+   * Upstream revision of the packaged model source, as declared by the scroll.
    */
   sourceRevision: string;
   pythonVersion: string;
@@ -228,7 +228,7 @@ export interface Provenance {
 }
 
 export interface BoxReleaseManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   /**
    * Wire discriminator, "<namespace>.release". The namespace belongs to the publishing project — a project with boxes already in the field must keep emitting the one its clients recognise — and defaults to scrollcase.box for a new one.
    */
@@ -254,7 +254,7 @@ export interface BoxReleaseManifest {
     minRamGb?: number;
     minNvidiaDriverVersion?: string;
     /**
-     * Host environments this payload was validated on. Absent in early releases, which predate the field.
+     * Host environments this payload was validated on.
      *
      * @minItems 1
      */
@@ -280,7 +280,7 @@ export interface BoxReleaseManifest {
    */
   modelCacheSubdir: string;
   /**
-   * The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran these imports, plus any recipe-only Python-code and file assertions that schema version 1 does not carry.
+   * The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran the scroll's Python-code and file assertions, which are builder-only checks.
    */
   selfTest: {
     /**
@@ -318,12 +318,12 @@ export interface BoxReleaseManifest {
  * How this box was produced. Every field is recorded by the builder from observed state, never accepted from caller input, so the record cannot be dressed up after the fact.
  */
 export interface BoxChannelManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   /**
    * Wire discriminator, "<namespace>.channel", carrying the same namespace as the releases it refers to.
    */
   kind: string;
-  channel: 'development' | 'beta' | 'stable';
+  channel: 'nightly' | 'beta' | 'stable';
   boxId: string;
   target: BoxTarget;
   updatedAt: string;
@@ -354,7 +354,7 @@ export interface BoxChannelManifest {
  * Omitted when every target of that version is revoked.
  */
 export interface BoxRevocationsManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   /**
    * Wire discriminator, "<namespace>.revocations", carrying the same namespace as the releases it refers to.
    */
@@ -376,7 +376,7 @@ export interface BoxRevocationsManifest {
  * The envelope wrapping every signed document. The payload travels as exact base64-encoded JSON so that verifying a signature means hashing the bytes as transmitted, with no canonical-JSON implementation to keep in sync across languages. Passing this schema means the envelope is well-formed, never that its signature is valid.
  */
 export interface SignedBoxDocument {
-  schemaVersion: 1;
+  schemaVersion: 2;
   payloadEncoding: 'base64-json-utf8';
   /**
    * The document payload: UTF-8 JSON, base64-encoded, signed and hashed exactly as it appears here.

@@ -8,6 +8,49 @@ description: Why Scrollcase is shaped the way it is, and which alternatives were
 Each entry records the alternative that was rejected, because a decision without its discarded
 alternative is just an assertion.
 
+## Version 2 is a clean break
+
+Scrollcase v2 accepts and emits only `schemaVersion: 2`. Published v1 boxes and immutable package
+releases remain usable with the old Scrollcase versions that produced them; the v2 verifier rejects
+them with a clear unsupported-version error. It does not reinterpret them.
+
+The declarative source is a **scroll**, stored as `scroll.json` under `scrolls/`. The built artefact
+remains a **box**. This vocabulary applies across schemas, identifiers, paths, CLI arguments,
+fixtures, types, documentation, and errors.
+
+**Rejected:** a v1/v2 union, compatibility aliases, and dual execution paths. They would make every
+security check and every consumer carry two meanings indefinitely, while still being unable to
+change the already-published v1 wire format.
+
+## Consumers prepare and run local boxes; they do not distribute them
+
+The v2 consumers operate on release documents, archives, trust keys, and destinations supplied by
+the caller. They may verify, safely extract, inspect, and execute a box. Verification is ordered so
+no box interpreter, script, module, or import runs before the signature, payload shape, archive
+size/hash, safe entries, and shared manifest agreement have succeeded.
+
+The official Node API is `scrollcase/consumer`; the Python package is imported as
+`scrollcase_consumer`. `scrollcase run` is a thin CLI wrapper over the Node API. The utilities live
+in those consumer SDKs, not as a JavaScript helper copied into every box.
+
+This local execution surface does not choose channels, fetch archives, update installations,
+promote, revoke, publish, serve, allocate runners, or decide application lifecycle policy.
+
+**Rejected:** folding registry, download, update, and lifecycle policy into the consumer. Those
+responsibilities require project-specific trust and rollout choices and would turn a local,
+composable verifier into a distribution system.
+
+## One contract, multiple consumer implementations
+
+`src/contract/` and its schemas remain the single source of truth. Node and Python expose the same
+verification, extraction, execution, receipt, error, signal, cleanup, and on-demand-asset semantics.
+Language-neutral fixtures and expected results prove their parity. The Python package carries
+checked generated copies of the canonical schemas; it does not hand-maintain a second format.
+
+**Rejected:** independent Node and Python contracts that merely look similar. Security behavior
+drifts at edge cases — links, traversal, collisions, signals, or argument handling — unless both
+implementations are held to the same observable cases.
+
 ## One substrate: pixi + conda-pack + conda-forge
 
 Scrollcase supports exactly one dependency backend.
@@ -18,7 +61,7 @@ every release. The conda-forge path also solves the problem a wheel-based one ca
 libraries. Scientific stacks are mostly compiled code, and conda-forge distributes it as a coherent,
 licence-annotated package set rather than as wheels of varying provenance.
 
-**Rejected:** a second backend for projects already on `uv`. Those projects convert their recipes
+**Rejected:** a second backend for projects already on `uv`. Those projects convert their scrolls
 once; Scrollcase avoids a permanent double burden.
 
 ## conda-pack, and deliberately *not* running conda-unpack
@@ -65,9 +108,9 @@ badly and excludes everyone using something else.
 ## Verification is not optional
 
 `verify` checks signature, archive size and hash, safe entry names, recursive agreement of every
-shared schema-v1 field, and the declared interpreter. With `--self-test` it extracts temporarily and
-runs the signed import subset. Recipe-only Python and file assertions remain builder checks because
-schema version 1 does not carry them.
+shared schema-v2 field, and the declared interpreter. With `--self-test` it extracts temporarily and
+runs the signed import subset. Scroll-only Python and file assertions remain builder checks because
+they are not part of the signed release.
 
 ## Weights: embedded by default, on demand when asked
 
@@ -83,7 +126,7 @@ unless a project explicitly trades it away, and it is the behaviour that surpris
 
 ## Accelerator parity is a packaging concern
 
-A recipe may declare a `parity` block: a check script inside the box, the accelerators to run it
+A scroll may declare a `parity` block: a check script inside the box, the accelerators to run it
 under, and tolerances (`absolute`, `relative`, `minimumCosine`). Scrollcase runs the check once per
 accelerator using each target's validation environment, compares every run against the first, and
 fails the build on a breach.
@@ -99,7 +142,7 @@ relative error is only counted where the reference has magnitude — the absolut
 near zero, where relative error is meaningless.
 
 **Rejected:** hard-coding tolerances inside Scrollcase. What counts as close enough is a property of
-the model, not of the packaging step, so it is declared per recipe rather than assumed.
+the model, not of the packaging step, so it is declared per scroll rather than assumed.
 
 ## The toolchain is installed on request, and pinned once installed
 
@@ -123,32 +166,31 @@ without being asked.
 ## Paths come from the project, not from Scrollcase
 
 A workspace is declared by a `scrollcase.config.json` at the project root, discovered by walking up
-from the working directory, with per-invocation flag overrides. Defaults are `recipes/` and
+from the working directory, with per-invocation flag overrides. Defaults are `scrolls/` and
 `.scrollcase/{build,dist,keys}`.
 
 A tool that derives its paths from its own location on disk only works while it lives inside the
 project it serves. Making the layout the project's declaration is what lets Scrollcase run from
 anywhere against any project that declares one.
 
-## Recipes are grouped by box, then target
+## Scrolls are grouped by box, then target
 
-The default layout is `recipes/<boxId>/<targetId>/`. Both directory names are checked against the
-meaningful fields in `recipe.json`: `boxId` and the canonical ID computed from `target`. This makes
+The default layout is `scrolls/<boxId>/<targetId>/`. Both directory names are checked against the
+meaningful fields in `scroll.json`: `boxId` and the canonical ID computed from `target`. This makes
 all target variants of one box visible together without making a directory name the source of the
 box's identity.
 
-`recipeId` is optional input. Release schema version 1 still requires a provenance `recipeId`, so a
-new recipe derives it deterministically as `<boxId>-<targetId>`; an existing recipe may keep an
-explicit value to preserve already-published provenance. Flat recipe directories remain readable,
-which lets existing projects migrate deliberately instead of being broken by a layout release.
+`scrollId` is optional input. Release schema version 2 requires a provenance `scrollId`, so a scroll
+that omits it derives the value deterministically as `<boxId>-<targetId>`. Source directories are
+always nested; the flat v1 layout is deliberately not a compatibility path.
 
-At the CLI edge, a box name expands to its target recipes and a terminal presents them as a
+At the CLI edge, a box name expands to its target scrolls and a terminal presents them as a
 navigable menu. One target matching the current host may be the default; on macOS, Metal is the
 explicit preference when CPU and Metal both match. A non-interactive process uses that same policy
 and fails on any remaining ambiguity instead of silently choosing CPU or CUDA.
 
-**Rejected:** requiring `recipeId` to repeat the directory name. That check made the filesystem a
-second identity layer and encouraged product-plus-machine directory names even though the recipe
+**Rejected:** requiring `scrollId` to repeat the directory name. That check made the filesystem a
+second identity layer and encouraged product-plus-machine directory names even though the scroll
 already declares both facts.
 
 ## Provenance refuses to lie
@@ -171,10 +213,10 @@ The public-contract audit resolved six implementation choices:
   `/privacy` route documents that behavior; consent controls were not added.
 - Public schema URLs are deterministic copies of `src/contract/schema/`, guarded byte for byte.
 - Verification compares all security-, identity-, target-, asset-policy-, self-test-, and
-  provenance fields already duplicated by schema version 1.
-- Consumer self-test is documented as the signed import subset; recipe `pythonCode` and file
+  provenance fields duplicated by schema version 2.
+- Consumer self-test is documented as the signed import subset; scroll `pythonCode` and file
   assertions stay builder-only until a future wire version can carry them.
-- Recipe structure is validated at runtime from the shipped schemas by a dependency-free internal
+- Scroll structure is validated at runtime from the shipped schemas by a dependency-free internal
   validator before tool discovery or build-directory mutation.
 - Asset resume is limited to retries within one download operation. There is no persistent cache
   and the documentation makes that process boundary explicit.
@@ -189,10 +231,11 @@ dependency is a legal problem, not a reporting gap.
 
 ## Deliberately out of scope
 
-Publishing to object storage, serving or promoting a channel, revoking a release, allocating CI
-runners, and model-specific scientific validation all belong to whoever consumes Scrollcase, which
-stops at a signed, verified box on disk.
+Publishing to object storage, downloading boxes, selecting or promoting a channel, updating an
+installation, revoking a release, serving a registry, allocating CI runners, application lifecycle
+policy, and model-specific scientific validation all belong to the consuming project. Scrollcase
+stops at building a signed box or preparing and running caller-supplied local box inputs.
 
 The boundary is what keeps the guarantees provable. A packaging tool that also serves a registry has
-to keep proving both sets of guarantees at once; one that stops at a file on disk composes with any
-distribution mechanism a project already has.
+to keep proving both sets of guarantees at once; one that stays local composes with any distribution
+mechanism a project already has.

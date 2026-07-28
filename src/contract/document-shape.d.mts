@@ -44,7 +44,7 @@ export function isSignedBoxDocument(value: unknown): value is import("./types/in
  * cryptographic decoder, while the main contract entry point continues to expose the complete API.
  */
 /** Format version carried by every document this contract describes. */
-export const BOX_SCHEMA_VERSION: 1;
+export const BOX_SCHEMA_VERSION: 2;
 /** The only payload encoding the format defines. */
 export const PAYLOAD_ENCODING: "base64-json-utf8";
 /** The only signature algorithm the format defines. */

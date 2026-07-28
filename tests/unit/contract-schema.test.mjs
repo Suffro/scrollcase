@@ -1,9 +1,12 @@
+import { createPublicKey, verify as verifySignature } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 // The schemas are 2020-12, so they need the matching Ajv build rather than the draft-07 default.
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import {
+  BOX_SCHEMA_VERSION,
+  CHANNELS,
   DEFAULT_DOCUMENT_NAMESPACE,
   decodeDocumentPayload,
   documentKinds,
@@ -20,7 +23,7 @@ const SCHEMA_NAMES = [
   'channel-manifest',
   'revocations-manifest',
   'box-manifest',
-  'recipe',
+  'scroll',
 ];
 
 const readJson = (url) => JSON.parse(readFileSync(url, 'utf8'));
@@ -37,7 +40,7 @@ function createValidator() {
 }
 
 const ajv = createValidator();
-const validatorFor = (name) => ajv.getSchema(`https://scrollcase.dev/schema/${name}.schema.json`);
+const validatorFor = (name) => ajv.getSchema(`https://scrollcase.dev/schema/v2/${name}.schema.json`);
 
 /** Reports why a document failed, instead of a bare boolean, when a schema and reality disagree. */
 function expectValid(name, document, label) {
@@ -50,32 +53,43 @@ describe('published schemas', () => {
   it('ships one well-formed schema per document the format defines', () => {
     for (const name of SCHEMA_NAMES) {
       const schema = readJson(schemaUrl(name));
-      expect(schema.$id, name).toBe(`https://scrollcase.dev/schema/${name}.schema.json`);
+      expect(schema.$id, name).toBe(`https://scrollcase.dev/schema/v2/${name}.schema.json`);
       expect(schema.title, name).toBeTruthy();
       expect(schema.description, name).toBeTruthy();
       expect(validatorFor(name), name).toBeTypeOf('function');
+      if (name !== 'target') {
+        expect(schema.properties.schemaVersion.const, name).toBe(BOX_SCHEMA_VERSION);
+      }
     }
   });
 });
 
 describe('schemas describe what the builder actually emits', () => {
-  it('accepts a real release manifest, channel manifest, box manifest, and recipe', () => {
+  it('accepts a real release manifest, channel manifest, box manifest, and scroll', () => {
     expectValid('release-manifest', example('release-manifest'), 'release');
     expectValid('channel-manifest', example('channel-manifest'), 'channel');
     expectValid('box-manifest', example('box-manifest'), 'box.json');
-    expectValid('recipe', example('recipe'), 'recipe');
+    expectValid('scroll', example('scroll'), 'scroll');
   });
 
-  it('accepts every recipe shipped as an example, on either substrate', () => {
+  it('uses the same closed channel vocabulary in code and schema', () => {
+    const channel = example('channel-manifest');
+    for (const name of CHANNELS) expectValid('channel-manifest', { ...channel, channel: name }, name);
+    for (const name of ['development', 'internal', '']) {
+      expect(validatorFor('channel-manifest')({ ...channel, channel: name }), name).toBe(false);
+    }
+  });
+
+  it('accepts every scroll shipped as an example, on either substrate', () => {
     const directory = new URL('../../src/contract/fixtures/examples/', import.meta.url);
-    const recipes = readdirSync(directory).filter((name) => name.startsWith('recipe'));
-    expect(recipes.length).toBeGreaterThan(0);
-    for (const name of recipes) expectValid('recipe', readJson(new URL(name, directory)), name);
+    const scrolls = readdirSync(directory).filter((name) => name.startsWith('scroll'));
+    expect(scrolls.length).toBeGreaterThan(0);
+    for (const name of scrolls) expectValid('scroll', readJson(new URL(name, directory)), name);
   });
 
-  it('accepts a recipe whose provenance identity will be derived from boxId and target', () => {
-    const { recipeId: _recipeId, ...recipe } = example('recipe');
-    expectValid('recipe', recipe, 'recipe without recipeId');
+  it('accepts a scroll whose provenance identity will be derived from boxId and target', () => {
+    const { scrollId: _scrollId, ...scroll } = example('scroll');
+    expectValid('scroll', scroll, 'scroll without scrollId');
   });
 
   it('accepts a real signed envelope and decodes the payload it wraps', () => {
@@ -85,6 +99,25 @@ describe('schemas describe what the builder actually emits', () => {
     const payload = decodeDocumentPayload(signed);
     expect(payload.kind).toBe(documentKinds().release);
     expectValid('release-manifest', payload, 'decoded release payload');
+  });
+
+  it('ships a signed example whose ed25519 signature matches its public key', () => {
+    const signed = example('signed-release');
+    const publicKey = readJson(new URL(
+      '../../src/contract/fixtures/examples/signed-release.public-key.json',
+      import.meta.url,
+    ));
+    const spki = Buffer.concat([
+      Buffer.from('302a300506032b6570032100', 'hex'),
+      Buffer.from(publicKey.publicKeyBase64, 'base64'),
+    ]);
+    const signature = signed.signatures.find(({ keyId }) => keyId === publicKey.keyId);
+    expect(verifySignature(
+      null,
+      Buffer.from(signed.payloadBase64, 'base64'),
+      createPublicKey({ key: spki, format: 'der', type: 'spki' }),
+      Buffer.from(signature.signatureBase64, 'base64'),
+    )).toBe(true);
   });
 });
 
@@ -153,7 +186,7 @@ describe('the envelope refuses what it cannot verify', () => {
     for (const [label, mutation] of [
       ['no signatures', { signatures: [] }],
       ['wrong encoding', { payloadEncoding: 'json' }],
-      ['wrong version', { schemaVersion: 2 }],
+      ['wrong version', { schemaVersion: 1 }],
       ['unsigned algorithm', { signatures: [{ algorithm: 'rsa', keyId: 'k', signatureBase64: 'x' }] }],
     ]) {
       const document = { ...signed, ...mutation };

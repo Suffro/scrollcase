@@ -7,7 +7,7 @@
  */
 
 /** Format version carried by every document this contract describes. */
-export const BOX_SCHEMA_VERSION = 1;
+export const BOX_SCHEMA_VERSION = 2;
 
 /** The only payload encoding the format defines. */
 export const PAYLOAD_ENCODING = 'base64-json-utf8';
@@ -65,7 +65,7 @@ export function parseDocumentKind(kind) {
 }
 
 /** Channels a box may be published to, ordered from least to most stable. */
-export const CHANNELS = Object.freeze(['development', 'beta', 'stable']);
+export const CHANNELS = Object.freeze(['nightly', 'beta', 'stable']);
 
 /**
  * Reports whether a value is a structurally valid signed envelope.

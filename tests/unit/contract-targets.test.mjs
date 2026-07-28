@@ -67,7 +67,7 @@ describe('target adapters', () => {
     expect(() => assertNativeHost(adapter, { platform: 'darwin', arch: 'arm64' })).toThrow(/must be built natively/);
   });
 
-  it('refuses a recipe entry point that disagrees with the adapter layout', () => {
+  it('refuses a scroll entry point that disagrees with the adapter layout', () => {
     const adapter = boxTargetAdapter({ platform: 'windows', arch: 'x86_64', accelerator: 'cpu' });
     expect(() => assertPythonEntryPoint(adapter, 'venv/python.exe')).not.toThrow();
     expect(() => assertPythonEntryPoint(adapter, 'venv/bin/python')).toThrow(/entry point/);
@@ -82,7 +82,7 @@ describe('accelerator selection', () => {
     }
   });
 
-  it('describes the conda accelerator a recipe selects and rejects a versionless CUDA target', () => {
+  it('describes the conda accelerator a scroll selects and rejects a versionless CUDA target', () => {
     expect(pixiAccelerator({ target: { platform: 'macos', arch: 'aarch64', accelerator: 'metal' } }))
       .toEqual({ accelerator: 'metal', cudaVersion: null });
     expect(pixiAccelerator({ target: { platform: 'linux', arch: 'x86_64', accelerator: 'cuda', cudaVersion: '12.9' } }))
