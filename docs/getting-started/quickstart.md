@@ -67,9 +67,9 @@ way `init` never downloads anything you did not agree to, which is what makes it
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
 
-`init` also asks which target to scaffold. A sole target for the host is the default; if the host
-can build several — such as CPU and Metal on macOS — there is no default and you must choose. A
-script supplies the complete choice explicitly:
+`init` also shows a navigable target menu: use ↑/↓ and Enter. A sole target for the host is the
+default; on macOS, Metal is preselected when both CPU and Metal are available. A script can supply
+the complete choice explicitly:
 
 ```sh
 scrollcase init --target macos-aarch64-metal --no-install-toolchain

@@ -2,9 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { chooseTarget, parseCliTarget } from '../../src/cli-targets.mjs';
+import { chooseTarget, parseCliTarget, selectTargetMenu } from '../../src/cli-targets.mjs';
 import { boxTargetAdapters } from '../../src/contract/targets.mjs';
 
 const macos = { platform: 'darwin', arch: 'arm64' };
@@ -28,24 +29,58 @@ describe('CLI target selection', () => {
     expect(log).toHaveBeenCalledWith(expect.stringMatching(/no terminal.*macos-aarch64-metal/));
   });
 
-  it('refuses an ambiguous non-terminal selection when the host can build several targets', async () => {
+  it('refuses an ambiguous non-terminal selection without a platform default', async () => {
     await expect(chooseTarget([
-      candidate('macos-aarch64-cpu', macos),
-      candidate('macos-aarch64-metal', macos),
-    ], { terminal: false, host: macos })).rejects.toThrow(/more than one available target.*--target/);
+      candidate('linux-x86_64-cpu', linux),
+      candidate('linux-x86_64-cuda12.4', linux),
+    ], { terminal: false, host: linux })).rejects.toThrow(/more than one available target.*--target/);
   });
 
-  it('offers no interactive default when several targets match the host', async () => {
-    const answers = ['', 'macos-aarch64-cpu'];
-    const ask = vi.fn(async () => answers.shift());
+  it('uses Metal by default for non-terminal macOS selection', async () => {
     const log = vi.fn();
     const selected = await chooseTarget([
       candidate('macos-aarch64-cpu', macos),
       candidate('macos-aarch64-metal', macos),
-    ], { terminal: true, host: macos, ask, log });
+    ], { terminal: false, host: macos, log });
+    expect(selected.targetId).toBe('macos-aarch64-metal');
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('macos-aarch64-metal'));
+  });
+
+  it('preselects Metal in the interactive macOS menu', async () => {
+    const menu = vi.fn().mockResolvedValue(0);
+    const selected = await chooseTarget([
+      candidate('macos-aarch64-cpu', macos),
+      candidate('macos-aarch64-metal', macos),
+    ], { terminal: true, host: macos, menu });
     expect(selected.targetId).toBe('macos-aarch64-cpu');
-    expect(ask.mock.calls[0][0]).not.toMatch(/\(.*\)/);
-    expect(log).toHaveBeenCalledWith(expect.stringMatching(/Choose one/));
+    expect(menu).toHaveBeenCalledWith(
+      ['macos-aarch64-cpu', 'macos-aarch64-metal'],
+      { initialIndex: 1 },
+    );
+  });
+
+  it('provides a navigable keyboard menu', async () => {
+    const input = new PassThrough();
+    input.isTTY = true;
+    input.setRawMode = vi.fn();
+    const output = new PassThrough();
+    let rendered = '';
+    output.on('data', (chunk) => {
+      rendered += chunk.toString();
+    });
+
+    const selection = selectTargetMenu(
+      ['macos-aarch64-cpu', 'macos-aarch64-metal'],
+      { input, output, initialIndex: 1 },
+    );
+    input.write('\x1b[A');
+    input.write('\r');
+
+    await expect(selection).resolves.toBe(0);
+    expect(input.setRawMode).toHaveBeenNthCalledWith(1, true);
+    expect(input.setRawMode).toHaveBeenLastCalledWith(false);
+    expect(rendered).toContain('Use ↑/↓');
+    expect(rendered).toContain('❯ macos-aarch64-cpu');
   });
 
   it('honours an explicit target and rejects one outside the available recipes', async () => {
@@ -74,7 +109,7 @@ describe('CLI target selection', () => {
     expect(() => parseCliTarget('linux-x86_64-cuda')).toThrow(/complete target/);
   });
 
-  it('makes non-terminal init fail before writing when the host has several target choices', async () => {
+  it.skipIf(process.platform !== 'darwin')('uses Metal for non-terminal init on macOS', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
     created.push(root);
     const result = spawnSync(process.execPath, [
@@ -83,9 +118,12 @@ describe('CLI target selection', () => {
       '--project-root', root,
       '--no-install-toolchain',
     ], { encoding: 'utf8' });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(/more than one available target.*--target/);
-    await expect(readFile(join(root, 'scrollcase.config.json'), 'utf8')).rejects.toThrow();
+    expect(result.status, result.stderr).toBe(0);
+    const recipe = JSON.parse(await readFile(
+      join(root, 'recipes', 'example-box', 'macos-aarch64-metal', 'recipe.json'),
+      'utf8',
+    ));
+    expect(recipe.target.accelerator).toBe('metal');
   });
 
   it('scaffolds the exact nested target supplied to non-terminal init', async () => {

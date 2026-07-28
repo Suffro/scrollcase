@@ -35,10 +35,10 @@ They also accept a box ID, with an optional target flag:
 scrollcase build hello-box --target macos-aarch64-metal
 ```
 
-With only `hello-box`, a terminal asks among the target recipes under `recipes/hello-box/`. Exactly
-one target matching the host OS and architecture is offered as the default. If several targets are
-buildable on that host — for example macOS CPU and Metal — there is deliberately no default. With
-no terminal, the sole host target is selected and reported; an ambiguous selection fails and tells
+With only `hello-box`, a terminal shows a navigable target menu for the recipes under
+`recipes/hello-box/`: use ↑/↓ and Enter. Exactly one target matching the host OS and architecture is
+offered as the default; on macOS, Metal is preferred when both CPU and Metal are available. With no
+terminal, the same default is selected and reported; any other ambiguous selection fails and tells
 the caller to pass `--target`. An existing flat `recipes/<recipe>/recipe.json` remains an exact,
 unambiguous recipe reference.
 
@@ -71,9 +71,9 @@ scrollcase init [--target <targetId>]
 | `--install-toolchain` | ask | Install missing tools without prompting |
 | `--no-install-toolchain` | ask | Never install; just report what is missing |
 
-Without `--target`, `init` applies the same target-choice rule described above. Since every
-supported host has more than one accelerator target, a non-terminal invocation normally supplies
-`--target`; it fails before writing anything when the target is ambiguous. The scaffold lands at
+Without `--target`, `init` applies the same target-choice rule described above. On macOS, Metal is
+the default; on another host with multiple matching targets, a non-terminal invocation supplies
+`--target` or fails before writing anything. The scaffold lands at
 `recipes/<boxId>/<targetId>/`.
 
 ### The toolchain step

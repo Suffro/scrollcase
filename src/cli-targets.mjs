@@ -2,12 +2,12 @@
  * Target choices at the CLI edge.
  *
  * Modules beneath the CLI receive a resolved recipe or target and never read a terminal. This file
- * owns the one interactive policy: a sole target for the current host may be the default, while two
- * host-buildable targets are a real choice and therefore have no default. Non-interactive callers
- * get the same decision without ever blocking.
+ * owns the one interactive policy: choices are made through a keyboard menu, with a sole native
+ * target as the default and Metal preferred on macOS. Non-interactive callers get the same
+ * decision without ever blocking.
  */
 
-import { createInterface } from 'node:readline/promises';
+import { emitKeypressEvents } from 'node:readline';
 import { boxTargetAdapters, boxTargetId } from './contract/targets.mjs';
 import { compareStableStrings } from './build/filesystem.mjs';
 import { fail } from './build/process.mjs';
@@ -55,13 +55,76 @@ export function cliTargetFamilies(platform) {
   return families.sort((left, right) => compareStableStrings(left.targetId, right.targetId));
 }
 
+/** Shows a raw-key target menu and resolves to the selected index. */
+export function selectTargetMenu(targetIds, {
+  initialIndex = null,
+  input = process.stdin,
+  output = process.stdout,
+} = {}) {
+  if (!input.isTTY || typeof input.setRawMode !== 'function') {
+    fail('Target selection requires an interactive terminal.');
+  }
+
+  return new Promise((resolve, reject) => {
+    let selectedIndex = initialIndex;
+    const previousRawMode = Boolean(input.isRaw);
+    const frameLines = targetIds.length + 1;
+    let firstFrame = true;
+
+    const render = () => {
+      if (!firstFrame) output.write(`\x1b[${frameLines}A`);
+      for (let index = 0; index < targetIds.length; index += 1) {
+        const marker = index === selectedIndex ? '❯' : ' ';
+        output.write(`\x1b[2K\r${marker} ${targetIds[index]}\n`);
+      }
+      output.write('\x1b[2K\rUse ↑/↓ to move, Enter to select.\n');
+      firstFrame = false;
+    };
+
+    const cleanup = () => {
+      input.removeListener('keypress', onKeypress);
+      input.setRawMode(previousRawMode);
+      input.pause();
+      output.write('\x1b[?25h');
+    };
+
+    const onKeypress = (_character, key = {}) => {
+      if (key.ctrl && key.name === 'c') {
+        cleanup();
+        reject(new Error('Target selection cancelled.'));
+        return;
+      }
+      if (key.name === 'up') {
+        selectedIndex = selectedIndex === null
+          ? targetIds.length - 1
+          : (selectedIndex - 1 + targetIds.length) % targetIds.length;
+        render();
+      } else if (key.name === 'down') {
+        selectedIndex = selectedIndex === null ? 0 : (selectedIndex + 1) % targetIds.length;
+        render();
+      } else if ((key.name === 'return' || key.name === 'enter') && selectedIndex !== null) {
+        cleanup();
+        resolve(selectedIndex);
+      }
+    };
+
+    emitKeypressEvents(input);
+    input.on('keypress', onKeypress);
+    input.setRawMode(true);
+    input.resume();
+    output.write('Which target?\n\x1b[?25l');
+    render();
+  });
+}
+
 /**
  * Chooses one target candidate under the CLI's terminal policy.
  *
  * @template {{ targetId: string, adapter: { host: { platform: string, arch: string } } }} T
  * @param {T[]} candidates
  * @param {{ requested?: string | null, terminal?: boolean,
- *   host?: { platform: string, arch: string }, ask?: (prompt: string) => Promise<string>,
+ *   host?: { platform: string, arch: string },
+ *   menu?: (targetIds: string[], options: { initialIndex: number | null }) => Promise<number>,
  *   log?: (message: string) => void }} [options]
  * @returns {Promise<T>}
  */
@@ -69,7 +132,7 @@ export async function chooseTarget(candidates, {
   requested = null,
   terminal = Boolean(process.stdin.isTTY && process.stdout.isTTY),
   host = { platform: process.platform, arch: process.arch },
-  ask = null,
+  menu = selectTargetMenu,
   log = console.log,
 } = {}) {
   if (candidates.length === 0) fail('No supported targets are available.');
@@ -90,7 +153,10 @@ export async function chooseTarget(candidates, {
 
   const native = choices.filter(({ adapter }) =>
     adapter.host.platform === host.platform && adapter.host.arch === host.arch);
-  const fallback = native.length === 1 ? native[0] : null;
+  const macMetal = host.platform === 'darwin'
+    ? native.find(({ targetId }) => targetId.endsWith('-metal'))
+    : null;
+  const fallback = native.length === 1 ? native[0] : macMetal;
   if (!terminal) {
     if (fallback) {
       log(`scrollcase: no terminal to ask which target; using host target ${fallback.targetId}.`);
@@ -108,22 +174,11 @@ export async function chooseTarget(candidates, {
     );
   }
 
-  const readline = ask ? null : createInterface({ input: process.stdin, output: process.stdout });
-  const question = ask ?? ((prompt) => readline.question(prompt));
-  try {
-    for (;;) {
-      const suffix = fallback ? ` (${fallback.targetId})` : '';
-      const answer = (await question(`Which target? [${choices.map(({ targetId }) => targetId).join('/')}]${suffix} `)).trim();
-      if (!answer && fallback) return fallback;
-      if (!answer) {
-        log('Choose one target; this host has no unambiguous default.');
-        continue;
-      }
-      const selected = choices.find(({ targetId }) => targetId === answer);
-      if (selected) return selected;
-      log(`Not one of ${choices.map(({ targetId }) => targetId).join(', ')}.`);
-    }
-  } finally {
-    readline?.close();
+  const selectedIndex = await menu(choices.map(({ targetId }) => targetId), {
+    initialIndex: fallback ? choices.indexOf(fallback) : null,
+  });
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= choices.length) {
+    fail('Target menu returned an invalid selection.');
   }
+  return choices[selectedIndex];
 }

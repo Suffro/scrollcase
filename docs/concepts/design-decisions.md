@@ -142,9 +142,10 @@ new recipe derives it deterministically as `<boxId>-<targetId>`; an existing rec
 explicit value to preserve already-published provenance. Flat recipe directories remain readable,
 which lets existing projects migrate deliberately instead of being broken by a layout release.
 
-At the CLI edge, a box name expands to its target recipes. One target matching the current host may
-be the default; several host-buildable targets have no default and require a choice. A
-non-interactive process fails on that ambiguity instead of silently choosing CPU, Metal, or CUDA.
+At the CLI edge, a box name expands to its target recipes and a terminal presents them as a
+navigable menu. One target matching the current host may be the default; on macOS, Metal is the
+explicit preference when CPU and Metal both match. A non-interactive process uses that same policy
+and fails on any remaining ambiguity instead of silently choosing CPU or CUDA.
 
 **Rejected:** requiring `recipeId` to repeat the directory name. That check made the filesystem a
 second identity layer and encouraged product-plus-machine directory names even though the recipe

@@ -374,9 +374,9 @@ Build options:
 
 Recipe targets:
   lock, audit and build accept either <boxId>/<targetId> or a box ID plus
-  --target <targetId>. With only a box ID, an interactive terminal asks. A sole
-  target for this host is the default; several host-buildable targets have no
-  default. Without a terminal, an ambiguous target is an error.
+  --target <targetId>. With only a box ID, a terminal shows an arrow-key menu.
+  A sole target for this host is the default; Metal is preferred on macOS.
+  Without a terminal, any other ambiguous target is an error.
 
 Verify options:
   --archive <path>           Archive to check, if not beside the release document
