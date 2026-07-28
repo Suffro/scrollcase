@@ -93,12 +93,11 @@ async function lock(name, flags) {
  * Only ever asks when both ends are a terminal. Without one — CI, a pipe — there is nobody to
  * answer, and silence must not be read as consent, so the answer is no.
  */
-async function confirm(question, { defaultYes = false } = {}) {
+async function confirm(question) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const answer = (await readline.question(`${question} ${defaultYes ? '[Y/n]' : '[y/N]'} `)).trim();
-    return answer ? /^y(es)?$/i.test(answer) : defaultYes;
+    return /^y(es)?$/i.test((await readline.question(`${question} [y/N] `)).trim());
   } finally {
     readline.close();
   }
@@ -266,10 +265,7 @@ async function build(name, flags) {
     ...keyPaths(flags),
     signerCommand: text(flags, 'signer-command'),
   };
-  await ensureBuildSigningKeys({
-    ...signing,
-    confirm: (question) => confirm(question, { defaultYes: true }),
-  });
+  await ensureBuildSigningKeys(signing);
   // Asked at the CLI edge and passed down: buildBox never reads a terminal itself.
   const channel = await chooseCliValue(
     'channel',
@@ -371,8 +367,8 @@ Signing:
   --signer-command <cmd>     Sign through an external command instead of a local key.
                              It receives the payload on stdin and returns the signed
                              document as JSON on stdout; the result is verified locally.
-                             Before build work starts, missing local keys offer keygen
-                             interactively; without a terminal, run scrollcase keygen first.
+                             Before build work starts, missing local keys fail with an
+                             explicit instruction to run scrollcase keygen.
 
 Workspace:
   Paths come from scrollcase.config.json at the project root, discovered by walking

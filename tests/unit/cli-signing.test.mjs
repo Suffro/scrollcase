@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ensureBuildSigningKeys } from '../../src/cli-signing.mjs';
 
 const created = [];
@@ -20,49 +20,29 @@ async function paths() {
 }
 
 describe('build signing preflight', () => {
-  it('generates an absent local key pair after terminal consent', async () => {
+  it('fails clearly when no local signing keys exist', async () => {
     const keyPaths = await paths();
-    const confirm = vi.fn().mockResolvedValue(true);
-    await ensureBuildSigningKeys({ ...keyPaths, terminal: true, confirm, log: () => {} });
-    expect(confirm).toHaveBeenCalledWith('No signing keys were found. Generate them now?');
-    expect(await readFile(keyPaths.privatePath, 'utf8')).toContain('PRIVATE KEY');
-    expect(JSON.parse(await readFile(keyPaths.publicPath, 'utf8')).algorithm).toBe('ed25519');
-  });
-
-  it('fails clearly without a terminal before generating anything', async () => {
-    const keyPaths = await paths();
-    const generate = vi.fn();
-    await expect(ensureBuildSigningKeys({
-      ...keyPaths,
-      terminal: false,
-      generate,
-    })).rejects.toThrow(/Run scrollcase keygen/);
-    expect(generate).not.toHaveBeenCalled();
+    await expect(ensureBuildSigningKeys(keyPaths)).rejects.toThrow(
+      'Signing keys not found. Run scrollcase keygen before building.',
+    );
+    await expect(readFile(keyPaths.privatePath, 'utf8')).rejects.toThrow();
+    await expect(readFile(keyPaths.publicPath, 'utf8')).rejects.toThrow();
   });
 
   it('does not overwrite an incomplete key pair', async () => {
     const keyPaths = await paths();
     await writeFile(keyPaths.publicPath, '{"existing":true}\n');
-    const generate = vi.fn();
     await expect(ensureBuildSigningKeys({
       ...keyPaths,
-      terminal: true,
-      confirm: async () => true,
-      generate,
     })).rejects.toThrow(/pair is incomplete.*Refusing to replace/);
-    expect(generate).not.toHaveBeenCalled();
     expect(await readFile(keyPaths.publicPath, 'utf8')).toBe('{"existing":true}\n');
   });
 
   it('requires the external signer trust key without offering local keygen', async () => {
     const keyPaths = await paths();
-    const confirm = vi.fn();
     await expect(ensureBuildSigningKeys({
       ...keyPaths,
       signerCommand: 'kms-sign',
-      terminal: true,
-      confirm,
     })).rejects.toThrow(/Trusted public key not found/);
-    expect(confirm).not.toHaveBeenCalled();
   });
 });

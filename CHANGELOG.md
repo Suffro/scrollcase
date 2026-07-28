@@ -8,10 +8,9 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Changed
 
-- Check signing readiness before `build` starts expensive work. When both local keys are absent, an
-  interactive build offers to run key generation with a `Y/n` prompt; a non-terminal build fails
-  with an explicit `scrollcase keygen` remedy. Incomplete pairs and missing external-signer trust
-  keys fail without overwriting anything.
+- Check signing readiness before `build` starts expensive work. Missing local keys fail immediately
+  with an explicit `scrollcase keygen` remedy; `build` never generates identity material itself.
+  Incomplete pairs and missing external-signer trust keys also fail without overwriting anything.
 - Present target, weights, and suggested channel choices as navigable arrow-key menus. Channel
   suggestions now include `nightly` alongside `beta` and `stable`; explicit custom channel names
   remain supported.
