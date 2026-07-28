@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useData, withBase } from 'vitepress'
+import { globalStore } from './store.ts'
 
 const { theme } = useData()
 
@@ -62,7 +63,7 @@ const capabilities = [
       <div class="hero-glow" aria-hidden="true"></div>
 
       <div class="container hero-inner">
-        <span class="status"><span class="status-dot" aria-hidden="true"></span>Version {{ theme.packageVersion }} · schema version 1</span>
+        <span class="status"><span class="status-dot" aria-hidden="true"></span>v{{ globalStore.packageVersion }} · schema v1</span>
 
         <h1 class="name">Scrollcase</h1>
 

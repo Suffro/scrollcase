@@ -1,9 +1,7 @@
 import { defineConfig } from 'vitepress'
-import { readFileSync } from 'node:fs'
+import pkg from '../../package.json'
 
-const packageVersion = JSON.parse(
-  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
-).version
+const packageVersion = pkg.version
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
