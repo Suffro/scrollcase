@@ -21,6 +21,27 @@ Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `sc
 `--keys-dir`, `--toolchain-dir`) apply to every command and are resolved before anything else runs. They are
 documented in [Workspace Configuration](/reference/configuration).
 
+## Recipe arguments and target selection
+
+`lock`, `audit` and `build` accept an exact nested reference:
+
+```sh
+scrollcase build hello-box/macos-aarch64-metal
+```
+
+They also accept a box ID, with an optional target flag:
+
+```sh
+scrollcase build hello-box --target macos-aarch64-metal
+```
+
+With only `hello-box`, a terminal asks among the target recipes under `recipes/hello-box/`. Exactly
+one target matching the host OS and architecture is offered as the default. If several targets are
+buildable on that host — for example macOS CPU and Metal — there is deliberately no default. With
+no terminal, the sole host target is selected and reported; an ambiguous selection fails and tells
+the caller to pass `--target`. An existing flat `recipes/<recipe>/recipe.json` remains an exact,
+unambiguous recipe reference.
+
 ## `init`
 
 Scaffold a project: a `scrollcase.config.json`, one example recipe (with its `pixi.toml`), and
@@ -31,19 +52,29 @@ reported as `Kept`, so re-running on a half-configured project completes it.
 before you say yes.
 
 ```sh
-scrollcase init [--platform macos|linux|windows] [--accelerator cpu|metal|cuda]
-                [--pixi-version <version>] [--recipe-id <name>]
+scrollcase init [--target <targetId>]
+                [--platform macos|linux|windows] [--accelerator cpu|metal|cuda]
+                [--cuda-version <major.minor>] [--box-id <name>]
+                [--pixi-version <version>]
                 [--install-toolchain | --no-install-toolchain]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--platform` | this machine | Target platform of the example recipe |
-| `--accelerator` | `metal` on macOS, else `cpu` | Target accelerator of the example recipe |
+| `--target` | ask | Complete canonical target, such as `macos-aarch64-metal` or `linux-x86_64-cuda12.4` |
+| `--platform` | this machine | Restrict an interactive target choice to this platform |
+| `--accelerator` | ask | Restrict the target choice to one accelerator |
+| `--cuda-version` | ask for CUDA | Required `major.minor` ABI component of a CUDA target |
 | `--pixi-version` | none | Pin the example recipe to this pixi release, and install exactly that one. Without it, the installed version is pinned for you; declining the install leaves `pixiVersion` for you to set |
-| `--recipe-id` | `example-box-<platform>-<arch>-<accelerator>` | Name of the example recipe directory |
+| `--box-id` | `example-box` | Box directory and declared `boxId` |
+| `--recipe-id` | none | Legacy alias for `--box-id` |
 | `--install-toolchain` | ask | Install missing tools without prompting |
 | `--no-install-toolchain` | ask | Never install; just report what is missing |
+
+Without `--target`, `init` applies the same target-choice rule described above. Since every
+supported host has more than one accelerator target, a non-terminal invocation normally supplies
+`--target`; it fails before writing anything when the target is ambiguous. The scaffold lands at
+`recipes/<boxId>/<targetId>/`.
 
 ### The toolchain step
 
@@ -78,7 +109,7 @@ Report whether this machine can build a box. Reads only; never writes. Each fail
 a remedy, and all checks run even when an early one fails.
 
 ```sh
-scrollcase doctor [--recipe <name>] [--pixi-version <version>]
+scrollcase doctor [--recipe <name>] [--target <targetId>] [--pixi-version <version>]
                   [--pixi <path>] [--conda-pack <path>]
 ```
 
@@ -116,7 +147,7 @@ Run by a human when dependencies change; the lock is committed and reviewed, and
 only installs from it. Requires pixi at the recipe's pinned version.
 
 ```sh
-scrollcase lock <recipe> [--pixi <path>]
+scrollcase lock <recipe> [--target <targetId>] [--pixi <path>]
 ```
 
 The manifest itself pins the channels and the single target platform, so resolution does not
@@ -129,7 +160,7 @@ anything. The lock carries an SPDX licence per package; a package **without a de
 fails the parse outright** — an unlicensed dependency is a legal problem, not a reporting gap.
 
 ```sh
-scrollcase audit <recipe> [--write] [--namespace <ns>]
+scrollcase audit <recipe> [--target <targetId>] [--write] [--namespace <ns>]
 ```
 
 Two modes:
@@ -163,7 +194,8 @@ plus a channel pointer. The full pipeline is narrated in
 [Architecture](/concepts/architecture).
 
 ```sh
-scrollcase build <recipe> [--channel <name>] [--weights embed|on-demand]
+scrollcase build <recipe> [--target <targetId>]
+                 [--channel <name>] [--weights embed|on-demand]
                  [--asset-base-url <url>] [--namespace <ns>] [--allow-dirty]
                  [--pixi <path>] [--conda-pack <path>]
                  [--private-key <path>] [--public-key <path>] [--signer-command <cmd>]
@@ -171,6 +203,7 @@ scrollcase build <recipe> [--channel <name>] [--weights embed|on-demand]
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
+| `--target` | ask when a box has several recipes | Canonical target recipe to build |
 | `--channel` | `beta` | Channel the signed pointer names (`development`, `beta`, `stable`) |
 | `--weights` | recipe's `weights`, else `embed` | `embed` packs assets into the archive (works air-gapped); `on-demand` leaves them out for the consumer to fetch and verify at install time |
 | `--asset-base-url` | recipe's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |

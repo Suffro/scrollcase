@@ -20,10 +20,10 @@ import { buildBox } from './build/box.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
 import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
-import { readRecipe } from './build/recipe.mjs';
+import { recipeCandidates, readRecipe } from './build/recipe.mjs';
 import { verifyBox } from './build/verify.mjs';
-import { boxTargetAdapters } from './contract/targets.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
+import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
 /** Minimal flag parser supporting `--name=value`, `--name value`, and bare `--name` (true). */
@@ -78,7 +78,8 @@ async function keygen(flags) {
  * the single target platform, which is what makes resolution independent of the machine doing it.
  */
 async function lock(name, flags) {
-  const { dir, recipe } = await readRecipe(name);
+  const reference = await selectRecipeReference(name, flags);
+  const { dir, recipe } = await readRecipe(reference);
   const pixi = findPixi({ requiredVersion: recipe.pixiVersion, path: text(flags, 'pixi') });
   run(pixi, pixiLockArguments(join(dir, 'pixi.toml')));
   console.log(`Updated ${join(dir, 'pixi.lock')}`);
@@ -136,6 +137,68 @@ async function choose(question, choices, { flag, open = false } = {}) {
   }
 }
 
+/** Resolves a box shorthand at the CLI edge, where an ambiguous target can be asked about. */
+async function selectRecipeReference(name, flags) {
+  const candidates = await recipeCandidates(name);
+  return (await chooseTarget(candidates, { requested: text(flags, 'target') })).reference;
+}
+
+/** Completes a CUDA target with the ABI version that is part of its canonical identity. */
+async function completeCudaTarget(targetFamily, flags) {
+  const supplied = text(flags, 'cuda-version');
+  if (supplied) return parseCliTarget(`${targetFamily.targetId}${supplied}`);
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    fail(`Target ${targetFamily.targetId} requires --cuda-version <major.minor> without a terminal.`);
+  }
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    for (;;) {
+      const version = (await readline.question('Which CUDA version? (major.minor) ')).trim();
+      if (!version) {
+        console.log('A CUDA version is required because it is part of the target identity.');
+        continue;
+      }
+      try {
+        return parseCliTarget(`${targetFamily.targetId}${version}`);
+      } catch (error) {
+        console.log(error instanceof Error ? error.message : String(error));
+      }
+    }
+  } finally {
+    readline.close();
+  }
+}
+
+/**
+ * Resolves the target `init` will scaffold.
+ *
+ * `--target` is the complete scripted form. The older component flags remain supported, but a
+ * missing accelerator is a choice rather than an assumed CPU/Metal policy.
+ */
+async function initTarget(flags) {
+  const requested = text(flags, 'target');
+  if (requested) {
+    if (['platform', 'accelerator', 'cuda-version'].some((name) => flags.has(name))) {
+      fail('--target cannot be combined with --platform, --accelerator or --cuda-version.');
+    }
+    return parseCliTarget(requested);
+  }
+
+  const hostPlatform = { darwin: 'macos', linux: 'linux', win32: 'windows' }[process.platform];
+  const platform = text(flags, 'platform') || hostPlatform
+    || fail(`No supported target platform for this host: ${process.platform}/${process.arch}.`);
+  const accelerator = text(flags, 'accelerator') || (flags.has('cuda-version') ? 'cuda' : null);
+  let candidates = cliTargetFamilies(platform);
+  if (accelerator) candidates = candidates.filter((candidate) => candidate.target.accelerator === accelerator);
+  if (candidates.length === 0) {
+    fail(`No supported target matches platform ${platform}${accelerator ? ` and accelerator ${accelerator}` : ''}.`);
+  }
+  const selected = await chooseTarget(candidates);
+  if (selected.target.accelerator === 'cuda') return completeCudaTarget(selected, flags);
+  if (flags.has('cuda-version')) fail('--cuda-version is valid only for a CUDA target.');
+  return parseCliTarget(selected.targetId);
+}
+
 /**
  * `init` — scaffold a project, then offer to install the toolchain it needs.
  *
@@ -145,15 +208,17 @@ async function choose(question, choices, { flag, open = false } = {}) {
  */
 async function init(flags) {
   const workspace = getWorkspace();
-  const platform = text(flags, 'platform') || { darwin: 'macos', linux: 'linux', win32: 'windows' }[process.platform];
-  const adapter = boxTargetAdapters().find((candidate) => candidate.platform === platform)
-    || fail(`No target adapter for platform ${platform}.`);
-  const accelerator = text(flags, 'accelerator') || (platform === 'macos' ? 'metal' : 'cpu');
+  const target = await initTarget(flags);
+  const explicitBoxId = text(flags, 'box-id');
+  const legacyBoxId = text(flags, 'recipe-id');
+  if (explicitBoxId && legacyBoxId && explicitBoxId !== legacyBoxId) {
+    fail('--box-id and the legacy --recipe-id alias cannot name different boxes.');
+  }
   const result = await initProject({
     root: workspace.root,
-    target: { platform: adapter.platform, arch: adapter.arch, accelerator },
+    target,
     pixiVersion: text(flags, 'pixi-version'),
-    recipeId: text(flags, 'recipe-id') || `example-box-${adapter.platform}-${adapter.arch}-${accelerator}`,
+    boxId: explicitBoxId || legacyBoxId || 'example-box',
   });
   for (const path of result.written) console.log(`Created ${path}`);
   for (const path of result.skipped) console.log(`Kept    ${path} (already present)`);
@@ -188,16 +253,19 @@ async function init(flags) {
     console.log(`\nSet pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
   }
   console.log('\nNext:');
-  console.log(`  scrollcase lock ${result.recipeId}`);
+  console.log(`  scrollcase lock ${result.recipeRef}`);
   console.log(`  scrollcase keygen`);
-  console.log(`  scrollcase build ${result.recipeId}`);
+  console.log(`  scrollcase build ${result.recipeRef}`);
 }
 
 /** `doctor` — report whether this machine can build a box. Reads only; never writes. */
 async function doctor(flags) {
   let pixiVersion = text(flags, 'pixi-version');
   const recipeName = text(flags, 'recipe');
-  if (!pixiVersion && recipeName) pixiVersion = (await readRecipe(recipeName)).recipe.pixiVersion;
+  if (!pixiVersion && recipeName) {
+    const reference = await selectRecipeReference(recipeName, flags);
+    pixiVersion = (await readRecipe(reference)).recipe.pixiVersion;
+  }
   const { checks, ok } = await diagnose({
     workspace: getWorkspace(),
     pixiVersion,
@@ -213,8 +281,9 @@ async function doctor(flags) {
 
 /** `audit` — the dependency licence inventory, derived from the lock without building. */
 async function audit(name, flags) {
+  const reference = await selectRecipeReference(name, flags);
   const write = Boolean(flags.get('write'));
-  const { summary, reviewed, written } = await auditRecipe(name, {
+  const { summary, reviewed, written } = await auditRecipe(reference, {
     write,
     namespace: text(flags, 'namespace') || undefined,
   });
@@ -225,10 +294,11 @@ async function audit(name, flags) {
 }
 
 async function build(name, flags) {
+  const reference = await selectRecipeReference(name, flags);
   // Asked at the CLI edge and passed down: buildBox never reads a terminal itself.
   const channel = await choose('channel', ['beta', 'stable'], { flag: text(flags, 'channel'), open: true });
   const weights = await choose('weights mode', ['embed', 'on-demand'], { flag: text(flags, 'weights') });
-  await buildBox(name, {
+  await buildBox(reference, {
     ...keyPaths(flags),
     allowDirty: Boolean(flags.get('allow-dirty')),
     channel,
@@ -262,10 +332,14 @@ Commands:
   verify <release.json>      Verify signature, archive hash, and layout
 
 Init options:
-  --platform <name>          macos, linux or windows (default: this machine)
-  --accelerator <name>       cpu, metal or cuda (default: metal on macOS, else cpu)
+  --target <targetId>        Complete target, for example macos-aarch64-metal or
+                             linux-x86_64-cuda12.4
+  --platform <name>          Restrict the target choice to macos, linux or windows
+  --accelerator <name>       Restrict the target choice to cpu, metal or cuda
+  --cuda-version <version>   CUDA major.minor ABI when selecting a CUDA target
   --pixi-version <version>   Pin the example recipe to this pixi release
-  --recipe-id <name>         Name the example recipe
+  --box-id <name>            Name the example box (default example-box)
+  --recipe-id <name>         Legacy alias for --box-id
   --install-toolchain        Install missing pixi/conda-pack without asking
   --no-install-toolchain     Never install them; just report what is missing
                              With neither flag, init asks before downloading anything, and
@@ -273,6 +347,7 @@ Init options:
 
 Doctor options:
   --recipe <name>            Take the required pixi version from this recipe
+  --target <targetId>        Select a target when <name> is a box with several recipes
   --pixi-version <version>   Check for this pixi release
 
 Keygen options:
@@ -280,10 +355,12 @@ Keygen options:
   --force                    Overwrite both named key files; unsafe for rotation
 
 Audit options:
+  --target <targetId>        Select a target when <recipe> names a box
   --write                    Write the inventory to the recipe's reviewed audit path
   --namespace <ns>           Document kind namespace (default scrollcase.box)
 
 Build options:
+  --target <targetId>        Select a target when <recipe> names a box
   --channel <name>           Channel the signed pointer names (default beta)
   --weights <mode>           embed (default: assets packed in, works air-gapped) or
                              on-demand (fetched by the consumer at install time)
@@ -294,6 +371,12 @@ Build options:
   --allow-dirty              Permit a build from an uncommitted source tree
   --pixi <path>              Use this pixi executable
   --conda-pack <path>        Use this conda-pack executable (managed installs pin 0.9.2)
+
+Recipe targets:
+  lock, audit and build accept either <boxId>/<targetId> or a box ID plus
+  --target <targetId>. With only a box ID, an interactive terminal asks. A sole
+  target for this host is the default; several host-buildable targets have no
+  default. Without a terminal, an ambiguous target is an error.
 
 Verify options:
   --archive <path>           Archive to check, if not beside the release document

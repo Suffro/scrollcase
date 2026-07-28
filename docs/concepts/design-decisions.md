@@ -130,6 +130,26 @@ A tool that derives its paths from its own location on disk only works while it 
 project it serves. Making the layout the project's declaration is what lets Scrollcase run from
 anywhere against any project that declares one.
 
+## Recipes are grouped by box, then target
+
+The default layout is `recipes/<boxId>/<targetId>/`. Both directory names are checked against the
+meaningful fields in `recipe.json`: `boxId` and the canonical ID computed from `target`. This makes
+all target variants of one box visible together without making a directory name the source of the
+box's identity.
+
+`recipeId` is optional input. Release schema version 1 still requires a provenance `recipeId`, so a
+new recipe derives it deterministically as `<boxId>-<targetId>`; an existing recipe may keep an
+explicit value to preserve already-published provenance. Flat recipe directories remain readable,
+which lets existing projects migrate deliberately instead of being broken by a layout release.
+
+At the CLI edge, a box name expands to its target recipes. One target matching the current host may
+be the default; several host-buildable targets have no default and require a choice. A
+non-interactive process fails on that ambiguity instead of silently choosing CPU, Metal, or CUDA.
+
+**Rejected:** requiring `recipeId` to repeat the directory name. That check made the filesystem a
+second identity layer and encouraged product-plus-machine directory names even though the recipe
+already declares both facts.
+
 ## Provenance refuses to lie
 
 A box records the commit it was built from and whether that working tree was dirty, including

@@ -48,10 +48,12 @@ describe('setting a project up', () => {
     const config = JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'));
     expect(config.version).toBe(1);
     const recipe = JSON.parse(await readFile(join(result.recipeDir, 'recipe.json'), 'utf8'));
-    expect(recipe.recipeId).toBe(result.recipeId);
+    expect(recipe.recipeId).toBeUndefined();
     expect(recipe.target).toEqual(TARGET);
     expect(recipe.pixiVersion).toBe('0.73.0');
     expect(recipe.pythonEntryPoint).toBe('venv/bin/python');
+    expect(result.recipeRef).toBe('example-box/macos-aarch64-metal');
+    expect(result.recipeDir).toBe(join(root, 'recipes', 'example-box', 'macos-aarch64-metal'));
     // The manifest's platform must be the target's conda subdirectory, or the solve is for the
     // wrong machine.
     expect(await readFile(join(result.recipeDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["osx-arm64"]');
@@ -169,12 +171,12 @@ describe('auditing dependency licences', () => {
     await writeFile(join(result.recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
     await writeFile(join(result.recipeDir, 'pixi.lock'), LOCK);
     configureWorkspace({ cwd: root });
-    return { root, recipeId: result.recipeId };
+    return { root, recipeRef: result.recipeRef };
   }
 
   it('summarises the inventory straight from the lock, with no build', async () => {
-    const { recipeId } = await projectWithLock({ auditPath: null });
-    const { summary, inventory, reviewed } = await auditRecipe(recipeId);
+    const { recipeRef } = await projectWithLock({ auditPath: null });
+    const { summary, inventory, reviewed } = await auditRecipe(recipeRef);
     expect(summary.packageCount).toBe(2);
     expect(summary.licenses).toEqual([
       { license: 'Apache-2.0', count: 1 },
@@ -185,21 +187,21 @@ describe('auditing dependency licences', () => {
   });
 
   it('writes the reviewed audit only when asked, then matches it', async () => {
-    const { root, recipeId } = await projectWithLock();
-    await expect(auditRecipe(recipeId)).rejects.toThrow(/Reviewed licence audit is missing/);
-    const written = await auditRecipe(recipeId, { write: true });
+    const { root, recipeRef } = await projectWithLock();
+    await expect(auditRecipe(recipeRef)).rejects.toThrow(/Reviewed licence audit is missing/);
+    const written = await auditRecipe(recipeRef, { write: true });
     expect(written.written).toBe(true);
     expect(await fileExists(join(root, 'legal/audit.json'))).toBe(true);
-    const checked = await auditRecipe(recipeId);
+    const checked = await auditRecipe(recipeRef);
     expect(checked.written).toBe(false);
   });
 
   it('fails when the lock no longer matches what was reviewed', async () => {
-    const { root, recipeId } = await projectWithLock();
-    await auditRecipe(recipeId, { write: true });
+    const { root, recipeRef } = await projectWithLock();
+    await auditRecipe(recipeRef, { write: true });
     const stale = JSON.parse(await readFile(join(root, 'legal/audit.json'), 'utf8'));
     stale.packages.pop();
     await writeFile(join(root, 'legal/audit.json'), `${JSON.stringify(stale, null, 2)}\n`);
-    await expect(auditRecipe(recipeId)).rejects.toThrow(/differ from the reviewed audit/);
+    await expect(auditRecipe(recipeRef)).rejects.toThrow(/differ from the reviewed audit/);
   });
 });

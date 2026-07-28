@@ -46,7 +46,7 @@ scrollcase init
 
 - `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where recipes
   live and where builds, artefacts and keys go.
-- `recipes/example-box-<platform>-<arch>-<accelerator>/` — an example
+- `recipes/example-box/<targetId>/` — an example
   [recipe](/reference/recipe) (`recipe.json`) and its pixi manifest (`pixi.toml`), targeting this
   machine by default.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
@@ -67,25 +67,36 @@ way `init` never downloads anything you did not agree to, which is what makes it
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
 
+`init` also asks which target to scaffold. A sole target for the host is the default; if the host
+can build several — such as CPU and Metal on macOS — there is no default and you must choose. A
+script supplies the complete choice explicitly:
+
+```sh
+scrollcase init --target macos-aarch64-metal --no-install-toolchain
+```
+
+Without a terminal, an ambiguous target fails before any file is written.
+
 ## 4. `doctor` — check the machine
 
 ```sh
-scrollcase doctor --recipe example-box-macos-aarch64-metal
+scrollcase doctor --recipe example-box/macos-aarch64-metal
 ```
 
 Every failing check comes with a remedy. Fix what it names and re-run; `doctor` never modifies
 anything, so it is always safe.
 
-::: info Recipe names
-The recipe name on the command line is the name of its directory under `recipes/` — here
-`example-box-macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the name `init`
-printed on your machine throughout.
+::: info Recipe references
+The exact reference is `<boxId>/<targetId>` under `recipes/` — here
+`example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the reference `init`
+printed on your machine throughout. You may also pass `example-box --target
+macos-aarch64-metal`.
 :::
 
 ## 5. `lock` — resolve dependencies, once
 
 ```sh
-scrollcase lock example-box-macos-aarch64-metal
+scrollcase lock example-box/macos-aarch64-metal
 ```
 
 `lock` runs the pinned pixi against the recipe's `pixi.toml` and writes `pixi.lock` next to it.
@@ -114,7 +125,7 @@ a KMS, an HSM — see [Signing & Key Custody](/guides/signing-and-custody).
 ## 7. `build` — install, self-test, archive, sign
 
 ```sh
-scrollcase build example-box-macos-aarch64-metal
+scrollcase build example-box/macos-aarch64-metal
 ```
 
 The pipeline, in order: install the locked environment, pack and relocate it with conda-pack,
@@ -158,5 +169,5 @@ on the builder but are not carried by schema version 1.
 - See how the whole pipeline fits together: [Architecture](/concepts/architecture).
 
 The repository also ships a proven example,
-[`examples/hello-box-macos-aarch64-metal`](https://github.com/suffro/scrollcase/tree/main/examples),
+[`examples/hello-box/macos-aarch64-metal`](https://github.com/suffro/scrollcase/tree/main/examples/hello-box/macos-aarch64-metal),
 with a committed lock — the same walkthrough with nothing left to fill in.

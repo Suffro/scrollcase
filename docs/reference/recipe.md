@@ -10,23 +10,25 @@ next to the `pixi.toml` that declares its dependencies and the `pixi.lock` that 
 
 ```text
 recipes/
-└── my-model-macos-aarch64-metal/
-    ├── recipe.json     # this document
-    ├── pixi.toml       # dependency declaration, solved by `scrollcase lock`
-    └── pixi.lock       # the pinned result — committed, reviewed, and installed verbatim
+└── my-model/
+    └── macos-aarch64-metal/
+        ├── recipe.json     # this document
+        ├── pixi.toml       # dependency declaration, solved by `scrollcase lock`
+        └── pixi.lock       # the pinned result — committed, reviewed, and installed verbatim
 ```
 
-The recipe's `recipeId` **must equal its directory name**, so a recipe cannot quietly claim an
-identity other than the one being built. The machine-readable definition is
-[`recipe.schema.json`](/schema/recipe.schema.json), also shipped through the package export. See
-[JSON Schemas](/reference/schemas).
+The parent directory is the recipe's declared `boxId`; the child is the canonical ID computed from
+its declared `target`. Scrollcase checks both, so the path cannot mislabel the recipe, but neither
+value is written twice inside `recipe.json`. Existing flat recipe directories remain supported.
+
+The machine-readable definition is [`recipe.schema.json`](/schema/recipe.schema.json), also shipped
+through the package export. See [JSON Schemas](/reference/schemas).
 
 ## A complete example
 
 ```json
 {
   "schemaVersion": 1,
-  "recipeId": "hello-box-macos-aarch64-metal",
   "recipeVersion": "1.0.0",
   "boxId": "hello-box",
   "modelId": "example-org-hello",
@@ -50,7 +52,7 @@ identity other than the one being built. The machine-readable definition is
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `schemaVersion` | yes | Always `1`. The [wire format is frozen](/reference/box-format#versioning) |
-| `recipeId` | yes | Must equal the recipe's directory name |
+| `recipeId` | no | Legacy provenance identity. When omitted, Scrollcase derives `<boxId>-<targetId>`; release schema v1 still records that derived value |
 | `recipeVersion` | yes | Version of the recipe itself — bump it when you change how the box is built |
 | `boxId` | yes | Identity of the box across versions. Appears in archive names, object keys, and the channel pointer |
 | `modelId` | yes | Identity of the packaged model |
@@ -60,6 +62,10 @@ identity other than the one being built. The machine-readable definition is
 
 `boxId`, `modelId` and `runtimeId` are lowercase identifiers (`^[a-z0-9]+(?:[-.][a-z0-9]+)*$`) in
 the published manifests — keep them to that shape.
+
+`recipeId` is accepted so an existing project can preserve the provenance identity already present
+in its published releases. New recipes omit it: `boxId` and `target` already contain the meaningful
+identity, and the derived value is deterministic.
 
 ::: tip Three identifiers, three questions
 `boxId` answers *which artefact is this a version of?*, `modelId` answers *what model is inside?*,
@@ -277,8 +283,9 @@ mutation:
 
 1. Parse `recipe.json` and validate its complete nested structure against the shipped recipe and
    target schemas.
-2. Require `recipeId` to match its directory, reject invalid target/entry-point combinations, and
-   reject default on-demand weights with `assetArchives`.
+2. For a nested recipe, require the parent and child directories to match `boxId` and the
+   canonical target; reject invalid target/entry-point combinations and default on-demand weights
+   with `assetArchives`. Flat recipes skip only the path-shape check.
 3. Resolve a build-time `--weights` override and repeat the archive/policy check.
 4. Require a matching native host, discover the exact tools, and require `pixi.lock`.
 5. Record Git provenance and reject a dirty tree unless `--allow-dirty` was explicit.

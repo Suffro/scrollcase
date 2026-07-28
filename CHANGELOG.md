@@ -4,6 +4,19 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Organise new recipes as `recipes/<boxId>/<targetId>/`, validating both path components against
+  the recipe's declared `boxId` and canonical target. `recipeId` is now optional input and is
+  derived as `<boxId>-<targetId>` for release provenance; existing flat recipes and explicit
+  provenance identities remain supported.
+- Let `lock`, `audit`, `build`, and recipe-aware `doctor` select a nested target through
+  `<boxId>/<targetId>`, `--target`, or an interactive choice. A sole host target is the default;
+  several host-buildable targets have no default, and non-terminal ambiguity fails with an explicit
+  `--target` remedy. `init` follows the same policy and scaffolds the nested layout.
+
 ## [0.1.3] — 2026-07-27
 
 ### Fixed

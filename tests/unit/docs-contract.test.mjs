@@ -104,7 +104,7 @@ describe('public documentation routes', () => {
       const markdown = await readFile(path, 'utf8');
       for (const match of markdown.matchAll(/^```json\n([\s\S]*?)^```$/gm)) {
         const example = JSON.parse(match[1]);
-        if (example?.recipeId) {
+        if (example?.schemaVersion === 1 && typeof example?.recipeVersion === 'string' && example?.target) {
           expect(validateRecipe(example), `${path}: ${ajv.errorsText(validateRecipe.errors)}`).toBe(true);
         }
       }

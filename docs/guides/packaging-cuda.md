@@ -25,7 +25,6 @@ only CUDA ABI the contract accepts.
 ```json
 {
   "schemaVersion": 1,
-  "recipeId": "my-model-linux-x86_64-cuda12.4",
   "recipeVersion": "1.0.0",
   "boxId": "my-model",
   "modelId": "example-org-my-model",
@@ -89,8 +88,8 @@ cuda-version = "12.4.*"
 Then resolve and commit the lock:
 
 ```sh
-scrollcase lock my-model-linux-x86_64-cuda12.4
-git add recipes/my-model-linux-x86_64-cuda12.4/pixi.lock
+scrollcase lock my-model/linux-x86_64-cuda12.4
+git add recipes/my-model/linux-x86_64-cuda12.4/pixi.lock
 ```
 
 Run those commands with Pixi `0.73.0`, because that is the exact version this example recipe pins;
@@ -109,8 +108,8 @@ Linux x86_64. There is no cross-building, because the self-test runs the box's o
 and that only proves anything on matching hardware.
 
 ```sh
-scrollcase doctor --recipe my-model-linux-x86_64-cuda12.4
-scrollcase build my-model-linux-x86_64-cuda12.4
+scrollcase doctor --recipe my-model/linux-x86_64-cuda12.4
+scrollcase build my-model/linux-x86_64-cuda12.4
 ```
 
 The self-test runs under the target's CUDA validation environment
@@ -151,7 +150,7 @@ This catches a broken BLAS, a mis-solved kernel, and a GPU path that silently fa
 box's own interpreter, on a matching native host:
 
 ```sh
-scrollcase verify .scrollcase/dist/my-model-1.0.0-linux-x86_64-cuda12.4.release.json --self-test
+scrollcase verify .scrollcase/dist/boxes/my-model/1.0.0/linux-x86_64-cuda12.4/*.release.json --self-test
 ```
 
 This consumer check does **not** repeat recipe `pythonCode`, so it does not by itself prove
@@ -166,8 +165,9 @@ two boxes:
 
 ```text
 recipes/
-├── my-model-linux-x86_64-cuda12.4/
-└── my-model-linux-x86_64-cuda12.8/
+└── my-model/
+    ├── linux-x86_64-cuda12.4/
+    └── linux-x86_64-cuda12.8/
 ```
 
 They share a `boxId` and `version` and differ in target, so they publish under distinct object

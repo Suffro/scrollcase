@@ -30,9 +30,9 @@ convention.
 
 | Key | Default | What lives there |
 | --- | --- | --- |
-| `paths.recipes` | `recipes` | One directory per recipe, each holding `recipe.json`, `pixi.toml`, and the committed `pixi.lock` |
+| `paths.recipes` | `recipes` | One directory per box, then one per target; each target holds `recipe.json`, `pixi.toml`, and the committed `pixi.lock` |
 | `paths.build` | `.scrollcase/build` | Payload scratch space, wiped and regenerated on every build |
-| `paths.dist` | `.scrollcase/dist` | Built artefacts: archives, signed documents, and the content-addressed `objects/` staging tree |
+| `paths.dist` | `.scrollcase/dist` | Built artefacts under publish-ready `boxes/` and `channels/` trees |
 | `paths.keys` | `.scrollcase/keys` | Local signing keys (`signing-private.pem`, `signing-public.json`) |
 | `paths.toolchain` | `.scrollcase/toolchain` | `pixi` and `conda-pack`, when `init` installed them for the project |
 
@@ -82,7 +82,7 @@ Each individual path is then resolved with its own precedence, highest first:
 Run against the example recipes shipped in the Scrollcase repository, from your own project:
 
 ```sh
-scrollcase build hello-box-macos-aarch64-metal --recipes-dir ../scrollcase/examples
+scrollcase build hello-box/macos-aarch64-metal --recipes-dir ../scrollcase/examples
 ```
 
 A monorepo that keeps packaging assets under `packaging/`:

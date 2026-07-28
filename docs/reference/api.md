@@ -177,7 +177,7 @@ client that computes the same hashes.
 ```js
 import { resolveWorkspace } from 'scrollcase/build';
 
-const workspace = resolveWorkspace({ cwd: '/work/my-project/recipes/my-model' });
+const workspace = resolveWorkspace({ cwd: '/work/my-project/recipes/my-model/macos-aarch64-metal' });
 // → { root, configPath, recipesDir, buildDir, distDir, keysDir, toolchainDir }
 ```
 
@@ -221,7 +221,7 @@ import { readFile } from 'node:fs/promises';
 import { createCondaDependencyLicenseAudit } from 'scrollcase/build';
 
 const audit = createCondaDependencyLicenseAudit({
-  lockBytes: await readFile('recipes/my-model/pixi.lock'),
+  lockBytes: await readFile('recipes/my-model/macos-aarch64-metal/pixi.lock'),
   targetId: 'macos-aarch64-metal',
 });
 // → { schemaVersion, kind, targetId, dependencyLockSha256, packages: [...] }

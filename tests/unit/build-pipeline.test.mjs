@@ -8,7 +8,7 @@ import * as tar from 'tar';
 import { buildBox } from '../../src/build/box.mjs';
 import { listZipEntries } from '../../src/build/archive.mjs';
 import { collectFiles, fileExists } from '../../src/build/filesystem.mjs';
-import { readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
+import { recipeCandidates, readRecipe, sourceBuildState } from '../../src/build/recipe.mjs';
 import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
 import { configureWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
 import { generateSigningKey } from '../../src/sign/index.mjs';
@@ -178,9 +178,57 @@ describe('the build pipeline', () => {
     return { root, recipeDir, keys, payloadDir: join(root, '.scrollcase', 'build', dirName, 'payload') };
   }
 
-  it('rejects a recipe whose declared identity does not match where it lives', async () => {
+  it('keeps loading a flat recipe without coupling its provenance identity to the directory', async () => {
     await makeProject({ ...RECIPE, recipeId: 'something-else' }, { commit: false });
-    await expect(readRecipe(RECIPE.recipeId)).rejects.toThrow(/does not match directory/);
+    const { recipe } = await readRecipe(RECIPE.recipeId);
+    expect(recipe.recipeId).toBe('something-else');
+  });
+
+  it('loads a nested recipe from semantic box and target directories without a recipeId', async () => {
+    const targetId = boxTargetId(RECIPE.target);
+    const { recipeId: _recipeId, ...recipeWithoutId } = RECIPE;
+    await makeProject(recipeWithoutId, { commit: false, dirName: `${RECIPE.boxId}/${targetId}` });
+
+    const candidates = await recipeCandidates(RECIPE.boxId);
+    expect(candidates.map(({ reference }) => reference)).toEqual([`${RECIPE.boxId}/${targetId}`]);
+    const loaded = await readRecipe(RECIPE.boxId);
+    expect(loaded.reference).toBe(`${RECIPE.boxId}/${targetId}`);
+    expect(loaded.recipe.recipeId).toBe(`${RECIPE.boxId}-${targetId}`);
+  });
+
+  it('requires an explicit target when a box contains several nested recipes', async () => {
+    const targetId = boxTargetId(RECIPE.target);
+    const { recipeId: _recipeId, ...recipeWithoutId } = RECIPE;
+    const { root } = await makeProject(recipeWithoutId, {
+      commit: false,
+      dirName: `${RECIPE.boxId}/${targetId}`,
+    });
+    const alternateTarget = RECIPE.target.platform === 'macos'
+      ? { ...RECIPE.target, accelerator: 'metal' }
+      : { ...RECIPE.target, accelerator: 'cuda', cudaVersion: '12.4' };
+    const alternateTargetId = boxTargetId(alternateTarget);
+    const alternateDir = join(root, 'recipes', RECIPE.boxId, alternateTargetId);
+    await mkdir(alternateDir, { recursive: true });
+    await writeFile(join(alternateDir, 'recipe.json'), `${JSON.stringify({
+      ...recipeWithoutId,
+      target: alternateTarget,
+    }, null, 2)}\n`);
+    await writeFile(join(alternateDir, 'pixi.toml'), '[project]\nname = "alternate"\n');
+    await writeFile(join(alternateDir, 'pixi.lock'), 'version: 6\n');
+
+    await expect(readRecipe(RECIPE.boxId)).rejects.toThrow(/multiple recipe targets/);
+    const selected = await readRecipe(RECIPE.boxId, { targetId: alternateTargetId });
+    expect(selected.reference).toBe(`${RECIPE.boxId}/${alternateTargetId}`);
+  });
+
+  it('rejects a nested path whose box or target directory contradicts the recipe', async () => {
+    const targetId = boxTargetId(RECIPE.target);
+    await makeProject(RECIPE, { commit: false, dirName: `wrong-box/${targetId}` });
+    await expect(readRecipe('wrong-box')).rejects.toThrow(/box directory wrong-box.*boxId example-model/);
+
+    resetWorkspace();
+    await makeProject(RECIPE, { commit: false, dirName: `${RECIPE.boxId}/wrong-target` });
+    await expect(readRecipe(RECIPE.boxId)).rejects.toThrow(/target directory wrong-target.*target macos-|target directory wrong-target.*target linux-|target directory wrong-target.*target windows-/);
   });
 
   it('rejects a recipe with no pixi version, and one whose entry point defies its target', async () => {
@@ -362,11 +410,12 @@ describe('the build pipeline', () => {
     // Everything under dist is either a box object or a channel pointer — no third category, and
     // no second copy of the archive under a friendlier name.
     const files = await collectFiles(dist);
-    expect(files.sort()).toEqual([
-      `boxes/${RECIPE.boxId}/${RECIPE.version}/${boxTargetId(RECIPE.target)}/${built.archiveSha256}.zip`,
-      expect.stringMatching(new RegExp(`(boxes\/example-model\/1.0.0\/macos-aarch64-cpu\/[a-f0-9]{64}.release.json)`)),
-      `channels/${RECIPE.boxId}/beta/${boxTargetId(RECIPE.target)}.json`,
-    ].sort());
+    const objectPrefix = `boxes/${RECIPE.boxId}/${RECIPE.version}/${boxTargetId(RECIPE.target)}`;
+    expect(files).toHaveLength(3);
+    expect(files).toContain(`${objectPrefix}/${built.archiveSha256}.zip`);
+    expect(files).toContain(`channels/${RECIPE.boxId}/beta/${boxTargetId(RECIPE.target)}.json`);
+    expect(files.filter((file) =>
+      new RegExp(`(${objectPrefix}\/[a-f0-9]{64}.release.json)`).test(file))).toHaveLength(1);
 
     // The object path is the one the signed documents publish under, so uploading dist/boxes as it
     // stands puts every object exactly where its own URL already says it is.

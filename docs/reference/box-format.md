@@ -118,7 +118,7 @@ cannot be dressed up after the fact:
 
 | Field | Meaning |
 | --- | --- |
-| `recipeId`, `recipeVersion` | Which recipe produced the box |
+| `recipeId`, `recipeVersion` | Which recipe produced the box. New recipe inputs derive `recipeId` as `<boxId>-<targetId>` |
 | `builderRevision` | The 40-hex commit of the source tree that built it |
 | `sourceTreeDirty` | Whether that tree had uncommitted changes. `true` means the build is **not** reproducible from the recorded revision alone |
 | `sourceRevision` | Upstream revision of the packaged model source, as declared by the recipe |

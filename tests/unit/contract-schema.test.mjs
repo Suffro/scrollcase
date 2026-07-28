@@ -73,6 +73,11 @@ describe('schemas describe what the builder actually emits', () => {
     for (const name of recipes) expectValid('recipe', readJson(new URL(name, directory)), name);
   });
 
+  it('accepts a recipe whose provenance identity will be derived from boxId and target', () => {
+    const { recipeId: _recipeId, ...recipe } = example('recipe');
+    expectValid('recipe', recipe, 'recipe without recipeId');
+  });
+
   it('accepts a real signed envelope and decodes the payload it wraps', () => {
     const signed = example('signed-release');
     expectValid('signed-document', signed, 'signed release');

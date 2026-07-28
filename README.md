@@ -60,16 +60,16 @@ cd scrollcase && npm install && npm link
 ## Quickstart
 
 ```sh
-scrollcase init                     # scaffold scrollcase.config.json, an example recipe, ignore rules
+scrollcase init                     # choose a target; scaffold config, recipe, and ignore rules
 scrollcase doctor                   # can this machine build?
 scrollcase keygen                   # create a local ed25519 signing key
-scrollcase lock my-recipe           # resolve the recipe's pixi manifest into pixi.lock
-scrollcase audit my-recipe          # licence inventory, derived from the lock
-scrollcase build my-recipe          # install, self-test, archive, sign
+scrollcase lock my-box/macos-aarch64-metal     # resolve the recipe's pixi manifest into pixi.lock
+scrollcase audit my-box/macos-aarch64-metal    # licence inventory, derived from the lock
+scrollcase build my-box/macos-aarch64-metal    # install, self-test, archive, sign
 scrollcase verify .scrollcase/dist/boxes/<box>/<version>/<target>/<sha256>.release.json --self-test
 ```
 
-The repository ships a working example, `examples/hello-box-macos-aarch64-metal`: a stdlib-only
+The repository ships a working example, `examples/hello-box/macos-aarch64-metal`: a stdlib-only
 Python 3.11 environment that exercises the whole pipeline in about a minute and produces a ~48 MB
 archive. Its final `verify --self-test` extracts the box and imports `json` and `sqlite3` with the
 interpreter *inside* it — the check that proves the environment runs somewhere other than where it

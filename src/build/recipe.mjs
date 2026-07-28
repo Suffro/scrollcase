@@ -1,16 +1,16 @@
 /**
  * Reading a recipe, and the provenance of the build that reads it.
  *
- * A recipe is the only input a build accepts, so it is validated before anything is installed: its
- * declared identity must match the directory it lives in, and its Python entry point must match the
- * layout its target implies. Both checks exist so a recipe cannot quietly build something other than
- * what its name says.
+ * A recipe is the only input a build accepts, so it is validated before anything is installed. In
+ * the nested layout, the meaningful declarations police the path: `boxId` names the parent and the
+ * canonical target names the child. The old flat layout remains readable, but its directory is not
+ * treated as a second source of identity. Python layout is checked against the target in either case.
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
-import { assertPythonEntryPoint, boxTargetAdapter } from '../contract/targets.mjs';
-import { safeRelativePath } from './filesystem.mjs';
+import { readFile, readdir } from 'node:fs/promises';
+import { join, resolve, sep } from 'node:path';
+import { assertPythonEntryPoint, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
+import { compareStableStrings, fileExists, safeRelativePath } from './filesystem.mjs';
 import { fail, runResult } from './process.mjs';
 import { schemaValidationError } from './schema-validation.mjs';
 import { getWorkspace } from './workspace.mjs';
@@ -25,22 +25,25 @@ async function loadRecipeSchemas() {
   return recipeSchemas;
 }
 
-/** Resolves a recipe name to its directory, refusing anything that escapes the recipes root. */
-export function recipeDirectory(name) {
+/** Resolves an exact recipe reference to its directory, refusing anything outside the recipes root. */
+export function recipeDirectory(reference) {
   const root = getWorkspace().recipesDir;
-  const path = resolve(root, name);
-  if (path !== root && !path.startsWith(`${root}${sep}`)) fail(`Invalid recipe: ${name}`);
+  const normalized = safeRelativePath(reference);
+  const path = resolve(root, ...normalized.split('/'));
+  if (path === root || !path.startsWith(`${root}${sep}`)) fail(`Invalid recipe: ${reference}`);
   return path;
 }
 
-/** Loads and sanity-checks a recipe, returning it with the target adapter it resolves to. */
-export async function readRecipe(name) {
-  const dir = recipeDirectory(name);
+/** Loads one exact flat or nested recipe reference and normalises its provenance identity. */
+async function readExactRecipe(reference) {
+  const normalized = safeRelativePath(reference);
+  const parts = normalized.split('/');
+  if (parts.length > 2) fail(`Invalid recipe reference ${reference}; use <boxId>/<targetId>.`);
+  const dir = recipeDirectory(normalized);
   const recipe = JSON.parse(await readFile(resolve(dir, 'recipe.json'), 'utf8'));
   const [recipeSchema, targetSchema] = await loadRecipeSchemas();
   const validationError = schemaValidationError(recipe, recipeSchema, [targetSchema]);
-  if (validationError) fail(`Invalid recipe ${name}: ${validationError}.`);
-  if (recipe.recipeId !== name) fail(`Recipe ID ${recipe.recipeId} does not match directory ${name}`);
+  if (validationError) fail(`Invalid recipe ${normalized}: ${validationError}.`);
   if (recipe.weights === 'on-demand' && (recipe.assetArchives ?? []).length > 0) {
     fail('on-demand weights cannot be combined with assetArchives, which are expanded at build time.');
   }
@@ -56,8 +59,83 @@ export async function readRecipe(name) {
   ];
   for (const path of payloadPaths) safeRelativePath(path);
   const adapter = boxTargetAdapter(recipe.target);
+  const targetId = boxTargetId(recipe.target);
+  if (parts.length === 2) {
+    const [boxDirectory, targetDirectory] = parts;
+    if (boxDirectory !== recipe.boxId) {
+      fail(`Nested recipe box directory ${boxDirectory} does not match recipe boxId ${recipe.boxId}.`);
+    }
+    if (targetDirectory !== targetId) {
+      fail(`Nested recipe target directory ${targetDirectory} does not match declared target ${targetId}.`);
+    }
+  }
   assertPythonEntryPoint(adapter, recipe.pythonEntryPoint);
-  return { adapter, dir, recipe };
+  return {
+    adapter,
+    dir,
+    recipe: {
+      ...recipe,
+      // `recipeId` remains required in release provenance schema v1. New recipes do not repeat a
+      // directory name just to populate it; the stable semantic identity is derived instead.
+      recipeId: recipe.recipeId ?? `${recipe.boxId}-${targetId}`,
+    },
+    reference: normalized,
+    targetId,
+  };
+}
+
+/**
+ * Lists the recipes named by a CLI/library reference.
+ *
+ * A direct `recipes/<name>/recipe.json` wins for compatibility with flat projects. Otherwise a
+ * single box name expands to its `recipes/<boxId>/<targetId>/` children. Every child is validated
+ * before it is offered, so a misleading directory never becomes a selectable target.
+ */
+export async function recipeCandidates(name) {
+  const reference = safeRelativePath(name);
+  const direct = recipeDirectory(reference);
+  if (await fileExists(join(direct, 'recipe.json'))) return [await readExactRecipe(reference)];
+  if (reference.includes('/')) fail(`Recipe not found: ${reference}.`);
+
+  let entries;
+  try {
+    entries = await readdir(direct, { withFileTypes: true });
+  } catch {
+    return fail(`Recipe or box not found: ${reference}.`);
+  }
+  const candidates = [];
+  for (const entry of entries.sort((left, right) => compareStableStrings(left.name, right.name))) {
+    if (!entry.isDirectory()) continue;
+    const nestedReference = `${reference}/${entry.name}`;
+    if (await fileExists(join(recipeDirectory(nestedReference), 'recipe.json'))) {
+      candidates.push(await readExactRecipe(nestedReference));
+    }
+  }
+  if (candidates.length === 0) fail(`Box ${reference} contains no target recipes.`);
+  return candidates;
+}
+
+/**
+ * Loads a recipe without prompting.
+ *
+ * Library callers may select a target explicitly. An unambiguous box shorthand is also accepted;
+ * ambiguity is a hard error here because only the CLI edge is allowed to ask a person.
+ */
+export async function readRecipe(name, { targetId = null } = {}) {
+  let candidates = await recipeCandidates(name);
+  if (targetId) {
+    candidates = candidates.filter((candidate) => candidate.targetId === targetId);
+    if (candidates.length === 0) {
+      fail(`Target ${targetId} is not available for ${name}.`);
+    }
+  }
+  if (candidates.length > 1) {
+    fail(
+      `Box ${name} has multiple recipe targets (${candidates.map((candidate) => candidate.targetId).join(', ')}); `
+      + 'use <boxId>/<targetId> or select a target explicitly.',
+    );
+  }
+  return candidates[0];
 }
 
 /**

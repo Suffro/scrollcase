@@ -13,7 +13,7 @@
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { boxTargetAdapters, condaSubdir } from '../contract/targets.mjs';
+import { boxTargetAdapters, boxTargetId, condaSubdir } from '../contract/targets.mjs';
 import { fileExists } from './filesystem.mjs';
 import { findCondaPack, findPixi, probeCondaPack, probePixi } from './pixi.mjs';
 import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
@@ -31,14 +31,13 @@ import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace
 const GITIGNORE_MARKER = '# scrollcase build state';
 
 /** The example a new project starts from: an environment with nothing in it but Python. */
-function exampleRecipe(recipeId, target) {
-  return {
+function exampleRecipe(boxId, target, recipeId = null) {
+  const recipe = {
     schemaVersion: 1,
-    recipeId,
     recipeVersion: '1.0.0',
-    boxId: 'example-box',
-    modelId: 'example-org-example-model',
-    runtimeId: 'example-box-runtime',
+    boxId,
+    modelId: `example-org-${boxId}`,
+    runtimeId: `${boxId}-runtime`,
     version: '1.0.0',
     sourceRevision: 'example-v1',
     target,
@@ -51,14 +50,18 @@ function exampleRecipe(recipeId, target) {
     assets: [],
     selfTest: { imports: ['json'], files: [] },
   };
+  // Accepted for callers migrating a provenance identity already in use. Fresh recipes omit the
+  // redundant field and let the reader derive `<boxId>-<targetId>` deterministically.
+  if (recipeId) recipe.recipeId = recipeId;
+  return recipe;
 }
 
-function exampleManifest(recipeId, target) {
+function exampleManifest(environmentName, target) {
   return `# Solved by \`scrollcase lock\` into pixi.lock, which is committed and reviewed.
 # \`platforms\` must equal the target's conda subdirectory, or the solve produces an environment
 # that cannot run on the machine the box is for.
 [workspace]
-name = "${recipeId}"
+name = "${environmentName}"
 channels = ["conda-forge"]
 platforms = ["${condaSubdir(target)}"]
 
@@ -72,7 +75,19 @@ python = "3.11.*"
  * state. Existing files are never overwritten — the command reports what it skipped and why, so a
  * half-configured project can be completed by running it again.
  */
-export async function initProject({ root, target, pixiVersion = null, recipeId = 'example-box-local' }) {
+export async function initProject({
+  root,
+  target,
+  pixiVersion = null,
+  boxId = 'example-box',
+  recipeId = null,
+}) {
+  if (!/^[a-z0-9]+(?:[-.][a-z0-9]+)*$/.test(boxId)) {
+    fail(`Invalid box ID ${boxId}; use lowercase letters, digits, dots and hyphens.`);
+  }
+  const targetId = boxTargetId(target);
+  const derivedRecipeId = `${boxId}-${targetId}`;
+  const recipeRef = `${boxId}/${targetId}`;
   const written = [];
   const skipped = [];
   const write = async (path, contents) => {
@@ -87,11 +102,11 @@ export async function initProject({ root, target, pixiVersion = null, recipeId =
     paths: { ...DEFAULT_WORKSPACE_PATHS },
   }, null, 2)}\n`);
 
-  const recipeDir = join(root, DEFAULT_WORKSPACE_PATHS.recipes, recipeId);
-  const recipe = exampleRecipe(recipeId, target);
+  const recipeDir = join(root, DEFAULT_WORKSPACE_PATHS.recipes, boxId, targetId);
+  const recipe = exampleRecipe(boxId, target, recipeId);
   if (pixiVersion) recipe.pixiVersion = pixiVersion;
   await write(join(recipeDir, 'recipe.json'), `${JSON.stringify(recipe, null, 2)}\n`);
-  await write(join(recipeDir, 'pixi.toml'), exampleManifest(recipeId, target));
+  await write(join(recipeDir, 'pixi.toml'), exampleManifest(derivedRecipeId, target));
 
   // Build state is regenerated on every build and must never be committed; the lock and the recipe
   // must be. Appending rather than rewriting leaves an existing .gitignore alone.
@@ -104,7 +119,15 @@ export async function initProject({ root, target, pixiVersion = null, recipeId =
   } else {
     skipped.push(gitignorePath);
   }
-  return { written, skipped, recipeId, recipeDir };
+  return {
+    written,
+    skipped,
+    recipeId: recipeId ?? derivedRecipeId,
+    recipeRef,
+    recipeDir,
+    boxId,
+    targetId,
+  };
 }
 
 /** Reads the project config back, so a toolchain pin is added to it rather than replacing it. */

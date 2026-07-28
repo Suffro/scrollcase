@@ -31,9 +31,9 @@ export type Sha256 = string;
 export interface BoxRecipe {
   schemaVersion: 1;
   /**
-   * Must equal the name of the directory holding this file, so a recipe cannot quietly claim an identity other than the one being built.
+   * Optional legacy provenance identity. New recipes derive it deterministically from boxId and the canonical target instead of repeating a directory name.
    */
-  recipeId: string;
+  recipeId?: string;
   recipeVersion: string;
   boxId: Identifier;
   modelId: Identifier;

@@ -1,19 +1,19 @@
 # Examples
 
-## `hello-box-macos-aarch64-metal`
+## `hello-box/macos-aarch64-metal`
 
 The smallest thing Scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
 packed into a relocatable box. No model weights, no assets, nothing to download beyond the
 interpreter itself — so it exercises the whole pipeline in about a minute and produces a ~48 MB
 archive you can inspect by hand.
 
-Run it from a project whose `scrollcase.config.json` points `recipes` at this directory:
+Run it from the Scrollcase checkout, using `examples/` as the recipes root:
 
 ```sh
-scrollcase lock hello-box-macos-aarch64-metal   # resolve pixi.toml into pixi.lock (already committed)
-scrollcase keygen                              # a local signing key
-scrollcase build hello-box-macos-aarch64-metal   # install, self-test, archive, sign
-scrollcase verify .scrollcase/dist/hello-box-1.0.0-macos-aarch64-metal.release.json --self-test
+scrollcase lock hello-box/macos-aarch64-metal --recipes-dir examples
+scrollcase keygen
+scrollcase build hello-box/macos-aarch64-metal --recipes-dir examples
+scrollcase verify .scrollcase/dist/boxes/hello-box/1.0.0/macos-aarch64-metal/*.release.json --self-test
 ```
 
 The last step extracts the archive and imports `json` and `sqlite3` with the interpreter *inside the

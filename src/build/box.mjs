@@ -64,7 +64,7 @@ async function writeLicenceAudit({ recipe, lockPath, payloadDir, projectRoot }) 
 
 /**
  * Builds, self-tests, archives, and signs the box a recipe describes — the whole pipeline the
- * module header narrates. `name` is the recipe directory under the workspace's recipes root;
+ * module header narrates. `name` is an exact recipe reference, or an unambiguous box shorthand;
  * options override signing, channel, weights mode, namespace, and toolchain paths. `run`,
  * `runResult`, and `fetchImpl` are the injection seams the tests use to substitute the toolchain
  * and asset transport.

@@ -7,7 +7,6 @@
   "additionalProperties": false,
   "required": [
     "schemaVersion",
-    "recipeId",
     "recipeVersion",
     "boxId",
     "modelId",
@@ -30,7 +29,7 @@
     "recipeId": {
       "type": "string",
       "minLength": 1,
-      "description": "Must equal the name of the directory holding this file, so a recipe cannot quietly claim an identity other than the one being built."
+      "description": "Optional legacy provenance identity. New recipes derive it deterministically from boxId and the canonical target instead of repeating a directory name."
     },
     "recipeVersion": {
       "type": "string",
