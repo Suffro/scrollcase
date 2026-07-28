@@ -211,6 +211,12 @@ scrollcase build <recipe> [--target <targetId>]
 | `--allow-dirty` | off | Permit a build from an uncommitted tree; recorded as `sourceTreeDirty: true` in the box |
 | `--signer-command` | none | Sign through an external command instead of the local key — see [Signing & Key Custody](/guides/signing-and-custody#external-signers) |
 
+Before starting the environment build, Scrollcase checks that signing is ready. If both default
+local key files are absent in a terminal, it asks `No signing keys were found. Generate them now?
+[Y/n]` and runs the same safe, non-overwriting generation as `keygen` when accepted. Without a
+terminal it fails immediately and tells the caller to run `scrollcase keygen`. An incomplete pair
+is never overwritten; an external signer instead requires its trusted public key to be present.
+
 `build` refuses to run when: the workspace is not a git checkout; the tree is dirty and
 `--allow-dirty` is absent; `pixi.lock` is missing; the pixi on hand is not the recipe's pinned
 version; or the host OS/architecture does not match the target — boxes are proven on the hardware

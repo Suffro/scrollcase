@@ -24,6 +24,7 @@ import { recipeCandidates, readRecipe } from './build/recipe.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
+import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -92,11 +93,12 @@ async function lock(name, flags) {
  * Only ever asks when both ends are a terminal. Without one — CI, a pipe — there is nobody to
  * answer, and silence must not be read as consent, so the answer is no.
  */
-async function confirm(question) {
+async function confirm(question, { defaultYes = false } = {}) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    return /^y(es)?$/i.test((await readline.question(`${question} [y/N] `)).trim());
+    const answer = (await readline.question(`${question} ${defaultYes ? '[Y/n]' : '[y/N]'} `)).trim();
+    return answer ? /^y(es)?$/i.test(answer) : defaultYes;
   } finally {
     readline.close();
   }
@@ -260,6 +262,14 @@ async function audit(name, flags) {
 
 async function build(name, flags) {
   const reference = await selectRecipeReference(name, flags);
+  const signing = {
+    ...keyPaths(flags),
+    signerCommand: text(flags, 'signer-command'),
+  };
+  await ensureBuildSigningKeys({
+    ...signing,
+    confirm: (question) => confirm(question, { defaultYes: true }),
+  });
   // Asked at the CLI edge and passed down: buildBox never reads a terminal itself.
   const channel = await chooseCliValue(
     'channel',
@@ -272,13 +282,12 @@ async function build(name, flags) {
     { flag: text(flags, 'weights') },
   );
   await buildBox(reference, {
-    ...keyPaths(flags),
+    ...signing,
     allowDirty: Boolean(flags.get('allow-dirty')),
     channel,
     weights,
     assetBaseUrl: text(flags, 'asset-base-url'),
     namespace: text(flags, 'namespace') || undefined,
-    signerCommand: text(flags, 'signer-command'),
     pixiPath: text(flags, 'pixi'),
     condaPackPath: text(flags, 'conda-pack'),
   });
@@ -362,6 +371,8 @@ Signing:
   --signer-command <cmd>     Sign through an external command instead of a local key.
                              It receives the payload on stdin and returns the signed
                              document as JSON on stdout; the result is verified locally.
+                             Before build work starts, missing local keys offer keygen
+                             interactively; without a terminal, run scrollcase keygen first.
 
 Workspace:
   Paths come from scrollcase.config.json at the project root, discovered by walking
