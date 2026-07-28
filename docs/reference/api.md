@@ -56,7 +56,7 @@ package. `npm run types:check` fails if either the schema-derived format types o
 declarations drift from their source.
 
 ::: info The pipeline verbs are CLI-only
-`build`, `verify`, `audit`, `lock`, `init` and `doctor` are not part of the exported surface.
+`build`, `verify`, `audit`, `lock`, `init`, `new scroll`, and `doctor` are not part of the exported surface.
 They orchestrate a process — spawning pixi, writing a workspace, exiting non-zero — and are
 driven through `scrollcase <verb>`. What is exported is what a *consumer* of boxes needs.
 :::

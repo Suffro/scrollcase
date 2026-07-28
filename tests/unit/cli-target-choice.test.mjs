@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -110,7 +110,7 @@ describe('CLI target selection', () => {
     expect(() => parseCliTarget('linux-x86_64-cuda')).toThrow(/complete target/);
   });
 
-  it.skipIf(process.platform !== 'darwin')('uses Metal for non-terminal init on macOS', async () => {
+  it('keeps init workspace-only and points to the authoring command', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
     created.push(root);
     const result = spawnSync(process.execPath, [
@@ -120,26 +120,45 @@ describe('CLI target selection', () => {
       '--no-install-toolchain',
     ], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
-    const scroll = JSON.parse(await readFile(
-      join(root, 'scrolls', 'example-box', 'macos-aarch64-metal', 'scroll.json'),
-      'utf8',
-    ));
-    expect(scroll.target.accelerator).toBe('metal');
+    expect(JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'))).toMatchObject({
+      version: 1,
+    });
+    expect(await readdir(join(root, 'scrolls'))).toEqual([]);
+    expect(result.stdout).toContain('Workspace initialized');
+    expect(result.stdout).toContain('Next: scrollcase new scroll');
   });
 
-  it('scaffolds the exact nested target supplied to non-terminal init', async () => {
+  it('creates the exact nested target supplied to non-terminal new scroll', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
     created.push(root);
+    const initialized = spawnSync(process.execPath, [
+      cli,
+      'init',
+      '--project-root', root,
+      '--no-install-toolchain',
+    ], { encoding: 'utf8' });
+    expect(initialized.status, initialized.stderr).toBe(0);
     const adapter = boxTargetAdapters().find(({ host }) =>
       host.platform === process.platform && host.arch === process.arch);
     const targetId = `${adapter.platform}-${adapter.arch}-cpu`;
     const result = spawnSync(process.execPath, [
       cli,
-      'init',
+      'new',
+      'scroll',
       '--project-root', root,
       '--target', targetId,
+      '--box-id', 'example-box',
+      '--model-id', 'example-org-example-model',
+      '--runtime-id', 'example-runtime',
+      '--version', '1.0.0',
+      '--scroll-version', '1.0.0',
+      '--source-revision', 'upstream-v1',
+      '--python-version', '3.11.15',
       '--pixi-version', '0.73.0',
-      '--no-install-toolchain',
+      '--min-host-app-version', '1.0.0',
+      '--asset-base-url', 'https://assets.example.org',
+      '--weights', 'embed',
+      '--execution', 'library-only',
     ], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
     const scrollPath = join(root, 'scrolls', 'example-box', targetId, 'scroll.json');
@@ -150,7 +169,25 @@ describe('CLI target selection', () => {
       arch: adapter.arch,
       accelerator: 'cpu',
     });
-    expect(result.stdout).toContain(`scrollcase build example-box/${targetId}`);
+    expect(scroll.execution).toBeUndefined();
+    expect(result.stdout).toContain(`Created scroll example-box/${targetId}`);
+    expect(result.stdout).toContain(`Next: scrollcase lock example-box/${targetId}`);
+  });
+
+  it('fails non-terminal missing input before writing anything', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
+    created.push(root);
+    const result = spawnSync(process.execPath, [
+      cli,
+      'new',
+      'scroll',
+      '--project-root', root,
+      '--box-id', 'incomplete',
+    ], { encoding: 'utf8' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/new scroll requires --target/);
+    expect(await readdir(root)).toEqual([]);
   });
 });
 

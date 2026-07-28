@@ -37,8 +37,8 @@ export function parseCliTarget(value) {
 }
 
 /**
- * Lists target families for `init`. CUDA is shown without an ABI version; selecting it is followed
- * by the separate version question that turns it into a complete canonical target.
+ * Lists target families for `new scroll`. CUDA is shown without an ABI version; selecting it is
+ * followed by the separate version question that turns it into a complete canonical target.
  */
 export function cliTargetFamilies(platform) {
   const families = [];

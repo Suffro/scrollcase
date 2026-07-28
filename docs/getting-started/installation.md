@@ -35,7 +35,7 @@ scrollcase help
 
 ## Let Scrollcase install the toolchain
 
-`scrollcase init` scaffolds a project and then **offers** to install what is missing:
+`scrollcase init` initializes a workspace and then **offers** to install what is missing:
 
 ```text
 This project needs pixi and conda-pack to build a box.
@@ -54,8 +54,8 @@ What you get is verified, not just fetched:
 - the verified digest is recorded under `toolchain` in `scrollcase.config.json`, so the next
   machine — a teammate's, a CI runner's — is checked against the value **your project committed**
   rather than whatever the server offers that day;
-- if the scroll carries no `pixiVersion` yet, the version that was actually installed is written
-  into it, so `lock` and `build` agree with the toolchain sitting next to them.
+- the managed toolchain pin is workspace state; each scroll created by `scrollcase new scroll`
+  still declares its own exact `pixiVersion`.
 
 For unattended setups, answer up front:
 
@@ -68,8 +68,9 @@ With no terminal to prompt — CI, a pipe — Scrollcase never installs anything
 what is missing. Silence is not consent.
 
 ::: tip Pin the version you want
-`--pixi-version 0.73.0` installs exactly that release. Without it, the newest release is resolved
-once and then pinned into the scroll, so the choice is still recorded rather than floating.
+`--pixi-version 0.73.0` installs exactly that release. Without it, the installed release or newest
+available release is used for the workspace toolchain; `new scroll` asks which exact version the
+individual scroll requires.
 :::
 
 ## Install the toolchain yourself
@@ -173,5 +174,6 @@ the self-test runs the box's own interpreter, which only proves anything on matc
 
 ## Next
 
-Continue with the [Quickstart](/getting-started/quickstart) to scaffold a project and build your
+Continue with the [Quickstart](/getting-started/quickstart) to initialize a workspace, author a
+scroll, and build your
 first box.

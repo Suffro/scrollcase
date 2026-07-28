@@ -9,7 +9,7 @@ description: Every Scrollcase command, flag, environment variable, and exit conv
 scrollcase <command> [options]
 ```
 
-Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `scrollcase help`
+Eight verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `scrollcase help`
 (or no command) prints the full usage text.
 
 Human-facing status lines use a small set of symbols (`✓`, `→`, `·`, `⚠`, `✗`). Their symbols are
@@ -48,36 +48,26 @@ the caller to pass `--target`. v2 accepts only the nested
 
 ## `init`
 
-Scaffold a project: a `scrollcase.config.json`, one example scroll (with its `pixi.toml`), and
-`.gitignore` rules for `.scrollcase/`. Scaffolding **never overwrites** — existing files are
-reported as `Kept`, so re-running on a half-configured project completes it.
+Initialize a workspace without inventing box identity, target, or execution metadata. It creates
+`scrollcase.config.json`, the configured `scrolls/` root, and `.gitignore` rules for
+`.scrollcase/`. Existing files are reported as `Kept`, so re-running is safe.
 
 `init` then offers to install `pixi` and `conda-pack` if they are missing. It downloads nothing
 before you say yes.
 
 ```sh
-scrollcase init [--target <targetId>]
-                [--platform macos|linux|windows] [--accelerator cpu|metal|cuda]
-                [--cuda-version <major.minor>] [--box-id <name>]
-                [--pixi-version <version>]
+scrollcase init [--pixi-version <version>]
                 [--install-toolchain | --no-install-toolchain]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--target` | ask | Complete canonical target, such as `macos-aarch64-metal` or `linux-x86_64-cuda12.4` |
-| `--platform` | this machine | Restrict an interactive target choice to this platform |
-| `--accelerator` | ask | Restrict the target choice to one accelerator |
-| `--cuda-version` | ask for CUDA | Required `major.minor` ABI component of a CUDA target |
-| `--pixi-version` | none | Pin the example scroll to this pixi release, and install exactly that one. Without it, the installed version is pinned for you; declining the install leaves `pixiVersion` for you to set |
-| `--box-id` | `example-box` | Box directory and declared `boxId` |
+| `--pixi-version` | installed or newest | Install exactly this pixi release when setup is approved |
 | `--install-toolchain` | ask | Install missing tools without prompting |
 | `--no-install-toolchain` | ask | Never install; just report what is missing |
 
-Without `--target`, `init` applies the same target-choice rule described above. On macOS, Metal is
-the default; on another host with multiple matching targets, a non-terminal invocation supplies
-`--target` or fails before writing anything. The scaffold lands at
-`scrolls/<boxId>/<targetId>/`.
+The final guidance is `Next: scrollcase new scroll`. Target and product flags passed to `init` are
+rejected with the same remedy instead of being silently ignored.
 
 ### The toolchain step
 
@@ -97,7 +87,8 @@ When you agree, `init`:
 4. records the verified pixi digest and the conda-pack version under `toolchain` in
    `scrollcase.config.json`, so later pixi installs are checked against the committed digest — see
    [Workspace Configuration](/reference/configuration#toolchain);
-5. writes the installed version into the scroll's `pixiVersion` if it had none.
+5. leaves each scroll to declare its own `pixiVersion`; tool installation is workspace setup, not
+   authoring.
 
 Nothing is added to `PATH` and nothing is installed system-wide; later commands find the tools
 because [tool discovery](#tool-discovery) looks in the toolchain directory. Deleting
@@ -105,6 +96,65 @@ because [tool discovery](#tool-discovery) looks in the toolchain directory. Dele
 
 Hosts pixi publishes builds for: macOS (arm64, x64), Linux (x64, arm64) and Windows (x64, arm64).
 On anything else `init` says so and leaves the install to you.
+
+## `new`
+
+Create one complete `scrolls/<boxId>/<targetId>/` input. With a terminal, free-form values are
+prompted and target, weights, execution kind, and script source use navigable menus. Without a
+terminal, every material value must be supplied explicitly and missing input fails before anything
+is written.
+
+```sh
+scrollcase new scroll
+scrollcase new scroll \
+  --target linux-x86_64-cpu \
+  --box-id example-model \
+  --model-id example-org-example-model \
+  --runtime-id example-runtime \
+  --version 1.0.0 \
+  --scroll-version 1.0.0 \
+  --source-revision upstream-v1 \
+  --python-version 3.11.15 \
+  --pixi-version 0.73.0 \
+  --min-host-app-version 1.0.0 \
+  --asset-base-url https://assets.example.org/boxes \
+  --weights embed \
+  --execution library-only
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `--target` | Complete canonical target; CUDA IDs include the ABI, such as `linux-x86_64-cuda12.4` |
+| `--box-id` | Box identity and parent directory |
+| `--model-id` | Packaged model identity |
+| `--runtime-id` | Runtime identity |
+| `--version` | Box version |
+| `--scroll-version` | Version of the authoring input |
+| `--source-revision` | Upstream revision recorded in provenance |
+| `--python-version` | Python dependency version written into `pixi.toml` |
+| `--pixi-version` | Exact resolver version required by `lock` and `build` |
+| `--min-host-app-version` | Required compatibility floor |
+| `--max-host-app-version-exclusive` | Optional compatibility ceiling |
+| `--min-macos-version` | Optional macOS floor |
+| `--min-ram-gb` | Optional positive RAM requirement |
+| `--min-nvidia-driver-version` | Optional NVIDIA driver floor |
+| `--asset-base-url` | Base URL copied into built release metadata |
+| `--weights` | `embed` or `on-demand` |
+| `--execution` | `python-script`, `python-module`, or `library-only` |
+| `--script` | Existing project-relative Python script |
+| `--generate-script` | Generate a minimal starter instead of using an existing script |
+| `--script-destination` | Safe payload path, default `entrypoint.py` |
+| `--generated-script-path` | Project path for the generated source |
+| `--module` | Strict dotted Python module name |
+| `--default-args` | JSON array of default application arguments |
+
+For `python-script`, choose exactly one of `--script` and `--generate-script`. Scrollcase hashes the
+exact source bytes into `localFiles`, refuses traversal and non-regular sources, and never
+overwrites an existing source or scroll. `library-only` omits execution metadata.
+
+Execution metadata is authored in Phase 2 but deliberately refused by the builder until the
+execution-aware manifest and verifier work lands atomically; silently dropping it would create a
+box that contradicts its scroll.
 
 ## `doctor`
 
@@ -207,7 +257,7 @@ scrollcase build <scroll> [--target <targetId>]
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--target` | ask when a box has several scrolls | Canonical target scroll to build |
-| `--channel` | `beta` | Channel the signed pointer names. The menu suggests `beta`, `stable`, and `nightly`; an explicit flag may supply a custom project channel |
+| `--channel` | `beta` | Channel the signed pointer names. The v2 vocabulary is closed to `nightly`, `beta`, and `stable` |
 | `--weights` | scroll's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the consumer to fetch and verify at install time |
 | `--asset-base-url` | scroll's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |
 | `--namespace` | `scrollcase.box` | Document `kind` namespace — a project with boxes already in the field keeps emitting its own |

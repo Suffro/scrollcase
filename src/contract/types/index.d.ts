@@ -132,6 +132,12 @@ export interface BoxScroll {
    */
   weights?: 'embed' | 'on-demand';
   /**
+   * How a consumer may start the box. Omit this property for a library-only box.
+   */
+  execution?: {
+    [k: string]: unknown;
+  };
+  /**
    * An optional numerical gate: run a check inside the box on more than one accelerator and require the results to agree. This catches a mis-solved environment — CPU-only wheels shipped as CUDA, a broken BLAS — on the build machine rather than on a user's. The tool runs the check and enforces the thresholds; what the check computes, and what closeness is acceptable, belong to the project.
    */
   parity?: {

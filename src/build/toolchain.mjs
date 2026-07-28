@@ -1,7 +1,7 @@
 /**
  * Installing the build toolchain, only when a human says so.
  *
- * `init` scaffolds a project without touching the network. When pixi or conda-pack is missing it
+ * `init` prepares a workspace without touching the network. When pixi or conda-pack is missing it
  * *offers* to install them and downloads nothing until an explicit yes. That consent is the design,
  * not a courtesy: a command that quietly fetched and ran a binary would be one nobody dares re-run,
  * and the whole point of `init` is that it is always safe to run again.

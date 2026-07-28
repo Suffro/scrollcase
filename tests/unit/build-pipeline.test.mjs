@@ -300,6 +300,27 @@ describe('the build pipeline', () => {
     expect(calls).toEqual([]);
   });
 
+  it('refuses authored execution metadata until the execution-aware builder phase', async () => {
+    const { keys } = await makeProject({
+      ...SCROLL,
+      execution: {
+        kind: 'python-module',
+        module: 'example_model.main',
+        defaultArgs: [],
+      },
+    });
+    const calls = [];
+    await expect(buildBox(SCROLL_REF, {
+      ...keys,
+      runResult: (...args) => {
+        calls.push(args);
+        return { status: 0, stdout: '' };
+      },
+      log: () => {},
+    })).rejects.toThrow(/execution-aware builder is not available yet/);
+    expect(calls).toEqual([]);
+  });
+
   it('rejects a channel outside the v2 contract before tool discovery', async () => {
     const { keys } = await makeProject();
     const calls = [];

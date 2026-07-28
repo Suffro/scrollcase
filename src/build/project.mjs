@@ -1,9 +1,9 @@
 /**
  * Setting a project up, and telling it what is wrong.
  *
- * `init` scaffolds files; `doctor` inspects and never writes. Keeping that line sharp is what makes
- * `doctor` safe to run at any time, including inside CI, and what stops `init` from being the
- * command nobody dares re-run.
+ * `init` scaffolds only the workspace; `doctor` inspects and never writes. Scroll authoring is a
+ * separate operation because a workspace may carry many boxes and targets, and inventing one
+ * example during setup made the first real scroll an edit of placeholder product metadata.
  *
  * `init` may also install the build toolchain, but only after asking: scaffolding never reaches for
  * the network on its own, and the download is verified against a pinned checksum. See
@@ -13,7 +13,6 @@
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { boxTargetAdapters, boxTargetId, condaSubdir } from '../contract/targets.mjs';
 import { fileExists } from './filesystem.mjs';
 import { findCondaPack, findPixi, probeCondaPack, probePixi } from './pixi.mjs';
 import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
@@ -30,64 +29,16 @@ import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace
 // makes an already-scaffolded project look unmarked and append the rules a second time.
 const GITIGNORE_MARKER = '# scrollcase build state';
 
-/** The example a new project starts from: an environment with nothing in it but Python. */
-function exampleScroll(boxId, target, scrollId = null) {
-  const scroll = {
-    schemaVersion: 2,
-    scrollVersion: '1.0.0',
-    boxId,
-    modelId: `example-org-${boxId}`,
-    runtimeId: `${boxId}-runtime`,
-    version: '1.0.0',
-    sourceRevision: 'example-v1',
-    target,
-    compatibility: { minHostAppVersion: '1.0.0' },
-    pythonVersion: '3.11',
-    pixiVersion: null,
-    pythonEntryPoint: boxTargetAdapters().find((adapter) => adapter.platform === target.platform).python.entryPoint,
-    modelCacheSubdir: 'model-cache/example',
-    assetBaseUrl: 'https://example.org/boxes',
-    assets: [],
-    selfTest: { imports: ['json'], files: [] },
-  };
-  // A caller may supply an explicit provenance identity. Fresh scrolls omit the redundant field
-  // and let the reader derive `<boxId>-<targetId>` deterministically.
-  if (scrollId) scroll.scrollId = scrollId;
-  return scroll;
-}
-
-function exampleManifest(environmentName, target) {
-  return `# Solved by \`scrollcase lock\` into pixi.lock, which is committed and reviewed.
-# \`platforms\` must equal the target's conda subdirectory, or the solve produces an environment
-# that cannot run on the machine the box is for.
-[workspace]
-name = "${environmentName}"
-channels = ["conda-forge"]
-platforms = ["${condaSubdir(target)}"]
-
-[dependencies]
-python = "3.11.*"
-`;
-}
-
 /**
- * Scaffolds a project: a workspace config, one example scroll, and the ignore rules for generated
- * state. Existing files are never overwritten — the command reports what it skipped and why, so a
- * half-configured project can be completed by running it again.
+ * Scaffolds a workspace config, the scroll root, and ignore rules for generated state.
+ *
+ * It deliberately creates no scroll. Existing files are never overwritten, so a half-configured
+ * workspace can be completed by running the command again without changing authored inputs.
  */
 export async function initProject({
   root,
-  target,
-  pixiVersion = null,
-  boxId = 'example-box',
-  scrollId = null,
+  scrollsDir = join(root, DEFAULT_WORKSPACE_PATHS.scrolls),
 }) {
-  if (!/^[a-z0-9]+(?:[-.][a-z0-9]+)*$/.test(boxId)) {
-    fail(`Invalid box ID ${boxId}; use lowercase letters, digits, dots and hyphens.`);
-  }
-  const targetId = boxTargetId(target);
-  const derivedScrollId = `${boxId}-${targetId}`;
-  const scrollRef = `${boxId}/${targetId}`;
   const written = [];
   const skipped = [];
   const write = async (path, contents) => {
@@ -102,11 +53,11 @@ export async function initProject({
     paths: { ...DEFAULT_WORKSPACE_PATHS },
   }, null, 2)}\n`);
 
-  const scrollDir = join(root, DEFAULT_WORKSPACE_PATHS.scrolls, boxId, targetId);
-  const scroll = exampleScroll(boxId, target, scrollId);
-  if (pixiVersion) scroll.pixiVersion = pixiVersion;
-  await write(join(scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
-  await write(join(scrollDir, 'pixi.toml'), exampleManifest(derivedScrollId, target));
+  if (await fileExists(scrollsDir)) skipped.push(scrollsDir);
+  else {
+    await mkdir(scrollsDir, { recursive: true });
+    written.push(scrollsDir);
+  }
 
   // Build state is regenerated on every build and must never be committed; the lock and the scroll
   // must be. Appending rather than rewriting leaves an existing .gitignore alone.
@@ -122,11 +73,8 @@ export async function initProject({
   return {
     written,
     skipped,
-    scrollId: scrollId ?? derivedScrollId,
-    scrollRef,
-    scrollDir,
-    boxId,
-    targetId,
+    root,
+    scrollsDir,
   };
 }
 
@@ -136,16 +84,6 @@ async function readConfig(configPath) {
   return JSON.parse(await readFile(configPath, 'utf8'));
 }
 
-/** Pins a scaffolded scroll to the pixi it will use, without overwriting an explicit choice. */
-async function pinScrollPixiVersion(scrollPath, version) {
-  if (!scrollPath || !version || !await fileExists(scrollPath)) return false;
-  const scroll = JSON.parse(await readFile(scrollPath, 'utf8'));
-  if (scroll.pixiVersion) return false;
-  scroll.pixiVersion = version;
-  await writeFile(scrollPath, `${JSON.stringify(scroll, null, 2)}\n`);
-  return true;
-}
-
 /**
  * Installs the build toolchain into the project, if it is missing and only if allowed.
  *
@@ -153,9 +91,9 @@ async function pinScrollPixiVersion(scrollPath, version) {
  * passes a flag, and CI without a terminal answers no. Nothing is downloaded before it returns
  * true, which is what keeps `init` a command that is always safe to run.
  *
- * The pixi version is the scroll's pin when there is one, the installed pixi's version when one is
- * already present, and otherwise the newest release — resolved once and then written into the
- * scroll, because a toolchain nobody pinned is a box nobody can reproduce.
+ * The pixi version is the caller's requested pin, the installed pixi's version when one is already
+ * present, and otherwise the newest release. Managed installs record that choice and the verified
+ * archive digest in the workspace config; each scroll separately declares which resolver it uses.
  *
  * The archive's verified digest and managed conda-pack version are recorded under `toolchain` in
  * the project config. The first pixi install trusts the checksum published beside the release;
@@ -166,7 +104,6 @@ export async function ensureToolchain({
   workspace,
   pixiVersion = null,
   confirm,
-  scrollPath = null,
   host = process,
   fetchImpl = fetch,
   run = defaultRun,
@@ -182,13 +119,11 @@ export async function ensureToolchain({
   const condaPack = probeCondaPack({ runResult });
   const missing = [!pixi && 'pixi', !condaPack && 'conda-pack'].filter(Boolean);
   if (missing.length === 0) {
-    const pinnedScroll = await pinScrollPixiVersion(scrollPath, pixi.version);
     return {
       installed: [],
       missing: [],
       pixiVersion: pixi.version,
       condaPackVersion: CONDA_PACK_VERSION,
-      pinnedScroll,
       declined: false,
     };
   }
@@ -206,7 +141,7 @@ export async function ensureToolchain({
   if (!pixi) {
     if (!version) {
       version = await latestPixiVersion({ fetchImpl });
-      log(`Newest pixi release is ${version}; pinning the scroll to it.`);
+      log(`Newest pixi release is ${version}; recording it for the workspace toolchain.`);
     }
     const pinned = config.toolchain?.pixi?.version === version
       ? config.toolchain?.pixi?.assets?.[pixiReleaseAsset(host).asset] ?? null
@@ -243,16 +178,12 @@ export async function ensureToolchain({
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   }
 
-  // A scroll scaffolded without a pin gets the version that was just installed, so `lock` and
-  // `build` agree with the toolchain sitting next to them.
-  const pinnedScroll = await pinScrollPixiVersion(scrollPath, version);
   return {
     installed,
     missing: [],
     declined: false,
     pixiVersion: version,
     condaPackVersion: CONDA_PACK_VERSION,
-    pinnedScroll,
     configPath,
   };
 }

@@ -60,7 +60,8 @@ cd scrollcase && npm install && npm link
 ## Quickstart
 
 ```sh
-scrollcase init                     # choose a target; scaffold config, scroll, and ignore rules
+scrollcase init                     # initialize config, scrolls root, and ignore rules
+scrollcase new scroll               # guided creation of one target-specific scroll
 scrollcase doctor                   # can this machine build?
 scrollcase keygen                   # create a local ed25519 signing key
 scrollcase lock my-box/macos-aarch64-metal     # resolve the scroll's pixi manifest into pixi.lock
@@ -79,7 +80,8 @@ was built. See [examples/README.md](examples/README.md).
 
 | Command | What it does |
 | --- | --- |
-| `init` | Scaffold a config, an example scroll, and ignore rules |
+| `init` | Initialize a workspace without inventing a scroll |
+| `new scroll` | Create one guided target-specific scroll |
 | `doctor` | Report whether this machine can build a box |
 | `keygen` | Create a local ed25519 signing key |
 | `lock <scroll>` | Resolve the scroll's pixi manifest into `pixi.lock` |

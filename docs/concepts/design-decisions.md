@@ -173,6 +173,19 @@ A tool that derives its paths from its own location on disk only works while it 
 project it serves. Making the layout the project's declaration is what lets Scrollcase run from
 anywhere against any project that declares one.
 
+## Workspace setup and scroll authoring are separate
+
+`scrollcase init` creates only project structure and may offer the shared verified toolchain.
+`scrollcase new scroll` owns box identity, target, versions, compatibility, weights, and execution
+intent. A non-terminal authoring call must provide every material value and fails before writing
+when one is missing; an interactive terminal uses the same finite-choice menus as the rest of the
+CLI. Neither path overwrites an existing scroll or source script.
+
+**Rejected:** having `init` invent an example box and target. A workspace can carry many unrelated
+boxes, so setup has no principled answer for product identity or execution behavior. The placeholder
+made the first real scroll an edit of guessed metadata and coupled toolchain installation to one
+arbitrary input.
+
 ## Scrolls are grouped by box, then target
 
 The default layout is `scrolls/<boxId>/<targetId>/`. Both directory names are checked against the

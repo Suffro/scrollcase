@@ -24,6 +24,10 @@ value is written twice inside `scroll.json`. Flat source directories are not acc
 The machine-readable definition is [`scroll.schema.json`](/schema/v2/scroll.schema.json), also shipped
 through the package export. See [JSON Schemas](/reference/schemas).
 
+Create a new target-specific input with `scrollcase new scroll`. The interactive wizard and its
+non-terminal flags derive the target layout and Python entry point, generate the matching
+`pixi.toml`, and refuse to overwrite an existing scroll.
+
 ## A complete example
 
 ```json
@@ -117,6 +121,40 @@ python = "3.11.*"
 
 `platforms` must equal the target's conda subdirectory — `osx-arm64`, `linux-64`, or `win-64` —
 or the solve produces an environment that cannot run on the machine the box is for.
+
+## Execution intent
+
+`execution` records how a future consumer may start the box:
+
+```jsonc
+"execution": {
+  "kind": "python-script",
+  "script": "app/main.py",
+  "defaultArgs": ["--serve"]
+}
+```
+
+or:
+
+```jsonc
+"execution": {
+  "kind": "python-module",
+  "module": "example_model.main",
+  "defaultArgs": []
+}
+```
+
+Omit `execution` for a library-only box. `scrollcase new scroll` presents the three authoring
+choices as `python-script`, `python-module`, and `library-only`; the last one deliberately emits no
+execution object.
+
+Script authoring either hashes an existing regular project file or generates a minimal starter.
+The exact SHA-256 is recorded in `localFiles`, the payload path is traversal-checked, and neither an
+existing source nor an existing scroll is overwritten.
+
+At the Phase 2 checkpoint this metadata is authoring-only. `build` refuses a scroll that declares
+it until the execution-aware builder and verifier adopt the field together; silently discarding it
+would make the box contradict its scroll.
 
 ## Compatibility
 

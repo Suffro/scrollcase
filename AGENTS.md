@@ -150,8 +150,9 @@ without reading each hit.
   envelope and namespacing (`documents.mjs`), `schema/`, `fixtures/`, generated `types/`.
 - `src/build/` — solving and packing (`pixi.mjs`), toolchain bootstrap (`toolchain.mjs`), relocation
   repair (`launchers.mjs`), archive and filesystem primitives, the lock-derived licence audit,
-  workspace resolution, scroll reading and provenance, asset staging, the build core (`box.mjs`),
-  `verify.mjs`, `audit.mjs`, `project.mjs` (init/doctor), and the parity gate.
+  workspace resolution, scroll authoring (`authoring.mjs`), reading and provenance (`scroll.mjs`),
+  asset staging, the build core (`box.mjs`), `verify.mjs`, `audit.mjs`, `project.mjs`
+  (init/doctor), and the parity gate.
 - `src/sign/` — key generation, local signing, external-signer dispatch, verification.
 - `src/cli.mjs` — argument parsing and dispatch. `scripts/` — dev tooling, not shipped.
 - `examples/` — a working scroll that builds in about a minute. `docs/` — the VitePress site.

@@ -54,6 +54,7 @@ async function readExactScroll(reference) {
     ...(scroll.localFiles ?? []).flatMap((file) => [file.sourcePath, file.relativePath]),
     ...(scroll.prunePaths ?? []),
     ...scroll.selfTest.files,
+    ...(scroll.execution?.kind === 'python-script' ? [scroll.execution.script] : []),
     ...(scroll.parity ? [scroll.parity.script] : []),
     ...(scroll.condaDependencyLicenseAudit ? [scroll.condaDependencyLicenseAudit] : []),
   ];

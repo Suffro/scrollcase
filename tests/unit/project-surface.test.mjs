@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { auditScroll } from '../../src/build/audit.mjs';
+import { createScroll } from '../../src/build/authoring.mjs';
 import { diagnose, initProject } from '../../src/build/project.mjs';
 import { fileExists } from '../../src/build/filesystem.mjs';
 import { configureWorkspace, getWorkspace, resetWorkspace } from '../../src/build/workspace.mjs';
@@ -39,32 +40,24 @@ describe('setting a project up', () => {
     return root;
   }
 
-  it('scaffolds a config, an example scroll, and ignore rules', async () => {
+  it('scaffolds only the workspace config, scrolls directory, and ignore rules', async () => {
     const root = await emptyProject();
-    const result = await initProject({ root, target: TARGET, pixiVersion: '0.73.0' });
+    const result = await initProject({ root });
     expect(result.written.length).toBeGreaterThan(0);
     expect(result.skipped).toEqual([]);
 
     const config = JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'));
     expect(config.version).toBe(1);
-    const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
-    expect(scroll.scrollId).toBeUndefined();
-    expect(scroll.target).toEqual(TARGET);
-    expect(scroll.pixiVersion).toBe('0.73.0');
-    expect(scroll.pythonEntryPoint).toBe('venv/bin/python');
-    expect(result.scrollRef).toBe('example-box/macos-aarch64-metal');
-    expect(result.scrollDir).toBe(join(root, 'scrolls', 'example-box', 'macos-aarch64-metal'));
-    // The manifest's platform must be the target's conda subdirectory, or the solve is for the
-    // wrong machine.
-    expect(await readFile(join(result.scrollDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["osx-arm64"]');
+    expect(await fileExists(join(root, 'scrolls'))).toBe(true);
+    expect(await fileExists(join(root, 'scrolls', 'example-box'))).toBe(false);
     expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.scrollcase/');
   });
 
   it('never overwrites what is already there, so it is safe to re-run', async () => {
     const root = await emptyProject();
     await writeFile(join(root, '.gitignore'), 'node_modules/\n');
-    const first = await initProject({ root, target: TARGET });
-    const second = await initProject({ root, target: TARGET });
+    const first = await initProject({ root });
+    const second = await initProject({ root });
     expect(second.written).toEqual([]);
     expect(second.skipped.length).toBe(first.written.length);
     // An existing .gitignore is appended to, not replaced.
@@ -73,16 +66,6 @@ describe('setting a project up', () => {
     expect(gitignore).toContain('.scrollcase/');
   });
 
-  it('scaffolds for a platform other than the one running it', async () => {
-    const root = await emptyProject();
-    const result = await initProject({
-      root,
-      target: { platform: 'windows', arch: 'x86_64', accelerator: 'cuda', cudaVersion: '12.8' },
-    });
-    const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
-    expect(scroll.pythonEntryPoint).toBe('venv/python.exe');
-    expect(await readFile(join(result.scrollDir, 'pixi.toml'), 'utf8')).toContain('platforms = ["win-64"]');
-  });
 });
 
 describe('diagnosing a machine', () => {
@@ -165,12 +148,28 @@ describe('auditing dependency licences', () => {
   async function projectWithLock({ auditPath = 'legal/audit.json' } = {}) {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-audit-')));
     created.push(root);
-    const result = await initProject({ root, target: TARGET, pixiVersion: '0.73.0' });
+    await initProject({ root });
+    configureWorkspace({ cwd: root });
+    const result = await createScroll({
+      workspace: getWorkspace(),
+      boxId: 'example-model',
+      target: TARGET,
+      modelId: 'example-org-example-model',
+      runtimeId: 'example-runtime',
+      version: '1.0.0',
+      scrollVersion: '1.0.0',
+      sourceRevision: 'upstream-v1',
+      pythonVersion: '3.11.15',
+      pixiVersion: '0.73.0',
+      compatibility: { minHostAppVersion: '1.0.0' },
+      assetBaseUrl: 'https://assets.example.org',
+      weights: 'embed',
+      executionKind: 'library-only',
+    });
     const scroll = JSON.parse(await readFile(join(result.scrollDir, 'scroll.json'), 'utf8'));
     if (auditPath) scroll.condaDependencyLicenseAudit = auditPath;
     await writeFile(join(result.scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
     await writeFile(join(result.scrollDir, 'pixi.lock'), LOCK);
-    configureWorkspace({ cwd: root });
     return { root, scrollRef: result.scrollRef };
   }
 

@@ -91,6 +91,12 @@ export async function buildBox(name, options = {}) {
   const probe = runResult ? { runResult } : {};
   const workspace = getWorkspace();
   const { adapter, dir, scroll } = await readScroll(name);
+  // Phase 2 records execution intent while authoring, but silently dropping it from box.json and
+  // the signed release would produce a box that cannot do what its scroll claims. Refuse until the
+  // execution-aware builder and verifier adopt the field together.
+  if (scroll.execution) {
+    fail('This scroll declares execution metadata, but the execution-aware builder is not available yet.');
+  }
   const weightsMode = weights || scroll.weights || 'embed';
   if (!CHANNELS.includes(channel)) {
     fail(`Unsupported channel: ${channel}. Use ${CHANNELS.join(' or ')}.`);

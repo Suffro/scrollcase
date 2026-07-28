@@ -97,7 +97,18 @@ scrollcase init
 
 This creates the initial project structure.
 
-### 3. Generate a Signing Key
+### 3. Create a Scroll
+
+Run:
+
+```bash
+scrollcase new scroll
+```
+
+This guided command creates one target-specific `scroll.json` and `pixi.toml` without overwriting
+existing source or scroll files.
+
+### 4. Generate a Signing Key
 
 Run:
 
@@ -214,7 +225,13 @@ The practical workflow for the first box is:
 scrollcase init
 ```
 
-### 2. Write the Scroll
+### 2. Create or Update the Scroll
+
+Start a new one with:
+
+```bash
+scrollcase new scroll
+```
 
 Define:
 

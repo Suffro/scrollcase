@@ -18,7 +18,6 @@ import {
 } from '../../src/build/toolchain.mjs';
 import { resetWorkspace } from '../../src/build/workspace.mjs';
 
-const TARGET = { platform: 'macos', arch: 'aarch64', accelerator: 'metal' };
 const HOST = { platform: 'darwin', arch: 'arm64' };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -182,8 +181,8 @@ describe('offering the toolchain during init', () => {
 
   async function project() {
     const root = await scratch('scrollcase-init-');
-    const result = await initProject({ root, target: TARGET });
-    return { root, ...result, workspace: { root, toolchainDir: join(root, '.scrollcase', 'toolchain') } };
+    await initProject({ root });
+    return { root, workspace: { root, toolchainDir: join(root, '.scrollcase', 'toolchain') } };
   }
 
   it('downloads nothing when the answer is no', async () => {
@@ -201,12 +200,11 @@ describe('offering the toolchain during init', () => {
     expect(await fileExists(join(root, '.scrollcase', 'toolchain'))).toBe(false);
   });
 
-  it('asks only for what is missing, and pins the scroll without asking when both are present', async () => {
-    const { workspace, scrollDir } = await project();
+  it('asks only for what is missing when both tools are already present', async () => {
+    const { workspace } = await project();
     const asked = [];
     const outcome = await ensureToolchain({
       workspace,
-      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async (missing) => { asked.push(missing); return false; },
       runResult: presentTools({ pixi: '0.73.0', condaPack: true }),
       fetchImpl: async () => { throw new Error('the network must not be touched'); },
@@ -215,19 +213,15 @@ describe('offering the toolchain during init', () => {
     expect(asked).toEqual([]);
     expect(outcome.missing).toEqual([]);
     expect(outcome.pixiVersion).toBe('0.73.0');
-    expect(outcome.pinnedScroll).toBe(true);
-    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
-    expect(scroll.pixiVersion).toBe('0.73.0');
   });
 
-  it('records both managed toolchain pins and pins the scroll after installation', async () => {
-    const { workspace, root, scrollDir } = await project();
+  it('records both managed toolchain pins after installation', async () => {
+    const { workspace, root } = await project();
     const { bytes } = await fakePixiRelease();
     const condaPackPath = toolchainPaths(workspace.toolchainDir).condaPack;
     const outcome = await ensureToolchain({
       workspace,
       pixiVersion: '0.73.0',
-      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async () => true,
       host: HOST,
       runResult: presentTools({ pixi: null, condaPack: false }),
@@ -247,19 +241,14 @@ describe('offering the toolchain during init', () => {
     expect(config.toolchain.pixi.version).toBe('0.73.0');
     expect(config.toolchain.pixi.assets['pixi-aarch64-apple-darwin.tar.gz']).toBe(sha256(bytes));
     expect(config.toolchain.condaPack).toEqual({ version: CONDA_PACK_VERSION });
-    // The scaffolded scroll carried no pin; it now names the pixi that was actually installed.
-    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
-    expect(scroll.pixiVersion).toBe('0.73.0');
-    expect(outcome.pinnedScroll).toBe(true);
   });
 
   it('installs the requested pixi when a different resolver version is already present', async () => {
-    const { workspace, scrollDir } = await project();
+    const { workspace } = await project();
     const { bytes } = await fakePixiRelease();
     const outcome = await ensureToolchain({
       workspace,
       pixiVersion: '0.73.0',
-      scrollPath: join(scrollDir, 'scroll.json'),
       confirm: async (missing) => {
         expect(missing).toEqual(['pixi']);
         return true;
@@ -272,8 +261,6 @@ describe('offering the toolchain during init', () => {
 
     expect(outcome.installed).toEqual(['pixi 0.73.0']);
     expect(outcome.pixiVersion).toBe('0.73.0');
-    const scroll = JSON.parse(await readFile(join(scrollDir, 'scroll.json'), 'utf8'));
-    expect(scroll.pixiVersion).toBe('0.73.0');
   });
 
   it('reports an unsupported host instead of downloading a guessed URL', async () => {

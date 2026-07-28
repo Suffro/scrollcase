@@ -1,13 +1,13 @@
 ---
 title: Quickstart
-description: From an empty directory to a signed, verified box in seven commands.
+description: From an empty directory to a signed, verified box through workspace setup and guided authoring.
 ---
 
 # Quickstart
 
-This walkthrough goes from an empty directory to a signed, verified box on disk. It uses the
-example scroll `init` scaffolds — an environment containing nothing but Python — so it runs in
-about a minute and produces a ~48 MB archive you can inspect by hand.
+This walkthrough goes from an empty directory to a signed, verified box on disk. The guided
+authoring step creates a library-only Python environment, so it remains small enough to inspect by
+hand while exercising the complete packaging and signing pipeline.
 
 Prerequisites: the CLI and toolchain from [Installation](/getting-started/installation).
 
@@ -36,7 +36,7 @@ scrollcase help
 For more details check the [installation page](/getting-started/installation).
 
 
-## 3. `init` — scaffold the project
+## 3. `init` — initialize the workspace
 
 ```sh
 scrollcase init
@@ -46,9 +46,7 @@ scrollcase init
 
 - `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where scrolls
   live and where builds, artefacts and keys go.
-- `scrolls/example-box/<targetId>/` — an example
-  [scroll](/reference/scroll) (`scroll.json`) and its pixi manifest (`pixi.toml`), targeting this
-  machine by default.
+- `scrolls/` — the empty authoring root.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
 
@@ -59,25 +57,35 @@ This project needs pixi and conda-pack to build a box.
 Install them into /work/my-boxes/.scrollcase/toolchain? [y/N]
 ```
 
-Answer yes and both land inside the project, with the pixi download checksum-verified, conda-pack
-pinned to 0.9.2, and the installed pixi version pinned into the scroll for you. Answer no and
-nothing is downloaded — install them yourself as described in
-[Installation](/getting-started/installation), and set `pixiVersion` in the scroll by hand. Either
-way `init` never downloads anything you did not agree to, which is what makes it safe to re-run.
+Answer yes and both land inside the project, with the pixi download checksum-verified and
+conda-pack pinned to 0.9.2. Answer no and nothing is downloaded — install them yourself as
+described in [Installation](/getting-started/installation). Either way `init` never downloads
+anything you did not agree to, which is what makes it safe to re-run.
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
 
-`init` also shows a navigable target menu: use ↑/↓ and Enter. A sole target for the host is the
-default; on macOS, Metal is preselected when both CPU and Metal are available. A script can supply
-the complete choice explicitly:
+It finishes with:
 
-```sh
-scrollcase init --target macos-aarch64-metal --no-install-toolchain
+```text
+✓ Workspace initialized
+→ Next: scrollcase new scroll
 ```
 
-Without a terminal, an ambiguous target fails before any file is written.
+## 4. `new scroll` — author one target
 
-## 4. `doctor` — check the machine
+```sh
+scrollcase new scroll
+```
+
+The wizard asks for box/model/runtime identity, the complete target, versions, compatibility,
+asset base URL, weights mode, and execution kind. For this walkthrough choose `library-only`; the
+command creates `scrolls/<boxId>/<targetId>/scroll.json` and the matching `pixi.toml`, then prints
+the exact reference to use next.
+
+For CI or another non-terminal caller, provide the equivalent flags shown by
+`scrollcase help`. Missing material input fails before any file is written.
+
+## 5. `doctor` — check the machine
 
 ```sh
 scrollcase doctor --scroll example-box/macos-aarch64-metal
@@ -88,12 +96,12 @@ anything, so it is always safe.
 
 ::: info Scroll references
 The exact reference is `<boxId>/<targetId>` under `scrolls/` — here
-`example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the reference `init`
+`example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the reference `new scroll`
 printed on your machine throughout. You may also pass `example-box --target
 macos-aarch64-metal`.
 :::
 
-## 5. `lock` — resolve dependencies, once
+## 6. `lock` — resolve dependencies, once
 
 ```sh
 scrollcase lock example-box/macos-aarch64-metal
@@ -111,7 +119,7 @@ git add . && git commit -m "Example box scroll and lock"
 Committing now also matters for the next steps: `build` refuses a dirty tree without
 `--allow-dirty`, because an artefact built from uncommitted changes is reproducible by nobody.
 
-## 6. `keygen` — create a signing key
+## 7. `keygen` — create a signing key
 
 ```sh
 scrollcase keygen
@@ -122,7 +130,7 @@ permissions) and the matching public key file (`signing-public.json`). Every doc
 emits is signed; `verify` checks signatures against the public key file. For production custody —
 a KMS, an HSM — see [Signing & Key Custody](/guides/signing-and-custody).
 
-## 7. `build` — install, self-test, archive, sign
+## 8. `build` — install, self-test, archive, sign
 
 ```sh
 scrollcase build example-box/macos-aarch64-metal
@@ -146,7 +154,7 @@ that is the name they are published under — see [Distributing Boxes](/guides/d
 Rebuilding the same commit produces a byte-identical archive — see
 [Architecture](/concepts/architecture#determinism) for what makes that true.
 
-## 8. `verify` — prove what you built
+## 9. `verify` — prove what you built
 
 ```sh
 scrollcase verify .scrollcase/dist/boxes/example-box/1.0.0/macos-aarch64-metal/*.release.json --self-test

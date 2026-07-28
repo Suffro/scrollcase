@@ -3,11 +3,11 @@
 /**
  * The Scrollcase command line.
  *
- * One job: turn a scroll into a portable, locked, self-contained box and prove it works. `init` and
- * `doctor` get a machine ready, `lock` resolves dependencies once so a human can review and commit
- * the result, `audit` reports what licences that pulls in, `build` installs only from the lock,
- * `verify` re-runs a consumer's install-time checks, and `keygen` produces the signing key that makes
- * any of it trustworthy.
+ * One job: turn a scroll into a portable, locked, self-contained box and prove it works. `init`
+ * prepares the workspace, `new scroll` authors one input, `doctor` checks the machine, `lock`
+ * resolves dependencies once so a human can review and commit the result, `audit` reports what
+ * licences that pulls in, `build` installs only from the lock, `verify` re-runs a consumer's
+ * install-time checks, and `keygen` produces the signing key that makes any of it trustworthy.
  *
  * Every command resolves its paths through the workspace, so the tool runs from anywhere against any
  * project that declares a scrollcase.config.json.
@@ -16,6 +16,7 @@
 import { createInterface } from 'node:readline/promises';
 import { join, resolve } from 'node:path';
 import { auditScroll } from './build/audit.mjs';
+import { createScroll } from './build/authoring.mjs';
 import { buildBox } from './build/box.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
@@ -23,10 +24,11 @@ import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
 import { scrollCandidates, readScroll } from './build/scroll.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
+import { collectNewScrollOptions } from './cli-authoring.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
-import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
+import { chooseTarget } from './cli-targets.mjs';
 import { CHANNELS } from './contract/index.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -116,78 +118,27 @@ async function selectScrollReference(name, flags) {
   return (await chooseTarget(candidates, { requested: text(flags, 'target') })).reference;
 }
 
-/** Completes a CUDA target with the ABI version that is part of its canonical identity. */
-async function completeCudaTarget(targetFamily, flags) {
-  const supplied = text(flags, 'cuda-version');
-  if (supplied) return parseCliTarget(`${targetFamily.targetId}${supplied}`);
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    fail(`Target ${targetFamily.targetId} requires --cuda-version <major.minor> without a terminal.`);
-  }
-  const readline = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    for (;;) {
-      const version = (await readline.question('Which CUDA version? (major.minor) ')).trim();
-      if (!version) {
-        console.log('A CUDA version is required because it is part of the target identity.');
-        continue;
-      }
-      try {
-        return parseCliTarget(`${targetFamily.targetId}${version}`);
-      } catch (error) {
-        console.log(error instanceof Error ? error.message : String(error));
-      }
-    }
-  } finally {
-    readline.close();
-  }
-}
-
 /**
- * Resolves the target `init` will scaffold.
+ * `init` — scaffold only the workspace, then offer to install the shared build toolchain.
  *
- * `--target` is the complete scripted form. The older component flags remain supported, but a
- * missing accelerator is a choice rather than an assumed CPU/Metal policy.
- */
-async function initTarget(flags) {
-  const requested = text(flags, 'target');
-  if (requested) {
-    if (['platform', 'accelerator', 'cuda-version'].some((name) => flags.has(name))) {
-      fail('--target cannot be combined with --platform, --accelerator or --cuda-version.');
-    }
-    return parseCliTarget(requested);
-  }
-
-  const hostPlatform = { darwin: 'macos', linux: 'linux', win32: 'windows' }[process.platform];
-  const platform = text(flags, 'platform') || hostPlatform
-    || fail(`No supported target platform for this host: ${process.platform}/${process.arch}.`);
-  const accelerator = text(flags, 'accelerator') || (flags.has('cuda-version') ? 'cuda' : null);
-  let candidates = cliTargetFamilies(platform);
-  if (accelerator) candidates = candidates.filter((candidate) => candidate.target.accelerator === accelerator);
-  if (candidates.length === 0) {
-    fail(`No supported target matches platform ${platform}${accelerator ? ` and accelerator ${accelerator}` : ''}.`);
-  }
-  const selected = await chooseTarget(candidates);
-  if (selected.target.accelerator === 'cuda') return completeCudaTarget(selected, flags);
-  if (flags.has('cuda-version')) fail('--cuda-version is valid only for a CUDA target.');
-  return parseCliTarget(selected.targetId);
-}
-
-/**
- * `init` — scaffold a project, then offer to install the toolchain it needs.
- *
- * Scaffolding writes files and touches nothing else. The toolchain step downloads only after an
- * explicit yes: `--install-toolchain` for a scripted setup, `--no-install-toolchain` to skip, and
- * otherwise a prompt. With no terminal to prompt, nothing is installed.
+ * Scroll creation is deliberately separate: setup cannot invent product identity, target, or
+ * execution metadata. The toolchain step downloads only after explicit consent.
  */
 async function init(flags) {
   const workspace = getWorkspace();
-  const target = await initTarget(flags);
-  const result = await initProject({
-    root: workspace.root,
-    target,
-    pixiVersion: text(flags, 'pixi-version'),
-    boxId: text(flags, 'box-id') || 'example-box',
-  });
+  const authoringFlags = [
+    'target',
+    'platform',
+    'accelerator',
+    'cuda-version',
+    'box-id',
+    'model-id',
+    'runtime-id',
+  ].filter((name) => flags.has(name));
+  if (authoringFlags.length > 0) {
+    fail(`init prepares only the workspace; pass ${authoringFlags.map((name) => `--${name}`).join(', ')} to scrollcase new scroll.`);
+  }
+  const result = await initProject({ root: workspace.root, scrollsDir: workspace.scrollsDir });
   for (const path of result.written) success(`Created ${path}`);
   for (const path of result.skipped) info(`Kept ${path} (already present)`);
 
@@ -196,7 +147,6 @@ async function init(flags) {
   const toolchain = await ensureToolchain({
     workspace,
     pixiVersion: text(flags, 'pixi-version'),
-    scrollPath: join(result.scrollDir, 'scroll.json'),
     confirm: async (missing) => {
       if (never) return false;
       if (always) return true;
@@ -208,7 +158,6 @@ async function init(flags) {
   if (toolchain.installed.length > 0) {
     success(`Installed ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
     info('Nothing was added to PATH; scrollcase finds them there on its own.');
-    if (toolchain.pinnedScroll) success(`Pinned pixi ${toolchain.pixiVersion} in ${result.scrollDir}/scroll.json`);
     if (toolchain.configPath) success(`Recorded the toolchain pins in ${toolchain.configPath}`);
   } else if (toolchain.unsupportedHost) {
     warning(`pixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
@@ -217,13 +166,18 @@ async function init(flags) {
     info('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
   }
 
-  if (!text(flags, 'pixi-version') && !toolchain.pinnedScroll) {
-    warning(`Set pixiVersion in ${result.scrollDir}/scroll.json to the pixi release you build with.`);
-  }
-  console.log('\nNext:');
-  console.log(`  scrollcase lock ${result.scrollRef}`);
-  console.log(`  scrollcase keygen`);
-  console.log(`  scrollcase build ${result.scrollRef}`);
+  success('Workspace initialized');
+  step('Next: scrollcase new scroll');
+}
+
+/** `new scroll` — collect one complete authoring decision and create it atomically. */
+async function newScroll(flags) {
+  const workspace = getWorkspace();
+  const options = await collectNewScrollOptions(flags);
+  const result = await createScroll({ workspace, ...options });
+  success(`Created scroll ${result.scrollRef}`);
+  for (const path of result.written) info(path);
+  step(`Next: scrollcase lock ${result.scrollRef}`);
 }
 
 /** `doctor` — report whether this machine can build a box. Reads only; never writes. */
@@ -310,7 +264,8 @@ function usage() {
   console.log(`Usage: scrollcase <command> [options]
 
 Commands:
-  init                       Scaffold a config, an example scroll, and ignore rules
+  init                       Initialize a workspace without creating a scroll
+  new scroll                 Create one guided target-specific scroll
   doctor                     Report whether this machine can build a box
   keygen                     Create a local ed25519 signing key
   lock <scroll>              Resolve the scroll's pixi manifest into pixi.lock
@@ -319,17 +274,37 @@ Commands:
   verify <release.json>      Verify signature, archive hash, and layout
 
 Init options:
-  --target <targetId>        Complete target, for example macos-aarch64-metal or
-                             linux-x86_64-cuda12.4
-  --platform <name>          Restrict the target choice to macos, linux or windows
-  --accelerator <name>       Restrict the target choice to cpu, metal or cuda
-  --cuda-version <version>   CUDA major.minor ABI when selecting a CUDA target
-  --pixi-version <version>   Pin the example scroll to this pixi release
-  --box-id <name>            Name the example box (default example-box)
+  --pixi-version <version>   Install this pixi release when setup is approved
   --install-toolchain        Install missing pixi/conda-pack without asking
   --no-install-toolchain     Never install them; just report what is missing
                              With neither flag, init asks before downloading anything, and
                              installs into <toolchain> after a verified checksum check.
+
+New scroll options:
+  --target <targetId>        Complete target, including the CUDA ABI when applicable
+  --box-id <id>              Box identity
+  --model-id <id>            Packaged model identity
+  --runtime-id <id>          Runtime identity
+  --version <version>        Box version
+  --scroll-version <version> Scroll authoring version
+  --source-revision <rev>    Upstream source revision recorded in provenance
+  --python-version <version> Python dependency version
+  --pixi-version <version>   pixi resolver version
+  --min-host-app-version <v> Minimum compatible host application version
+  --asset-base-url <url>     Base URL used in built release documents
+  --weights <mode>           embed or on-demand
+  --execution <kind>         python-script, python-module, or library-only
+  --script <path>            Existing project script for python-script
+  --generate-script          Generate a minimal project script instead
+  --script-destination <path> Payload path for the script (default entrypoint.py)
+  --generated-script-path <path> Project path for a generated starter
+  --module <name>            Dotted module name for python-module
+  --default-args <json>      JSON array of default application arguments
+  --max-host-app-version-exclusive <v>
+  --min-macos-version <v>
+  --min-ram-gb <number>
+  --min-nvidia-driver-version <v>
+                             Without a terminal, every material value must be supplied.
 
 Doctor options:
   --scroll <name>            Take the required pixi version from this scroll
@@ -398,6 +373,12 @@ async function main() {
   // Resolve the workspace before any command touches a path, so flags win over the project config.
   configureWorkspace({ overrides: workspaceOverridesFromFlags(flags) });
   if (command === 'init') return init(flags);
+  if (command === 'new') {
+    if (positional[0] !== 'scroll' || positional.length !== 1) {
+      fail('Usage: scrollcase new scroll [options]');
+    }
+    return newScroll(flags);
+  }
   if (command === 'doctor') return doctor(flags);
   if (command === 'keygen') return keygen(flags);
   if (command === 'audit') return audit(positional[0] || fail('audit requires a scroll name.'), flags);

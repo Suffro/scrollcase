@@ -92,6 +92,32 @@ describe('schemas describe what the builder actually emits', () => {
     expectValid('scroll', scroll, 'scroll without scrollId');
   });
 
+  it('accepts exactly one authored execution shape, or none for a library-only box', () => {
+    const scroll = example('scroll');
+    expectValid('scroll', {
+      ...scroll,
+      execution: { kind: 'python-script', script: 'app/main.py', defaultArgs: [] },
+    }, 'python script');
+    expectValid('scroll', {
+      ...scroll,
+      execution: { kind: 'python-module', module: 'example_model.main', defaultArgs: ['--serve'] },
+    }, 'python module');
+    expectValid('scroll', scroll, 'library only');
+    expect(validatorFor('scroll')({
+      ...scroll,
+      execution: {
+        kind: 'python-script',
+        script: 'app/main.py',
+        module: 'example_model.main',
+        defaultArgs: [],
+      },
+    })).toBe(false);
+    expect(validatorFor('scroll')({
+      ...scroll,
+      execution: { kind: 'python-module', module: 'not-valid-module!', defaultArgs: [] },
+    })).toBe(false);
+  });
+
   it('accepts a real signed envelope and decodes the payload it wraps', () => {
     const signed = example('signed-release');
     expectValid('signed-document', signed, 'signed release');
