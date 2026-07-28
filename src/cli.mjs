@@ -23,6 +23,7 @@ import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
 import { recipeCandidates, readRecipe } from './build/recipe.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
+import { chooseCliValue } from './cli-menu.mjs';
 import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -96,42 +97,6 @@ async function confirm(question) {
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
     return /^y(es)?$/i.test((await readline.question(`${question} [y/N] `)).trim());
-  } finally {
-    readline.close();
-  }
-}
-
-/**
- * Asks which of several values to use, defaulting to the first.
- *
- * For choices, never for guards. A guard such as `--allow-dirty` refuses a build that would record
- * a revision it cannot be rebuilt from; turning that into a question nobody reads would remove it.
- * A choice is different — no answer is wrong, and asking beats a default applied in silence.
- *
- * Same terminal rule as `confirm`: with nobody to answer, take the default and say so, so a
- * scripted or CI build never blocks on a prompt.
- */
-async function choose(question, choices, { flag, open = false } = {}) {
-  const [fallback] = choices;
-  // `open` marks a value the listed choices only suggest — a channel is any name a project cares to
-  // publish under, so offering beta and stable must not become a rule that rejects nightly.
-  const accepts = (value) => open || choices.includes(value);
-  if (flag) {
-    if (!accepts(flag)) fail(`Unsupported ${question}: ${flag}. Use ${choices.join(' or ')}.`);
-    return flag;
-  }
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log(`scrollcase: no terminal to ask which ${question}; using ${fallback}.`);
-    return fallback;
-  }
-  const readline = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    for (;;) {
-      const answer = (await readline.question(`Which ${question}? [${choices.join('/')}] (${fallback}) `)).trim();
-      if (!answer) return fallback;
-      if (accepts(answer)) return answer;
-      console.log(`Not one of ${choices.join(', ')}.`);
-    }
   } finally {
     readline.close();
   }
@@ -296,8 +261,16 @@ async function audit(name, flags) {
 async function build(name, flags) {
   const reference = await selectRecipeReference(name, flags);
   // Asked at the CLI edge and passed down: buildBox never reads a terminal itself.
-  const channel = await choose('channel', ['beta', 'stable'], { flag: text(flags, 'channel'), open: true });
-  const weights = await choose('weights mode', ['embed', 'on-demand'], { flag: text(flags, 'weights') });
+  const channel = await chooseCliValue(
+    'channel',
+    ['beta', 'stable', 'nightly'],
+    { flag: text(flags, 'channel'), open: true },
+  );
+  const weights = await chooseCliValue(
+    'weights mode',
+    ['embed', 'on-demand'],
+    { flag: text(flags, 'weights') },
+  );
   await buildBox(reference, {
     ...keyPaths(flags),
     allowDirty: Boolean(flags.get('allow-dirty')),
@@ -361,10 +334,11 @@ Audit options:
 
 Build options:
   --target <targetId>        Select a target when <recipe> names a box
-  --channel <name>           Channel the signed pointer names (default beta)
+  --channel <name>           Channel the signed pointer names (menu: beta/stable/nightly;
+                             default beta; explicit custom names are supported)
   --weights <mode>           embed (default: assets packed in, works air-gapped) or
                              on-demand (fetched by the consumer at install time)
-                             Without either flag, build asks and offers the default. With no
+                             Without either flag, build shows an arrow-key menu. With no
                              terminal to ask, it says which default it took and carries on.
   --asset-base-url <url>     Override the recipe's published base URL
   --namespace <ns>           Document kind namespace (default scrollcase.box)

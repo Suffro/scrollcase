@@ -8,6 +8,9 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Changed
 
+- Present target, weights, and suggested channel choices as navigable arrow-key menus. Channel
+  suggestions now include `nightly` alongside `beta` and `stable`; explicit custom channel names
+  remain supported.
 - Organise new recipes as `recipes/<boxId>/<targetId>/`, validating both path components against
   the recipe's declared `boxId` and canonical target. `recipeId` is now optional input and is
   derived as `<boxId>-<targetId>` for release provenance; existing flat recipes and explicit

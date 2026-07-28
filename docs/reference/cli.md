@@ -204,8 +204,8 @@ scrollcase build <recipe> [--target <targetId>]
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--target` | ask when a box has several recipes | Canonical target recipe to build |
-| `--channel` | `beta` | Channel the signed pointer names (`development`, `beta`, `stable`) |
-| `--weights` | recipe's `weights`, else `embed` | `embed` packs assets into the archive (works air-gapped); `on-demand` leaves them out for the consumer to fetch and verify at install time |
+| `--channel` | `beta` | Channel the signed pointer names. The menu suggests `beta`, `stable`, and `nightly`; an explicit flag may supply a custom project channel |
+| `--weights` | recipe's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the consumer to fetch and verify at install time |
 | `--asset-base-url` | recipe's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |
 | `--namespace` | `scrollcase.box` | Document `kind` namespace — a project with boxes already in the field keeps emitting its own |
 | `--allow-dirty` | off | Permit a build from an uncommitted tree; recorded as `sourceTreeDirty: true` in the box |

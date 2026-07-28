@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { chooseCliValue } from '../../src/cli-menu.mjs';
 import { chooseTarget, parseCliTarget, selectTargetMenu } from '../../src/cli-targets.mjs';
 import { boxTargetAdapters } from '../../src/contract/targets.mjs';
 
@@ -150,5 +151,38 @@ describe('CLI target selection', () => {
       accelerator: 'cpu',
     });
     expect(result.stdout).toContain(`scrollcase build example-box/${targetId}`);
+  });
+});
+
+describe('CLI build choices', () => {
+  it('shows beta, stable, and nightly in the navigable channel menu', async () => {
+    const menu = vi.fn().mockResolvedValue(2);
+    await expect(chooseCliValue(
+      'channel',
+      ['beta', 'stable', 'nightly'],
+      { terminal: true, menu },
+    )).resolves.toBe('nightly');
+    expect(menu).toHaveBeenCalledWith(
+      'channel',
+      ['beta', 'stable', 'nightly'],
+      { initialIndex: 0 },
+    );
+  });
+
+  it('selects on-demand weights through the same navigable menu', async () => {
+    const menu = vi.fn().mockResolvedValue(1);
+    await expect(chooseCliValue(
+      'weights mode',
+      ['embed', 'on-demand'],
+      { terminal: true, menu },
+    )).resolves.toBe('on-demand');
+  });
+
+  it('still accepts a custom channel through the explicit flag', async () => {
+    await expect(chooseCliValue(
+      'channel',
+      ['beta', 'stable', 'nightly'],
+      { flag: 'internal', open: true },
+    )).resolves.toBe('internal');
   });
 });

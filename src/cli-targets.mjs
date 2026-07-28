@@ -7,10 +7,10 @@
  * decision without ever blocking.
  */
 
-import { emitKeypressEvents } from 'node:readline';
 import { boxTargetAdapters, boxTargetId } from './contract/targets.mjs';
 import { compareStableStrings } from './build/filesystem.mjs';
 import { fail } from './build/process.mjs';
+import { selectCliMenu } from './cli-menu.mjs';
 
 /** Parses a complete canonical target ID back into the target it names. */
 export function parseCliTarget(value) {
@@ -61,60 +61,7 @@ export function selectTargetMenu(targetIds, {
   input = process.stdin,
   output = process.stdout,
 } = {}) {
-  if (!input.isTTY || typeof input.setRawMode !== 'function') {
-    fail('Target selection requires an interactive terminal.');
-  }
-
-  return new Promise((resolve, reject) => {
-    let selectedIndex = initialIndex;
-    const previousRawMode = Boolean(input.isRaw);
-    const frameLines = targetIds.length + 1;
-    let firstFrame = true;
-
-    const render = () => {
-      if (!firstFrame) output.write(`\x1b[${frameLines}A`);
-      for (let index = 0; index < targetIds.length; index += 1) {
-        const marker = index === selectedIndex ? '❯' : ' ';
-        output.write(`\x1b[2K\r${marker} ${targetIds[index]}\n`);
-      }
-      output.write('\x1b[2K\rUse ↑/↓ to move, Enter to select.\n');
-      firstFrame = false;
-    };
-
-    const cleanup = () => {
-      input.removeListener('keypress', onKeypress);
-      input.setRawMode(previousRawMode);
-      input.pause();
-      output.write('\x1b[?25h');
-    };
-
-    const onKeypress = (_character, key = {}) => {
-      if (key.ctrl && key.name === 'c') {
-        cleanup();
-        reject(new Error('Target selection cancelled.'));
-        return;
-      }
-      if (key.name === 'up') {
-        selectedIndex = selectedIndex === null
-          ? targetIds.length - 1
-          : (selectedIndex - 1 + targetIds.length) % targetIds.length;
-        render();
-      } else if (key.name === 'down') {
-        selectedIndex = selectedIndex === null ? 0 : (selectedIndex + 1) % targetIds.length;
-        render();
-      } else if ((key.name === 'return' || key.name === 'enter') && selectedIndex !== null) {
-        cleanup();
-        resolve(selectedIndex);
-      }
-    };
-
-    emitKeypressEvents(input);
-    input.on('keypress', onKeypress);
-    input.setRawMode(true);
-    input.resume();
-    output.write('Which target?\n\x1b[?25l');
-    render();
-  });
+  return selectCliMenu('target', targetIds, { initialIndex, input, output });
 }
 
 /**
