@@ -18,6 +18,7 @@ import {
 
 const SCHEMA_NAMES = [
   'target',
+  'execution',
   'signed-document',
   'release-manifest',
   'channel-manifest',
@@ -57,7 +58,7 @@ describe('published schemas', () => {
       expect(schema.title, name).toBeTruthy();
       expect(schema.description, name).toBeTruthy();
       expect(validatorFor(name), name).toBeTypeOf('function');
-      if (name !== 'target') {
+      if (!['target', 'execution'].includes(name)) {
         expect(schema.properties.schemaVersion.const, name).toBe(BOX_SCHEMA_VERSION);
       }
     }
@@ -116,6 +117,48 @@ describe('schemas describe what the builder actually emits', () => {
       ...scroll,
       execution: { kind: 'python-module', module: 'not-valid-module!', defaultArgs: [] },
     })).toBe(false);
+    expect(validatorFor('scroll')({
+      ...scroll,
+      execution: { kind: 'python-script', defaultArgs: [] },
+    })).toBe(false);
+    expect(validatorFor('scroll')({
+      ...scroll,
+      execution: { kind: 'python-module', module: 'example_model.main', defaultArgs: [42] },
+    })).toBe(false);
+  });
+
+  it('carries the same optional execution contract in release and box manifests', () => {
+    const execution = {
+      kind: 'python-module',
+      module: 'example_model.main',
+      defaultArgs: ['--serve'],
+    };
+    expectValid('release-manifest', {
+      ...example('release-manifest'),
+      execution,
+    }, 'executable release');
+    expectValid('box-manifest', {
+      ...example('box-manifest'),
+      execution,
+    }, 'executable box');
+  });
+
+  it('publishes editor metadata and one canonical execution union', () => {
+    const scroll = readJson(schemaUrl('scroll'));
+    const target = readJson(schemaUrl('target'));
+    const execution = readJson(schemaUrl('execution'));
+
+    expect(scroll.properties.$schema.const).toBe(scroll.$id);
+    expect(scroll.properties.weights.default).toBe('embed');
+    expect(scroll.properties.weights.description).toBeTruthy();
+    expect(scroll.properties.execution.$ref).toBe(execution.$id);
+    expect(execution.oneOf).toHaveLength(2);
+    expect(execution.examples).toHaveLength(2);
+    expect(execution.oneOf.every((branch) => branch.additionalProperties === false)).toBe(true);
+    for (const field of ['platform', 'arch', 'accelerator']) {
+      expect(target.properties[field].description, field).toBeTruthy();
+      expect(target.properties[field].examples, field).toBeTruthy();
+    }
   });
 
   it('accepts a real signed envelope and decodes the payload it wraps', () => {

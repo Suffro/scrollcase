@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -109,7 +110,7 @@ function plantPrefixSymlinks(prefix) {
  * asset staging, pruning, the self-test gate, box.json, the deterministic archive, signing — is the
  * real implementation, which is what this test is here to exercise.
  */
-function fakeToolchain(payloadDir) {
+function fakeToolchain(payloadDir, { module = null } = {}) {
   const run = function run(command, args = []) {
     if (command === 'pixi' && args[0] === 'install') {
       const manifest = args[args.indexOf('--manifest-path') + 1];
@@ -118,6 +119,14 @@ function fakeToolchain(payloadDir) {
       writeDeep(join(prefix, 'conda-meta', 'history'), '==> 2026-07-27 05:29:00 <==\n');
       writeDeep(join(prefix, 'conda-meta', 'bzip2-1.0.8-hd037594_9.json'),
         `${JSON.stringify(CONDA_RECORD, null, 2)}\n`);
+      if (module) {
+        const modulePath = module.split('.');
+        const sitePackages = HOST_ADAPTER.platform === 'windows'
+          ? ['Lib', 'site-packages']
+          : ['lib', `python${SCROLL.pythonVersion.split('.').slice(0, 2).join('.')}`, 'site-packages'];
+        writeDeep(join(prefix, ...sitePackages, ...modulePath.slice(0, -1), `${modulePath.at(-1)}.py`),
+          'print("module ready")\n');
+      }
       plantPrefixSymlinks(prefix);
       return '';
     }
@@ -155,7 +164,11 @@ describe('the build pipeline', () => {
   });
 
   /** Lays out a project the way a user of the tool would have one: scrolls in a git checkout. */
-  async function makeProject(scroll = SCROLL, { commit = true, dirName = null } = {}) {
+  async function makeProject(scroll = SCROLL, {
+    commit = true,
+    dirName = null,
+    projectFiles = {},
+  } = {}) {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'scrollcase-build-')));
     created.push(root);
     const resolvedDirName = dirName ?? `${scroll.boxId}/${boxTargetId(scroll.target)}`;
@@ -164,6 +177,9 @@ describe('the build pipeline', () => {
     await writeFile(join(scrollDir, 'scroll.json'), `${JSON.stringify(scroll, null, 2)}\n`);
     await writeFile(join(scrollDir, 'pixi.toml'), '[project]\nname = "example-model"\n');
     await writeFile(join(scrollDir, 'pixi.lock'), 'version: 6\n');
+    for (const [path, contents] of Object.entries(projectFiles)) {
+      writeDeep(join(root, ...path.split('/')), contents);
+    }
     await writeFile(join(root, '.gitignore'), '/.scrollcase/\n');
     if (commit) {
       git(root, 'init', '--quiet');
@@ -300,25 +316,116 @@ describe('the build pipeline', () => {
     expect(calls).toEqual([]);
   });
 
-  it('refuses authored execution metadata until the execution-aware builder phase', async () => {
-    const { keys } = await makeProject({
+  it('reports a missing execution field before probing the toolchain', async () => {
+    await makeProject({
+      ...SCROLL,
+      execution: {
+        kind: 'python-script',
+        defaultArgs: [],
+      },
+    }, { commit: false });
+    await expect(readScroll(SCROLL_REF)).rejects.toThrow(/execution\.script is required/);
+  });
+
+  it('builds, signs, and verifies Python module execution metadata', async () => {
+    const execution = {
+      kind: 'python-module',
+      module: 'example_model.main',
+      defaultArgs: ['--serve'],
+    };
+    const { keys, payloadDir } = await makeProject({
+      ...SCROLL,
+      execution,
+    });
+    const built = await buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir, { module: execution.module }),
+      log: () => {},
+    });
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    expect(release.execution).toEqual(execution);
+    await expect(verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} }))
+      .resolves.toMatchObject({ status: 'passed' });
+  });
+
+  it('refuses a Python module absent from the built environment', async () => {
+    const { keys, payloadDir } = await makeProject({
       ...SCROLL,
       execution: {
         kind: 'python-module',
-        module: 'example_model.main',
+        module: 'missing.main',
         defaultArgs: [],
       },
     });
-    const calls = [];
     await expect(buildBox(SCROLL_REF, {
       ...keys,
-      runResult: (...args) => {
-        calls.push(args);
-        return { status: 0, stdout: '' };
-      },
+      ...fakeToolchain(payloadDir),
       log: () => {},
-    })).rejects.toThrow(/execution-aware builder is not available yet/);
-    expect(calls).toEqual([]);
+    })).rejects.toThrow(/Execution module is not discoverable/);
+  });
+
+  it('builds a Python script only when its verified payload file survives pruning', async () => {
+    const source = 'print("script ready")\n';
+    const sha256 = createHash('sha256').update(source).digest('hex');
+    const execution = {
+      kind: 'python-script',
+      script: 'app/main.py',
+      defaultArgs: ['--serve'],
+    };
+    const scroll = {
+      ...SCROLL,
+      execution,
+      localFiles: [{
+        sourcePath: 'runtime/main.py',
+        relativePath: execution.script,
+        sha256,
+      }],
+    };
+    const { keys, payloadDir } = await makeProject(scroll, {
+      projectFiles: { 'runtime/main.py': source },
+    });
+    const built = await buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir),
+      log: () => {},
+    });
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    expect(release.execution).toEqual(execution);
+    await expect(verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} }))
+      .resolves.toMatchObject({ status: 'passed' });
+
+    resetWorkspace();
+    const pruned = { ...scroll, prunePaths: [execution.script] };
+    const missing = await makeProject(pruned, {
+      projectFiles: { 'runtime/main.py': source },
+    });
+    await expect(buildBox(SCROLL_REF, {
+      ...missing.keys,
+      ...fakeToolchain(missing.payloadDir),
+      log: () => {},
+    })).rejects.toThrow(/Execution script is missing/);
+  });
+
+  it('rejects malformed signed execution metadata before looking for an archive', async () => {
+    const { root, keys, payloadDir } = await makeProject();
+    const built = await buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir),
+      log: () => {},
+    });
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    const malformedPath = join(root, 'malformed.release.json');
+    await writeFile(malformedPath, `${JSON.stringify(await signDocument({
+      ...release,
+      execution: {
+        kind: 'python-module',
+        module: 'example_model.main',
+        defaultArgs: [42],
+      },
+    }, keys), null, 2)}\n`);
+
+    await expect(verifyBox(malformedPath, { publicPath: keys.publicPath, log: () => {} }))
+      .rejects.toThrow(/Invalid release manifest/);
   });
 
   it('rejects a channel outside the v2 contract before tool discovery', async () => {
@@ -494,6 +601,19 @@ describe('the build pipeline', () => {
     expect(second.archiveSha256).toBe(first.archiveSha256);
   });
 
+  it('keeps execution metadata byte-identical across rebuilds', async () => {
+    const execution = {
+      kind: 'python-module',
+      module: 'example_model.main',
+      defaultArgs: ['--serve'],
+    };
+    const { keys, payloadDir } = await makeProject({ ...SCROLL, execution });
+    const toolchain = () => fakeToolchain(payloadDir, { module: execution.module });
+    const first = await buildBox(SCROLL_REF, { ...keys, ...toolchain(), log: () => {} });
+    const second = await buildBox(SCROLL_REF, { ...keys, ...toolchain(), log: () => {} });
+    expect(second.archiveSha256).toBe(first.archiveSha256);
+  });
+
   it('refuses to build from a dirty tree unless that is made explicit', async () => {
     const { root, keys, payloadDir } = await makeProject();
     await writeFile(join(root, 'scrolls', ...SCROLL_REF.split('/'), 'pixi.toml'), '[project]\nname = "edited"\n');
@@ -613,6 +733,7 @@ describe('box manifest agreement', () => {
     ['modelCacheSubdir', 'other-cache'],
     ['selfTest', { pythonImports: ['math'], timeoutSeconds: 180 }],
     ['provenance', { ...shared.provenance, sourceTreeDirty: true }],
+    ['execution', { kind: 'python-module', module: 'other.main', defaultArgs: [] }],
   ])('rejects a %s mismatch', (field, value) => {
     expect(() => assertBoxManifestAgreement({ ...shared, [field]: value }, shared))
       .toThrow(new RegExp(`box\\.json mismatch: ${field}`));

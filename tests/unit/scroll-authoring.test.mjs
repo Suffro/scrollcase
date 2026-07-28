@@ -53,6 +53,7 @@ describe('scroll authoring', () => {
     expect(result.scrollRef).toBe('example-model/macos-aarch64-metal');
     expect(result.scroll.execution).toBeUndefined();
     expect(result.scroll.localFiles).toBeUndefined();
+    expect(result.scroll.$schema).toBe('https://scrollcase.dev/schema/v2/scroll.schema.json');
     expect(await readScroll(result.scrollRef)).toMatchObject({
       scroll: { boxId: BASE.boxId, target: TARGET, pixiVersion: BASE.pixiVersion },
     });

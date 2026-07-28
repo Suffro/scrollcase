@@ -4,8 +4,8 @@
  * `init` owns workspace structure; this module owns the atomic creation of one target-specific
  * scroll. All material input is validated before the first write, existing paths are never
  * overwritten, and a generated starter script is hashed from the exact bytes written to disk.
- * Execution metadata is authored here but remains inert until the execution-aware builder and
- * consumers deliberately adopt it in their later phases.
+ * Execution metadata is authored here and later copied unchanged into both signed manifests by the
+ * builder; keeping creation separate prevents this module from acquiring build or execution policy.
  */
 
 import { createHash } from 'node:crypto';
@@ -18,6 +18,7 @@ import { schemaValidationError } from './schema-validation.mjs';
 
 const scrollSchemaUrl = new URL('../contract/schema/scroll.schema.json', import.meta.url);
 const targetSchemaUrl = new URL('../contract/schema/target.schema.json', import.meta.url);
+const executionSchemaUrl = new URL('../contract/schema/execution.schema.json', import.meta.url);
 const EXECUTION_KINDS = Object.freeze(['python-script', 'python-module', 'library-only']);
 const WEIGHTS_MODES = Object.freeze(['embed', 'on-demand']);
 
@@ -60,10 +61,11 @@ python = "${pythonConstraint}"
 }
 
 async function validateScroll(scroll) {
-  const [scrollSchema, targetSchema] = await Promise.all(
-    [scrollSchemaUrl, targetSchemaUrl].map(async (url) => JSON.parse(await readFile(url, 'utf8'))),
+  const [scrollSchema, targetSchema, executionSchema] = await Promise.all(
+    [scrollSchemaUrl, targetSchemaUrl, executionSchemaUrl]
+      .map(async (url) => JSON.parse(await readFile(url, 'utf8'))),
   );
-  const error = schemaValidationError(scroll, scrollSchema, [targetSchema]);
+  const error = schemaValidationError(scroll, scrollSchema, [targetSchema, executionSchema]);
   if (error) fail(`Generated scroll is invalid: ${error}.`);
 }
 
@@ -181,6 +183,7 @@ export async function createScroll({
   }
 
   const scroll = {
+    $schema: 'https://scrollcase.dev/schema/v2/scroll.schema.json',
     schemaVersion: 2,
     scrollVersion: identity.scrollVersion,
     boxId: identity.boxId,

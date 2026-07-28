@@ -108,9 +108,16 @@ badly and excludes everyone using something else.
 ## Verification is not optional
 
 `verify` checks signature, archive size and hash, safe entry names, recursive agreement of every
-shared schema-v2 field, and the declared interpreter. With `--self-test` it extracts temporarily and
-runs the signed import subset. Scroll-only Python and file assertions remain builder checks because
-they are not part of the signed release.
+shared schema-v2 field, the declared interpreter, and optional execution prerequisites. Execution is
+a closed script/module union rather than a shell command. The builder and verifier inspect regular
+payload/archive files to prove a script or runnable module exists; module discovery never imports
+the application. With `--self-test` verification extracts temporarily and runs the signed import
+subset. Scroll-only Python and file assertions remain builder checks because they are not part of
+the signed release.
+
+**Rejected:** accepting a shell command or proving a module by importing it. A shell changes
+argument meaning and creates an injection surface; importing application code turns validation into
+execution before the trust chain has finished.
 
 ## Weights: embedded by default, on demand when asked
 

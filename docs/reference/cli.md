@@ -152,9 +152,9 @@ For `python-script`, choose exactly one of `--script` and `--generate-script`. S
 exact source bytes into `localFiles`, refuses traversal and non-regular sources, and never
 overwrites an existing source or scroll. `library-only` omits execution metadata.
 
-Execution metadata is authored in Phase 2 but deliberately refused by the builder until the
-execution-aware manifest and verifier work lands atomically; silently dropping it would create a
-box that contradicts its scroll.
+Execution metadata is copied into the signed release and `box.json`. Before archiving, the builder
+requires a script to remain a regular payload file or a dotted module to be discoverable in the
+built environment without importing it. Library-only scrolls omit the field.
 
 ## `doctor`
 

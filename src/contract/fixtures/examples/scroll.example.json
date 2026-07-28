@@ -1,4 +1,5 @@
 {
+  "$schema": "https://scrollcase.dev/schema/v2/scroll.schema.json",
   "schemaVersion": 2,
   "scrollId": "example-model-macos-arm64-metal",
   "scrollVersion": "1.0.0",

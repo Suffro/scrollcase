@@ -23,7 +23,15 @@ import { CHANNELS, documentKinds } from '../contract/documents.mjs';
 import { signDocument } from '../sign/index.mjs';
 import { copyVerifiedLocalFile, downloadVerified, expandAssetArchive, moveIntoPlace } from './assets.mjs';
 import { createDeterministicZip } from './archive.mjs';
-import { fileExists, normalizeTree, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
+import {
+  collectFiles,
+  fileExists,
+  normalizeTree,
+  payloadSize,
+  safeRelativePath,
+  sha256File,
+} from './filesystem.mjs';
+import { assertExecutionFiles } from './execution.mjs';
 import { boxReleaseObjectPrefix, boxReleaseStem, builderVersionFields } from './identity.mjs';
 import { createCondaDependencyLicenseAudit, validateCondaDependencyLicenseAudit } from './licenses.mjs';
 import { checkParity } from './parity.mjs';
@@ -91,12 +99,6 @@ export async function buildBox(name, options = {}) {
   const probe = runResult ? { runResult } : {};
   const workspace = getWorkspace();
   const { adapter, dir, scroll } = await readScroll(name);
-  // Phase 2 records execution intent while authoring, but silently dropping it from box.json and
-  // the signed release would produce a box that cannot do what its scroll claims. Refuse until the
-  // execution-aware builder and verifier adopt the field together.
-  if (scroll.execution) {
-    fail('This scroll declares execution metadata, but the execution-aware builder is not available yet.');
-  }
   const weightsMode = weights || scroll.weights || 'embed';
   if (!CHANNELS.includes(channel)) {
     fail(`Unsupported channel: ${channel}. Use ${CHANNELS.join(' or ')}.`);
@@ -187,6 +189,12 @@ export async function buildBox(name, options = {}) {
       fail(`Missing self-test file: ${requiredFile}`);
     }
   }
+  assertExecutionFiles({
+    execution: scroll.execution,
+    adapter,
+    pythonVersion: scroll.pythonVersion,
+    files: new Set(await collectFiles(payloadDir)),
+  });
   runSelfTest({ interpreter, adapter, scroll, payloadDir, run });
   // Parity runs after the self-test, on the same payload: there is no point comparing accelerators
   // in a box that cannot import its dependencies in the first place.
@@ -230,6 +238,7 @@ export async function buildBox(name, options = {}) {
     runtimeId: scroll.runtimeId,
     version: scroll.version,
   };
+  const execution = scroll.execution ? { execution: scroll.execution } : {};
   // box.json travels *inside* the archive. A consumer compares it field by field against the signed
   // release, which is what binds the archive's contents to its signed metadata.
   await writeFile(join(payloadDir, 'box.json'), `${JSON.stringify({
@@ -239,6 +248,7 @@ export async function buildBox(name, options = {}) {
     pythonEntryPoint: scroll.pythonEntryPoint,
     modelCacheSubdir: scroll.modelCacheSubdir,
     selfTest,
+    ...execution,
     ...deferred,
     provenance,
   }, null, 2)}\n`);
@@ -268,6 +278,7 @@ export async function buildBox(name, options = {}) {
     pythonEntryPoint: scroll.pythonEntryPoint,
     modelCacheSubdir: scroll.modelCacheSubdir,
     selfTest,
+    ...execution,
     ...deferred,
     provenance,
   };

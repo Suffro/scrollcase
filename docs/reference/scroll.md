@@ -32,6 +32,7 @@ non-terminal flags derive the target layout and Python entry point, generate the
 
 ```json
 {
+  "$schema": "https://scrollcase.dev/schema/v2/scroll.schema.json",
   "schemaVersion": 2,
   "scrollVersion": "1.0.0",
   "boxId": "hello-box",
@@ -124,7 +125,7 @@ or the solve produces an environment that cannot run on the machine the box is f
 
 ## Execution intent
 
-`execution` records how a future consumer may start the box:
+`execution` records how a consumer may start the box:
 
 ```jsonc
 "execution": {
@@ -152,9 +153,12 @@ Script authoring either hashes an existing regular project file or generates a m
 The exact SHA-256 is recorded in `localFiles`, the payload path is traversal-checked, and neither an
 existing source nor an existing scroll is overwritten.
 
-At the Phase 2 checkpoint this metadata is authoring-only. `build` refuses a scroll that declares
-it until the execution-aware builder and verifier adopt the field together; silently discarding it
-would make the box contradict its scroll.
+The builder copies this object unchanged into both the signed release and `box.json`, then checks
+that the script or module is present after staging and pruning. A script must be a safe relative
+regular-file path. A module must use strict dotted syntax and resolve to runnable module content in
+the box root or the target's Python environment; discovery inspects files and never imports the
+application. `verify` repeats the schema, agreement, interpreter, and archive-presence checks
+before an optional self-test can run box code.
 
 ## Compatibility
 
@@ -254,7 +258,7 @@ channel documents point at. Required unless passed per build with `--asset-base-
 ## Self-test
 
 Builder checks run with the payload's **own interpreter** before the box is archived. Schema
-version 1 signs the import subset for a consumer to repeat; it does not carry the richer file or
+version 2 signs the import subset for a consumer to repeat; it does not carry the richer file or
 `pythonCode` assertions.
 
 ```jsonc

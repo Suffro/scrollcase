@@ -27,6 +27,7 @@ const AGREEMENT_FIELDS = [
   'pythonEntryPoint',
   'modelCacheSubdir',
   'selfTest',
+  'execution',
   'weights',
   'assets',
   'provenance',
@@ -45,8 +46,23 @@ export function assertBoxManifestAgreement(box, release) {
   }
 }
 import { extractZipArchive, listZipEntries, readZipEntry } from './archive.mjs';
+import { assertExecutionFiles } from './execution.mjs';
 import { fileExists, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
 import { fail, run as runProcess } from './process.mjs';
+import { schemaValidationError } from './schema-validation.mjs';
+
+const schemaUrls = [
+  new URL('../contract/schema/release-manifest.schema.json', import.meta.url),
+  new URL('../contract/schema/box-manifest.schema.json', import.meta.url),
+  new URL('../contract/schema/target.schema.json', import.meta.url),
+  new URL('../contract/schema/execution.schema.json', import.meta.url),
+];
+let manifestSchemas;
+
+async function loadManifestSchemas() {
+  manifestSchemas ??= Promise.all(schemaUrls.map(async (url) => JSON.parse(await readFile(url, 'utf8'))));
+  return manifestSchemas;
+}
 
 /**
  * Verifies a signed release document and the archive it commits to.
@@ -72,6 +88,13 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   if (release?.schemaVersion !== BOX_SCHEMA_VERSION) {
     fail(`Unsupported schemaVersion ${String(release?.schemaVersion)}; expected ${BOX_SCHEMA_VERSION}.`);
   }
+  const [releaseSchema, boxSchema, targetSchema, executionSchema] = await loadManifestSchemas();
+  const releaseError = schemaValidationError(
+    release,
+    releaseSchema,
+    [boxSchema, targetSchema, executionSchema],
+  );
+  if (releaseError) fail(`Invalid release manifest: ${releaseError}.`);
   if (parseDocumentKind(release.kind)?.type !== 'release') fail('Document is not a box release.');
   const adapter = boxTargetAdapter(release.target);
   assertPythonEntryPoint(adapter, release.pythonEntryPoint);
@@ -94,8 +117,20 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   const files = new Set(entries.filter((entry) => entry.kind === 'file').map((entry) => entry.path));
   if (!files.has('box.json')) fail('Archive is missing box.json.');
   const box = JSON.parse(await readZipEntry(archivePath, 'box.json'));
+  const boxError = schemaValidationError(
+    box,
+    boxSchema,
+    [releaseSchema, targetSchema, executionSchema],
+  );
+  if (boxError) fail(`Invalid box.json: ${boxError}.`);
   assertBoxManifestAgreement(box, release);
   if (!files.has(release.pythonEntryPoint)) fail(`Archive is missing ${release.pythonEntryPoint}.`);
+  assertExecutionFiles({
+    execution: release.execution,
+    adapter,
+    pythonVersion: release.provenance.pythonVersion,
+    files,
+  });
 
   if (selfTest) {
     assertNativeHost(adapter);

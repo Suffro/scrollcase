@@ -9,8 +9,17 @@
 export type BoxTarget = {
   [k: string]: unknown;
 } & {
+  /**
+   * Operating system the box runs on.
+   */
   platform: 'macos' | 'linux' | 'windows';
+  /**
+   * CPU architecture the box runs on; supported combinations are constrained below.
+   */
   arch: 'aarch64' | 'x86_64';
+  /**
+   * Acceleration backend built into the environment.
+   */
   accelerator: 'cpu' | 'metal' | 'cuda';
   /**
    * CUDA ABI as major.minor, for example "12.8". Required for a CUDA target and forbidden for any other, so an identifier can never be ambiguous.
@@ -18,22 +27,69 @@ export type BoxTarget = {
   cudaVersion?: string;
 };
 
+/**
+ * The optional, shell-free application entry point shared by a scroll, the signed release, and box.json. Its absence means the box is intentionally library-only.
+ */
+export type BoxExecution = PythonScript | PythonModule;
+/**
+ * Arguments placed before caller-supplied arguments. Every item is passed directly without a shell.
+ */
+export type DefaultArgs = string[];
+
+/**
+ * Run one regular payload file with the box's own Python interpreter.
+ */
+export interface PythonScript {
+  /**
+   * Selects direct script execution.
+   */
+  kind: 'python-script';
+  /**
+   * Safe path to a regular Python file inside the box.
+   */
+  script: string;
+  defaultArgs: DefaultArgs;
+}
+/**
+ * Run an importable dotted module with Python's -m option.
+ */
+export interface PythonModule {
+  /**
+   * Selects dotted-module execution.
+   */
+  kind: 'python-module';
+  /**
+   * Strict Python dotted-module name, without command-line syntax or shell fragments.
+   */
+  module: string;
+  defaultArgs: DefaultArgs;
+}
+
 export type Identifier = string;
 /**
  * The platform, architecture and accelerator a box is built for. The supported combinations are closed: a target outside this matrix has no defined identifier and cannot be built, signed, or routed.
  */
 export type PayloadPath = string;
 export type Sha256 = string;
-
 /**
- * The declarative input to a build: an identity, a target, a pinned dependency environment, the assets to fetch, and the self-test the result must pass. A scroll is checked into the consumer's repository next to its lock file; everything a build produces is derived from it.
+ * The optional, shell-free application entry point shared by a scroll, the signed release, and box.json. Its absence means the box is intentionally library-only.
  */
 export interface BoxScroll {
+  /**
+   * Associates this file with the published Scrollcase v2 schema for editor validation, completion, and hover help.
+   */
+  $schema?: 'https://scrollcase.dev/schema/v2/scroll.schema.json';
+  /**
+   * Scrollcase wire version. Version 2 is the only active format.
+   */
   schemaVersion: 2;
   /**
    * Optional provenance identity. When omitted, Scrollcase derives it deterministically from boxId and the canonical target.
    */
   scrollId?: string;
+  /**
+   * Version of this declarative build input, recorded in provenance.
+   */
   scrollVersion: string;
   boxId: Identifier;
   modelId: Identifier;
@@ -61,6 +117,9 @@ export interface BoxScroll {
     minNvidiaDriverVersion?: string;
     [k: string]: unknown;
   };
+  /**
+   * Python version solved into the box.
+   */
   pythonVersion: string;
   /**
    * Pins the pixi release used to solve and install the conda-forge environment from the committed pixi.lock.
@@ -131,12 +190,7 @@ export interface BoxScroll {
    * Whether assets are packed into the archive (embed, the default: the box installs with no network and works air-gapped) or fetched by the consumer at install time from the descriptors in the signed release (on-demand). A build may override this.
    */
   weights?: 'embed' | 'on-demand';
-  /**
-   * How a consumer may start the box. Omit this property for a library-only box.
-   */
-  execution?: {
-    [k: string]: unknown;
-  };
+  execution?: BoxExecution;
   /**
    * An optional numerical gate: run a check inside the box on more than one accelerator and require the results to agree. This catches a mis-solved environment — CPU-only wheels shipped as CUDA, a broken BLAS — on the build machine rather than on a user's. The tool runs the check and enforces the thresholds; what the check computes, and what closeness is acceptable, belong to the project.
    */
@@ -161,9 +215,8 @@ export interface BoxScroll {
     };
   };
 }
-
 /**
- * The platform, architecture and accelerator a box is built for. The supported combinations are closed: a target outside this matrix has no defined identifier and cannot be built, signed, or routed.
+ * Run one regular payload file with the box's own Python interpreter.
  */
 export interface BoxManifest {
   schemaVersion: 2;
@@ -181,6 +234,7 @@ export interface BoxManifest {
     pythonImports: [string, ...string[]];
     timeoutSeconds: number;
   };
+  execution?: BoxExecution;
   provenance: Provenance;
   /**
    * Present only when the assets were deliberately left out of the archive. Absent means the box is self-contained: everything it needs is inside it.
@@ -207,7 +261,7 @@ export interface BoxManifest {
   ];
 }
 /**
- * How this box was produced. Every field is recorded by the builder from observed state, never accepted from caller input, so the record cannot be dressed up after the fact.
+ * Run one regular payload file with the box's own Python interpreter.
  */
 export interface Provenance {
   scrollId: string;
@@ -295,6 +349,7 @@ export interface BoxReleaseManifest {
     pythonImports: [string, ...string[]];
     timeoutSeconds: number;
   };
+  execution?: BoxExecution;
   provenance: Provenance;
   /**
    * Present only when the assets were deliberately left out of the archive. Absent means the box is self-contained: everything it needs is inside it.
@@ -321,7 +376,7 @@ export interface BoxReleaseManifest {
   ];
 }
 /**
- * How this box was produced. Every field is recorded by the builder from observed state, never accepted from caller input, so the record cannot be dressed up after the fact.
+ * Run one regular payload file with the box's own Python interpreter.
  */
 export interface BoxChannelManifest {
   schemaVersion: 2;

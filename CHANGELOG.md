@@ -37,6 +37,14 @@ All notable changes to Scrollcase are documented here. The format follows
   `<boxId>/<targetId>`, `--target`, or a navigable keyboard menu. A sole host target is the default,
   and Metal is preferred on macOS; other non-terminal ambiguities fail with an explicit `--target`
   remedy. `new scroll` uses the target menu while `init` remains target-independent.
+- Publish one editor-oriented v2 execution schema and reference it from scroll, signed release, and
+  `box.json`. Generated scrolls self-associate through `$schema`; the schema supplies closed
+  script/module alternatives, target conditionals, defaults, examples, safe paths, and strict
+  SHA-256 shapes without an editor extension.
+- Carry optional shell-free execution metadata through the deterministic builder into both signed
+  manifests. Script files and dotted modules must be present in the final payload after staging and
+  pruning; `verify` checks their schema, recursive manifest agreement, interpreter layout, and
+  archive presence before any optional self-test can execute box code.
 
 ## [0.1.3] — 2026-07-27
 

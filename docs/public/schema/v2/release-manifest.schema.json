@@ -148,6 +148,9 @@
         }
       }
     },
+    "execution": {
+      "$ref": "https://scrollcase.dev/schema/v2/execution.schema.json"
+    },
     "provenance": {
       "$ref": "#/$defs/provenance"
     },

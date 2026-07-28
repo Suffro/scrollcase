@@ -23,8 +23,16 @@
     "pixiVersion"
   ],
   "properties": {
+    "$schema": {
+      "const": "https://scrollcase.dev/schema/v2/scroll.schema.json",
+      "description": "Associates this file with the published Scrollcase v2 schema for editor validation, completion, and hover help."
+    },
     "schemaVersion": {
-      "const": 2
+      "const": 2,
+      "description": "Scrollcase wire version. Version 2 is the only active format.",
+      "examples": [
+        2
+      ]
     },
     "scrollId": {
       "type": "string",
@@ -33,7 +41,11 @@
     },
     "scrollVersion": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Version of this declarative build input, recorded in provenance.",
+      "examples": [
+        "1.0.0"
+      ]
     },
     "boxId": {
       "$ref": "#/$defs/identifier"
@@ -87,7 +99,11 @@
     },
     "pythonVersion": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Python version solved into the box.",
+      "examples": [
+        "3.11.15"
+      ]
     },
     "pixiVersion": {
       "type": "string",
@@ -249,80 +265,7 @@
       "description": "Whether assets are packed into the archive (embed, the default: the box installs with no network and works air-gapped) or fetched by the consumer at install time from the descriptors in the signed release (on-demand). A build may override this."
     },
     "execution": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "kind",
-        "defaultArgs"
-      ],
-      "description": "How a consumer may start the box. Omit this property for a library-only box.",
-      "properties": {
-        "kind": {
-          "enum": [
-            "python-script",
-            "python-module"
-          ]
-        },
-        "script": {
-          "$ref": "#/$defs/payloadPath"
-        },
-        "module": {
-          "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*$"
-        },
-        "defaultArgs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "const": "python-script"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "script"
-            ],
-            "not": {
-              "required": [
-                "module"
-              ]
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "const": "python-module"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "module"
-            ],
-            "not": {
-              "required": [
-                "script"
-              ]
-            }
-          }
-        }
-      ]
+      "$ref": "https://scrollcase.dev/schema/v2/execution.schema.json"
     },
     "parity": {
       "type": "object",
@@ -386,8 +329,11 @@
     "payloadPath": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
-      "description": "A path inside the box payload: always relative, and never escaping the payload root."
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//).+$",
+      "description": "A forward-slash path inside the box payload: relative, non-empty, and unable to escape the payload root.",
+      "examples": [
+        "model-cache/example-model/weights.safetensors"
+      ]
     }
   }
 }

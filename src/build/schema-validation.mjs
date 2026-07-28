@@ -143,6 +143,25 @@ function validate(value, schema, context, path, errors) {
     if (errors.length > 0) return;
   }
 
+  if (schema.oneOf) {
+    const results = schema.oneOf.map((branch) => {
+      const branchErrors = [];
+      validate(value, branch, context, path, branchErrors);
+      return branchErrors;
+    });
+    const matches = results.filter((branchErrors) => branchErrors.length === 0);
+    if (matches.length === 0) {
+      const closest = results.reduce((best, candidate) =>
+        candidate.length < best.length ? candidate : best);
+      errors.push(closest[0] ?? `${path} does not match an allowed shape`);
+      return;
+    }
+    if (matches.length > 1) {
+      errors.push(`${path} must match exactly one allowed shape`);
+      return;
+    }
+  }
+
   if (schema.if) {
     const conditionErrors = [];
     validate(value, schema.if, context, path, conditionErrors);

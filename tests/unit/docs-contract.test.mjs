@@ -93,12 +93,14 @@ describe('public documentation routes', () => {
   });
 
   it('parses every full JSON example and validates complete scrolls', async () => {
-    const [scrollSchema, targetSchema] = await Promise.all([
+    const [scrollSchema, targetSchema, executionSchema] = await Promise.all([
       readFile(join(schemaSource, 'scroll.schema.json'), 'utf8').then(JSON.parse),
       readFile(join(schemaSource, 'target.schema.json'), 'utf8').then(JSON.parse),
+      readFile(join(schemaSource, 'execution.schema.json'), 'utf8').then(JSON.parse),
     ]);
     const ajv = new Ajv({ strict: true, strictRequired: false, allErrors: true });
     ajv.addSchema(targetSchema);
+    ajv.addSchema(executionSchema);
     const validateScroll = ajv.compile(scrollSchema);
     for (const path of await markdownFiles(join(root, 'docs'))) {
       const markdown = await readFile(path, 'utf8');

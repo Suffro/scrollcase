@@ -17,10 +17,11 @@ import { getWorkspace } from './workspace.mjs';
 
 const scrollSchemaUrl = new URL('../contract/schema/scroll.schema.json', import.meta.url);
 const targetSchemaUrl = new URL('../contract/schema/target.schema.json', import.meta.url);
+const executionSchemaUrl = new URL('../contract/schema/execution.schema.json', import.meta.url);
 let scrollSchemas;
 
 async function loadScrollSchemas() {
-  scrollSchemas ??= Promise.all([scrollSchemaUrl, targetSchemaUrl]
+  scrollSchemas ??= Promise.all([scrollSchemaUrl, targetSchemaUrl, executionSchemaUrl]
     .map(async (url) => JSON.parse(await readFile(url, 'utf8'))));
   return scrollSchemas;
 }
@@ -41,8 +42,8 @@ async function readExactScroll(reference) {
   if (parts.length !== 2) fail(`Invalid scroll reference ${reference}; use <boxId>/<targetId>.`);
   const dir = scrollDirectory(normalized);
   const scroll = JSON.parse(await readFile(resolve(dir, 'scroll.json'), 'utf8'));
-  const [scrollSchema, targetSchema] = await loadScrollSchemas();
-  const validationError = schemaValidationError(scroll, scrollSchema, [targetSchema]);
+  const [scrollSchema, targetSchema, executionSchema] = await loadScrollSchemas();
+  const validationError = schemaValidationError(scroll, scrollSchema, [targetSchema, executionSchema]);
   if (validationError) fail(`Invalid scroll ${normalized}: ${validationError}.`);
   if (scroll.weights === 'on-demand' && (scroll.assetArchives ?? []).length > 0) {
     fail('on-demand weights cannot be combined with assetArchives, which are expanded at build time.');

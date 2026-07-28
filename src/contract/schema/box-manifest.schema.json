@@ -70,6 +70,9 @@
         }
       }
     },
+    "execution": {
+      "$ref": "https://scrollcase.dev/schema/v2/execution.schema.json"
+    },
     "provenance": {
       "$ref": "https://scrollcase.dev/schema/v2/release-manifest.schema.json#/$defs/provenance"
     },
