@@ -12,6 +12,10 @@ scrollcase <command> [options]
 Seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `scrollcase help`
 (or no command) prints the full usage text.
 
+Human-facing status lines use a small set of symbols (`✓`, `→`, `·`, `⚠`, `✗`). Their symbols are
+coloured only in an interactive terminal; redirected output remains free of ANSI escapes, and
+setting `NO_COLOR` disables colour explicitly.
+
 **Flag syntax.** Flags accept `--name value` or `--name=value`; a bare `--name` means `true`.
 
 **Exit convention.** Every failure, anywhere in the pipeline, exits non-zero with a single
@@ -216,6 +220,11 @@ local key files are absent, it fails immediately with `Signing keys not found. R
 keygen before building.` The build command never generates identity material itself. An incomplete
 pair is never overwritten; an external signer instead requires its trusted public key to be
 present.
+
+A successful build ends with a compact relative-path summary: distribute the two immutable files
+under `boxes/<boxId>/<version>/<targetId>/` and the signed pointer at
+`channels/<boxId>/<channel>/<targetId>.json`. The individual content-addressed filenames remain
+unchanged.
 
 `build` refuses to run when: the workspace is not a git checkout; the tree is dirty and
 `--allow-dirty` is absent; `pixi.lock` is missing; the pixi on hand is not the recipe's pinned

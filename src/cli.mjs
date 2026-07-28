@@ -24,9 +24,15 @@ import { recipeCandidates, readRecipe } from './build/recipe.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
+import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseTarget, cliTargetFamilies, parseCliTarget } from './cli-targets.mjs';
 import { generateSigningKey } from './sign/index.mjs';
+
+const success = (message) => console.log(statusLine('success', message));
+const step = (message) => console.log(statusLine('step', message));
+const info = (message) => console.log(statusLine('info', message));
+const warning = (message) => console.log(statusLine('warning', message));
 
 /** Minimal flag parser supporting `--name=value`, `--name value`, and bare `--name` (true). */
 function parseArgs(values) {
@@ -67,9 +73,9 @@ async function keygen(flags) {
     keyId: text(flags, 'key-id'),
     force: Boolean(flags.get('force')),
   });
-  console.log(`Created signing key ${created.keyId}`);
-  console.log(`  private: ${created.privatePath}`);
-  console.log(`  public:  ${created.publicPath}`);
+  success(`Created signing key ${created.keyId}`);
+  info(`Private: ${created.privatePath}`);
+  info(`Public:  ${created.publicPath}`);
 }
 
 /**
@@ -84,7 +90,7 @@ async function lock(name, flags) {
   const { dir, recipe } = await readRecipe(reference);
   const pixi = findPixi({ requiredVersion: recipe.pixiVersion, path: text(flags, 'pixi') });
   run(pixi, pixiLockArguments(join(dir, 'pixi.toml')));
-  console.log(`Updated ${join(dir, 'pixi.lock')}`);
+  success(`Updated ${join(dir, 'pixi.lock')}`);
 }
 
 /**
@@ -186,8 +192,8 @@ async function init(flags) {
     pixiVersion: text(flags, 'pixi-version'),
     boxId: explicitBoxId || legacyBoxId || 'example-box',
   });
-  for (const path of result.written) console.log(`Created ${path}`);
-  for (const path of result.skipped) console.log(`Kept    ${path} (already present)`);
+  for (const path of result.written) success(`Created ${path}`);
+  for (const path of result.skipped) info(`Kept ${path} (already present)`);
 
   const always = Boolean(flags.get('install-toolchain'));
   const never = Boolean(flags.get('no-install-toolchain'));
@@ -204,19 +210,19 @@ async function init(flags) {
   });
 
   if (toolchain.installed.length > 0) {
-    console.log(`\nInstalled ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
-    console.log('Nothing was added to PATH; scrollcase finds them there on its own.');
-    if (toolchain.pinnedRecipe) console.log(`Pinned pixi ${toolchain.pixiVersion} in ${result.recipeDir}/recipe.json`);
-    if (toolchain.configPath) console.log(`Recorded the toolchain pins in ${toolchain.configPath}`);
+    success(`Installed ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
+    info('Nothing was added to PATH; scrollcase finds them there on its own.');
+    if (toolchain.pinnedRecipe) success(`Pinned pixi ${toolchain.pixiVersion} in ${result.recipeDir}/recipe.json`);
+    if (toolchain.configPath) success(`Recorded the toolchain pins in ${toolchain.configPath}`);
   } else if (toolchain.unsupportedHost) {
-    console.log(`\npixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
+    warning(`pixi publishes no build for ${toolchain.unsupportedHost}; install ${toolchain.missing.join(' and ')} manually.`);
   } else if (toolchain.missing.length > 0) {
-    console.log(`\nSkipped installing ${toolchain.missing.join(' and ')}.`);
-    console.log('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
+    warning(`Skipped installing ${toolchain.missing.join(' and ')}.`);
+    info('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
   }
 
   if (!text(flags, 'pixi-version') && !toolchain.pinnedRecipe) {
-    console.log(`\nSet pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
+    warning(`Set pixiVersion in ${result.recipeDir}/recipe.json to the pixi release you build with.`);
   }
   console.log('\nNext:');
   console.log(`  scrollcase lock ${result.recipeRef}`);
@@ -239,8 +245,8 @@ async function doctor(flags) {
     condaPackPath: text(flags, 'conda-pack'),
   });
   for (const check of checks) {
-    console.log(`${check.ok ? 'ok  ' : 'FAIL'}  ${check.name.padEnd(11)} ${check.detail}`);
-    if (!check.ok && check.remedy) console.log(`        -> ${check.remedy}`);
+    console.log(statusLine(check.ok ? 'success' : 'error', `${check.name.padEnd(11)} ${check.detail}`));
+    if (!check.ok && check.remedy) console.log(`  ${statusLine('step', check.remedy)}`);
   }
   if (!ok) fail('Some checks failed; see the remedies above.');
 }
@@ -253,10 +259,10 @@ async function audit(name, flags) {
     write,
     namespace: text(flags, 'namespace') || undefined,
   });
-  console.log(`${summary.packageCount} packages for ${summary.recipeId} (${summary.targetId})`);
+  info(`${summary.packageCount} packages for ${summary.recipeId} (${summary.targetId})`);
   for (const entry of summary.licenses) console.log(`  ${String(entry.count).padStart(4)}  ${entry.license}`);
-  if (written) console.log(`\nWrote reviewed audit: ${reviewed}`);
-  else if (reviewed) console.log(`\nMatches the reviewed audit: ${reviewed}`);
+  if (written) success(`Wrote reviewed audit: ${reviewed}`);
+  else if (reviewed) success(`Matches the reviewed audit: ${reviewed}`);
 }
 
 async function build(name, flags) {
@@ -277,7 +283,8 @@ async function build(name, flags) {
     ['embed', 'on-demand'],
     { flag: text(flags, 'weights') },
   );
-  await buildBox(reference, {
+  step(`Building ${reference} (${channel}, ${weights})`);
+  const built = await buildBox(reference, {
     ...signing,
     allowDirty: Boolean(flags.get('allow-dirty')),
     channel,
@@ -286,7 +293,13 @@ async function build(name, flags) {
     namespace: text(flags, 'namespace') || undefined,
     pixiPath: text(flags, 'pixi'),
     condaPackPath: text(flags, 'conda-pack'),
+    log: (message) => {
+      if (!message || /^(Box:|Release:|Channel:|Publish:| {9}then )/.test(message)) return;
+      step(message);
+    },
   });
+  const workspace = getWorkspace();
+  success(buildDistributionSummary(built, workspace.distDir));
 }
 
 async function verify(path, flags) {
@@ -402,6 +415,10 @@ async function main() {
 // Single failure path: every `fail()` anywhere lands here as a one-line message and a non-zero exit
 // code, so CI and shell callers can rely on the status.
 main().catch((error) => {
-  console.error(`scrollcase: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(statusLine(
+    'error',
+    `scrollcase: ${error instanceof Error ? error.message : String(error)}`,
+    { stream: process.stderr },
+  ));
   process.exitCode = 1;
 });

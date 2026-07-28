@@ -8,6 +8,9 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Changed
 
+- Improve human CLI readability with restrained, TTY-aware coloured status symbols across setup,
+  diagnostics, locking, auditing, and building. Successful builds now end with one relative-path
+  summary naming the box directory and channel document that must be distributed.
 - Check signing readiness before `build` starts expensive work. Missing local keys fail immediately
   with an explicit `scrollcase keygen` remedy; `build` never generates identity material itself.
   Incomplete pairs and missing external-signer trust keys also fail without overwriting anything.
