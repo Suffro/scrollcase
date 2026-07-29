@@ -1,6 +1,6 @@
 {
   "name": "scrollcase",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Build signed, verifiable, installable Python environment boxes for scientific models.",
   "license": "Apache-2.0",
   "author": "Lorenzo S. (https://github.com/suffro)",
