@@ -52,6 +52,16 @@ box. The files in \`consumer-templates/\` demonstrate the
 [Node and Python consumer APIs](https://scrollcase.dev/reference/api) against local release files;
 they do not download or publish boxes.
 
+## Python consumer
+
+npm does not install the Python consumer. A Python-only consuming application does not need the
+Node CLI:
+
+\`\`\`sh
+python -m pip install scrollcase-consumer
+python consumer-templates/run_box.py
+\`\`\`
+
 [Scrollcase documentation](https://scrollcase.dev/)
 `;
 

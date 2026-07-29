@@ -54,6 +54,14 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 npm install -g scrollcase
 ```
 
+Python applications that only consume existing local boxes do not need the npm package or Node.js:
+
+```sh
+python -m pip install scrollcase-consumer
+```
+
+The package is imported as `scrollcase_consumer`. It does not build or download boxes.
+
 Otherwise from a checkout:
 
 ```sh

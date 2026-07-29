@@ -197,6 +197,9 @@ describe('CLI target selection', () => {
     );
     expect(pythonConsumer).toContain('from scrollcase_consumer import');
     expect(pythonConsumer).toContain('run_box');
+    expect(pythonConsumer).toContain(
+      'npm install scrollcase does not install this Python package',
+    );
     const pyproject = await readFile(
       fileURLToPath(new URL('../../python/pyproject.toml', import.meta.url)),
       'utf8',
@@ -206,6 +209,8 @@ describe('CLI target selection', () => {
     expect(pythonConsumer).toContain(
       `pip install scrollcase-consumer==${pythonPackageVersion}`,
     );
+    expect(pythonConsumer).toContain('python consumer-templates/run_box.py');
+    expect(pythonConsumer).not.toContain('.scrollcase/python-consumer');
     expect(await readdir(root)).not.toContain('consumer-examples');
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain(`Example: scrollcase lock example-box/${targetId}`);

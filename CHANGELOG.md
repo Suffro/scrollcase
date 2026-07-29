@@ -44,6 +44,7 @@ All notable changes to Scrollcase are documented here. The format follows
   creates a disposable runnable `example-box` for the native host by default, without overwriting
   existing files, a concise linked `SCROLLCASE.md`, and TypeScript/Python examples under
   `consumer-templates/` that run a caller-supplied local release through the public APIs;
+  the Python template and workspace guide explain the separate PyPI installation explicitly.
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under

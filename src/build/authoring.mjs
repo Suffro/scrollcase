@@ -74,14 +74,16 @@ const PYTHON_CONSUMER_VERSION = '0.1.0';
 const PYTHON_CONSUMER_TEMPLATE = `"""
 Runs a local box through the typed Python consumer.
 
+The Python consumer is published separately on PyPI.
+npm install scrollcase does not install this Python package.
+
 SETUP (once):
 
-    python3 -m venv .scrollcase/python-consumer
-    .scrollcase/python-consumer/bin/python -m pip install scrollcase-consumer==${PYTHON_CONSUMER_VERSION}
+    python -m pip install scrollcase-consumer==${PYTHON_CONSUMER_VERSION}
 
 RUN (from the project root):
 
-    .scrollcase/python-consumer/bin/python consumer-templates/run_box.py
+    python consumer-templates/run_box.py
 
 Replace <target> and <hash> below with the values printed by scrollcase build.
 """

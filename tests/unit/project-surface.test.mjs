@@ -61,6 +61,10 @@ describe('setting a project up', () => {
     expect(guide).toContain('https://scrollcase.dev/reference/box-format');
     expect(guide).toContain('https://scrollcase.dev/reference/box-format#targets');
     expect(guide).toContain('https://scrollcase.dev/reference/api');
+    expect(guide).toContain('npm does not install the Python consumer');
+    expect(guide).toContain('python -m pip install scrollcase-consumer');
+    expect(guide).toContain('consumer-templates/run_box.py');
+    expect(guide).not.toContain('.scrollcase/python-consumer');
   });
 
   it('never overwrites what is already there, so it is safe to re-run', async () => {

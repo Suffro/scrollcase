@@ -9,6 +9,9 @@ Scrollcase is a Node.js command line tool. The CLI itself has no native dependen
 box for real additionally needs `pixi` and `conda-pack` on the machine that builds — and
 `scrollcase init` can install those for you, after asking.
 
+The Python consumer is a separate PyPI package. Installing `scrollcase` through npm does not provide
+the `scrollcase_consumer` Python module.
+
 ## Requirements at a glance
 
 | You want to… | You need |
@@ -17,6 +20,7 @@ box for real additionally needs `pixi` and `conda-pack` on the machine that buil
 | Resolve a lock (`lock`) | Node.js ≥ 20 and `pixi` at the scroll's pinned version |
 | Build a box (`build`) | Node.js ≥ 20, pinned `pixi`, conda-pack, and a local key or external signer |
 | Verify with `--self-test` | The same OS and architecture the box targets |
+| Consume an existing local box from Python | Python ≥ 3.10 and `scrollcase-consumer` |
 
 Auditing, key generation, signing primitives, and verification need no dependency toolchain.
 `lock` invokes pixi; `build` invokes both pixi and conda-pack.
@@ -32,6 +36,24 @@ Check the install:
 ```sh
 scrollcase help
 ```
+
+## Install the Python consumer
+
+A Python application that only verifies and runs caller-supplied local boxes does not need the
+Scrollcase CLI or a Node.js runtime:
+
+```sh
+python -m pip install scrollcase-consumer
+```
+
+The import name uses an underscore:
+
+```python
+from scrollcase_consumer import run_box
+```
+
+This package does not build or download boxes. The publishing project builds the box; the consuming
+application supplies the local release document, archive, and trusted public key.
 
 ## Let Scrollcase install the toolchain
 

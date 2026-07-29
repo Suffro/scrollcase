@@ -134,6 +134,16 @@ local signed release through either public consumer API. Replace the `<target>` 
 placeholders in the chosen template, then follow its setup and run instructions. The Node or Python
 consumer package must be installed in the application that runs the template.
 
+For Python, npm does not install `scrollcase_consumer`. The generated template includes the complete
+setup; the equivalent commands are:
+
+```sh
+python -m pip install scrollcase-consumer
+python consumer-templates/run_box.py
+```
+
+A Python consumer-only application does not need the Scrollcase CLI or Node.js.
+
 ## 7. `keygen` — create a signing key
 
 ```sh
