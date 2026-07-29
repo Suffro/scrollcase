@@ -30,7 +30,7 @@ describe('CLI output presentation', () => {
       archivePath: join(distDir, 'boxes', 'demo', '1.2.3', 'macos-aarch64-metal', 'abc123.zip'),
       channelPath: join(distDir, 'channels', 'demo', 'beta', 'macos-aarch64-metal.json'),
     }, distDir)).toBe(
-      'Build complete — distribute the 2 files under boxes/demo/1.2.3/macos-aarch64-metal/ '
+      'Build complete — you can distribute the 2 files under boxes/demo/1.2.3/macos-aarch64-metal/ '
       + 'and channels/demo/beta/macos-aarch64-metal.json',
     );
   });

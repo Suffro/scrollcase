@@ -29,6 +29,6 @@ export function statusLine(kind, message, {
 /** Builds the concise, relative distribution instruction printed after a successful build. */
 export function buildDistributionSummary({ archivePath, channelPath }, distDir) {
   const displayPath = (path) => relative(distDir, path).split(sep).join('/');
-  return `Build complete — distribute the 2 files under ${displayPath(dirname(archivePath))}/ `
+  return `Build complete — you can distribute the 2 files under ${displayPath(dirname(archivePath))}/ `
     + `and ${displayPath(channelPath)}`;
 }

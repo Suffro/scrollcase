@@ -282,7 +282,7 @@ keygen before building.` The build command never generates identity material its
 pair is never overwritten; an external signer instead requires its trusted public key to be
 present.
 
-A successful build ends with a compact relative-path summary: distribute the two immutable files
+A successful build ends with a compact relative-path summary: you can distribute the two immutable files
 under `boxes/<boxId>/<version>/<targetId>/` and the signed pointer at
 `channels/<boxId>/<channel>/<targetId>.json`. The individual content-addressed filenames remain
 unchanged.
