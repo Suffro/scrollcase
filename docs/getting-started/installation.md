@@ -55,6 +55,18 @@ from scrollcase_consumer import run_box
 This package does not build or download boxes. The publishing project builds the box; the consuming
 application supplies the local release document, archive, and trusted public key.
 
+When `scrollcase init` creates the consumer templates, it can perform this installation for you.
+It asks separately from the build toolchain and, if approved, runs pip from the project root beside
+`scrollcase.config.json`. You may instead choose conda-forge, which runs:
+
+```sh
+conda install --yes --channel conda-forge scrollcase-consumer
+```
+
+The TypeScript template has its own optional prompt. If approved, `init` runs npm from the same
+project root to install `scrollcase`, `typescript`, and `tsx`. Neither choice creates a hidden
+consumer environment.
+
 ## Let Scrollcase install the toolchain
 
 `scrollcase init` initializes a workspace and then **offers** to install what is missing:

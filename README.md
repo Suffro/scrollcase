@@ -93,6 +93,9 @@ was built. See [examples/README.md](examples/README.md).
 by calling `runBox` from `scrollcase/consumer` or `run_box` from the separately installed
 `scrollcase-consumer` Python package. The application executed inside the example box is kept
 separately at `box-entrypoints/<boxId>/<targetId>/entrypoint.py`.
+Interactive initialization separately offers to install the templates' Node/TypeScript
+dependencies and the Python consumer from PyPI or conda-forge. Accepted commands run from the
+project root beside `scrollcase.config.json`; no hidden consumer environment is created.
 
 ## Commands
 

@@ -69,6 +69,12 @@ conda-pack pinned to 0.9.2. Answer no and nothing is downloaded — install them
 described in [Installation](/getting-started/installation). Either way `init` never downloads
 anything you did not agree to, which is what makes it safe to re-run.
 
+Because the example includes consumer templates, `init` then asks separately whether to install
+`scrollcase`, `typescript`, and `tsx`, and whether to install the Python `scrollcase-consumer`
+package. For Python you choose PyPI with pip or conda-forge with conda. Accepted commands run from
+the project root—the directory containing `scrollcase.config.json`—and create no hidden consumer
+environment. Without a terminal these optional installs default to no.
+
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script. Pass
 `--no-example` when an explicitly empty workspace is preferable.
 

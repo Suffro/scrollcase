@@ -187,10 +187,12 @@ describe('CLI target selection', () => {
       join(root, 'box-entrypoints', 'example-box', targetId, 'entrypoint.py'),
       'utf8',
     )).toContain('Scrollcase box is ready.');
-    expect(await readFile(
+    const typescriptConsumer = await readFile(
       join(root, 'consumer-templates', 'run-box.ts'),
       'utf8',
-    )).toContain('runBox(releaseToRun');
+    );
+    expect(typescriptConsumer).toContain('runBox(releaseToRun');
+    expect(typescriptConsumer).toContain('npm install --save-dev tsx typescript');
     const pythonConsumer = await readFile(
       join(root, 'consumer-templates', 'run_box.py'),
       'utf8',
@@ -212,6 +214,7 @@ describe('CLI target selection', () => {
     expect(pythonConsumer).toContain('python consumer-templates/run_box.py');
     expect(pythonConsumer).not.toContain('.scrollcase/python-consumer');
     expect(await readdir(root)).not.toContain('consumer-examples');
+    expect(await readdir(root)).not.toContain('node_modules');
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain(`Example: scrollcase lock example-box/${targetId}`);
     expect(result.stdout).toContain('Create your own: scrollcase new scroll');

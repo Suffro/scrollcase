@@ -23,6 +23,10 @@ import {
   EXAMPLE_PIXI_VERSION,
 } from './build/authoring.mjs';
 import { buildBox } from './build/box.mjs';
+import {
+  installPythonConsumerDependency,
+  installTypeScriptConsumerDependencies,
+} from './build/consumer-setup.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
 import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
@@ -112,10 +116,10 @@ async function selectScrollReference(name, flags) {
 }
 
 /**
- * `init` — scaffold the workspace and its disposable runnable example, then offer the toolchain.
+ * `init` — scaffold the workspace and its disposable runnable example, then offer its dependencies.
  *
  * Real scroll creation remains separate: the fixed `example-box` is onboarding material, never a
- * guess at the project's identity. The toolchain step downloads only after explicit consent.
+ * guess at the project's identity. Toolchain and consumer installs each require explicit consent.
  */
 async function init(flags) {
   const workspace = getWorkspace();
@@ -178,6 +182,29 @@ async function init(flags) {
   } else if (toolchain.missing.length > 0) {
     warning(`Skipped installing ${toolchain.missing.join(' and ')}.`);
     info('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
+  }
+
+  if (example && await confirm(
+    `Install scrollcase, TypeScript, and tsx in ${workspace.root}?`,
+  )) {
+    const installed = installTypeScriptConsumerDependencies({ root: workspace.root });
+    success(
+      `Installed scrollcase ${installed.scrollcaseVersion}, TypeScript, and tsx in ${workspace.root}`,
+    );
+  }
+
+  if (example && await confirm(
+    `Install scrollcase-consumer for Python in ${workspace.root}?`,
+  )) {
+    const selectedSource = await chooseCliValue(
+      'Python consumer package source',
+      ['PyPI with pip', 'conda-forge with conda'],
+    );
+    const source = selectedSource.startsWith('PyPI') ? 'pypi' : 'conda-forge';
+    const installed = installPythonConsumerDependency({ root: workspace.root, source });
+    success(
+      `Installed scrollcase-consumer from ${installed.source} using ${installed.command}`,
+    );
   }
 
   success('Workspace initialized');
@@ -305,6 +332,9 @@ Init options:
   --no-install-toolchain     Never install them; just report what is missing
                              With neither flag, init asks before downloading anything, and
                              installs into <toolchain> after a verified checksum check.
+                             When the example is present, init separately offers to install
+                             its TypeScript and Python consumer dependencies in the project
+                             root, beside scrollcase.config.json.
 
 New scroll options:
   --target <targetId>        Complete target, including the CUDA ABI when applicable

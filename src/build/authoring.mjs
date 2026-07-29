@@ -42,7 +42,7 @@ const TYPESCRIPT_CONSUMER_TEMPLATE = `/**
  *
  * SETUP (once):
  *   npm install scrollcase
- *   npm install --save-dev tsx
+ *   npm install --save-dev tsx typescript
  *
  * RUN:
  *   npx tsx consumer-templates/run-box.ts

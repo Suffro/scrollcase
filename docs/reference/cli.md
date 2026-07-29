@@ -56,8 +56,12 @@ Node and Python consumer APIs against a caller-supplied local release and includ
 commands. A concise, linked `SCROLLCASE.md` is always created unless one already exists. Pass
 `--no-example` to omit `example-box` and the consumer examples while retaining the workspace guide.
 
-`init` then offers to install `pixi` and `conda-pack` if they are missing. It downloads nothing
-before you say yes.
+`init` then offers to install `pixi` and `conda-pack` if they are missing. When it generated the
+consumer templates, it separately asks whether to install their Node/TypeScript dependencies and
+whether to install the Python consumer from PyPI with pip or conda-forge with conda. Consumer
+dependency commands run from the project root beside `scrollcase.config.json`; no hidden consumer
+environment is created. It installs nothing before you say yes, and without a terminal every
+answer defaults to no.
 
 ```sh
 scrollcase init [--pixi-version <version>]
@@ -100,6 +104,11 @@ When you agree, `init`:
 Nothing is added to `PATH` and nothing is installed system-wide; later commands find the tools
 because [tool discovery](#tool-discovery) looks in the toolchain directory. Deleting
 `.scrollcase/toolchain/` undoes the whole thing.
+
+The consumer prompts are independent of this managed build toolchain. Accepting the TypeScript
+prompt runs npm in the project root to install `scrollcase`, `typescript`, and `tsx`. Accepting the
+Python prompt either runs `python -m pip install scrollcase-consumer` or
+`conda install --yes --channel conda-forge scrollcase-consumer` from that same root.
 
 The example follows Scrollcase's supported box target matrix. On another host, initialize with
 `--no-example`. Toolchain-only setup can still use any host for which pixi publishes a build.

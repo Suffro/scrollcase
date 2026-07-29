@@ -45,6 +45,10 @@ All notable changes to Scrollcase are documented here. The format follows
   existing files, a concise linked `SCROLLCASE.md`, and TypeScript/Python examples under
   `consumer-templates/` that run a caller-supplied local release through the public APIs;
   the Python template and workspace guide explain the separate PyPI installation explicitly.
+  When those templates are generated, interactive initialization separately offers to install
+  their Node/TypeScript dependencies or the Python consumer from PyPI or conda-forge. Every
+  accepted consumer install runs from the project root beside `scrollcase.config.json`; Scrollcase
+  creates no hidden consumer environment.
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under
