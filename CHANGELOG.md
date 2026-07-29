@@ -45,7 +45,8 @@ All notable changes to Scrollcase are documented here. The format follows
   `consumer-examples/` that run a caller-supplied local release through the public APIs;
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
-  non-terminal flags.
+  non-terminal flags. Generated application starters are grouped under
+  `box-entrypoints/<boxId>/<targetId>/entrypoint.py`.
 - Organise new scrolls as `scrolls/<boxId>/<targetId>/`, validating both path components against
   the scroll's declared `boxId` and canonical target. `scrollId` is now optional input and is
   derived as `<boxId>-<targetId>` for release provenance; the flat v1 layout is rejected.

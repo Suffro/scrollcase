@@ -187,6 +187,9 @@ anywhere against any project that declares one.
 native host. The example is a complete runnable v2 scroll produced through the same validated
 authoring path as any other scroll. It prefers Metal on Apple Silicon and CPU elsewhere, never
 guesses a CUDA ABI, never overwrites an existing example, and can be omitted with `--no-example`.
+Its application starter lives at
+`box-entrypoints/<boxId>/<targetId>/entrypoint.py`: executable input is grouped by the same box and
+target it belongs to, without adding a redundant tool-named directory.
 Two adjacent, non-overwriting consumer examples show the other side of the boundary:
 `scrollcase/consumer` from TypeScript and `scrollcase_consumer` from Python. They accept local
 release and trust inputs; they do not add download or distribution behavior. They live under

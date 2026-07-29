@@ -178,9 +178,13 @@ describe('CLI target selection', () => {
         kind: 'python-script',
         script: 'entrypoint.py',
       },
+      localFiles: [{
+        sourcePath: `box-entrypoints/example-box/${targetId}/entrypoint.py`,
+        relativePath: 'entrypoint.py',
+      }],
     });
     expect(await readFile(
-      join(root, 'scrollcase-scripts', `example-box-${targetId}.py`),
+      join(root, 'box-entrypoints', 'example-box', targetId, 'entrypoint.py'),
       'utf8',
     )).toContain('Scrollcase box is ready.');
     expect(await readFile(

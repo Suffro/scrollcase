@@ -49,7 +49,8 @@ already exists:
   live and where builds, artefacts and keys go.
 - `scrolls/example-box/<native-target>/` — a complete v2 scroll and pixi manifest for the native
   host: Metal on Apple Silicon, CPU on Linux and Windows.
-- `scrollcase-scripts/example-box-<native-target>.py` — the example application entry point.
+- `box-entrypoints/example-box/<native-target>/entrypoint.py` — the application executed inside
+  that box and target.
 - `consumer-examples/run-box.ts` — a typed Node consumer using `scrollcase/consumer`.
 - `consumer-examples/run_box.py` — the equivalent Python consumer using `scrollcase_consumer`.
 - `SCROLLCASE.md` — a short project-local workflow guide linked to the full documentation.

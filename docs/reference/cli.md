@@ -151,13 +151,14 @@ scrollcase new scroll \
 | `--script` | Existing project-relative Python script |
 | `--generate-script` | Generate a minimal starter instead of using an existing script |
 | `--script-destination` | Safe payload path, default `entrypoint.py` |
-| `--generated-script-path` | Project path for the generated source |
+| `--generated-script-path` | Project path for the generated source; defaults to `box-entrypoints/<boxId>/<targetId>/entrypoint.py` |
 | `--module` | Strict dotted Python module name |
 | `--default-args` | JSON array of default application arguments |
 
 For `python-script`, choose exactly one of `--script` and `--generate-script`. Scrollcase hashes the
 exact source bytes into `localFiles`, refuses traversal and non-regular sources, and never
-overwrites an existing source or scroll. `library-only` omits execution metadata.
+overwrites an existing source or scroll. Generated defaults are grouped by both box and target;
+`library-only` omits execution metadata.
 
 Execution metadata is copied into the signed release and `box.json`. Before archiving, the builder
 requires a script to remain a regular payload file or a dotted module to be discoverable in the

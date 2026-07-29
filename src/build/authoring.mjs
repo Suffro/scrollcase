@@ -228,7 +228,7 @@ export async function createScroll({
     let sha256;
     if (generateScript) {
       sourcePath = safeRelativePath(generatedScriptSourcePath
-        ?? `scrollcase-scripts/${identity.boxId}-${targetId}.py`);
+        ?? `box-entrypoints/${identity.boxId}/${targetId}/entrypoint.py`);
       generatedScriptPath = join(workspace.root, ...sourcePath.split('/'));
       if (await fileExists(generatedScriptPath)) {
         fail(`Generated script already exists: ${sourcePath}.`);

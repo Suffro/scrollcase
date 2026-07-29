@@ -174,7 +174,7 @@ describe('scroll authoring', () => {
     expect(await fileExists(result.generatedScriptPath)).toBe(true);
     expect(result.scroll.localFiles[0].sha256).toBe(await sha256File(result.generatedScriptPath));
     expect(result.scroll.localFiles[0].sourcePath).toBe(
-      'scrollcase-scripts/example-model-macos-aarch64-metal.py',
+      'box-entrypoints/example-model/macos-aarch64-metal/entrypoint.py',
     );
   });
 
