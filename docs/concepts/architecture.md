@@ -195,7 +195,7 @@ src/
 ├── contract/          the box format itself — the source of truth
 │   ├── targets.mjs      target model, identity rule, per-target adapters
 │   ├── documents.mjs    signed-document envelope, namespacing
-│   ├── schema/          seven JSON Schemas
+│   ├── schema/          eight JSON Schemas
 │   └── fixtures/        golden fixtures other implementations prove themselves against
 ├── build/             solving, packing, staging, auditing, verifying
 │   ├── pixi.mjs         tool discovery, argument vectors, install + pack + relocate
@@ -211,6 +211,10 @@ src/
 │   ├── audit.mjs        the licence audit verb
 │   ├── project.mjs      init and doctor
 │   └── parity.mjs       the accelerator parity gate
+├── consumer/          verified local preparation and shell-free execution
+│   ├── verify-and-extract.mjs  staged extraction and the opaque prepared receipt
+│   ├── run-extracted.mjs       interpreter invocation, assets, stdio, signals
+│   └── run-box.mjs             one-shot temporary execution and cleanup
 ├── sign/              key generation, local signing, external dispatch, verification
 └── cli.mjs            argument parsing and dispatch — thin, logic lives in the modules
 ```

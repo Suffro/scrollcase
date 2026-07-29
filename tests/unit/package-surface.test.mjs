@@ -11,8 +11,9 @@
 
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeGeneratedText } from '../../scripts/normalize-generated-text.mjs';
@@ -22,7 +23,7 @@ const packageJson = require('../../package.json');
 const repoRoot = new URL('../../', import.meta.url);
 const repoRootPath = fileURLToPath(repoRoot);
 
-async function moduleClosure(entry, visited = new Set()) {
+async function moduleClosure(entry, visited = new Set(), allowNodeBuiltins = false) {
   const url = new URL(entry, repoRoot);
   if (visited.has(url.href)) return visited;
   visited.add(url.href);
@@ -31,9 +32,14 @@ async function moduleClosure(entry, visited = new Set()) {
     /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g,
   )].map((match) => match[1]);
   for (const specifier of specifiers) {
-    expect(specifier, `${entry} imports a Node built-in`).not.toMatch(/^node:/);
+    if (specifier.startsWith('node:')) {
+      if (!allowNodeBuiltins) {
+        expect(specifier, `${entry} imports a Node built-in`).not.toMatch(/^node:/);
+      }
+      continue;
+    }
     if (specifier.startsWith('.')) {
-      await moduleClosure(new URL(specifier, url).href, visited);
+      await moduleClosure(new URL(specifier, url).href, visited, allowNodeBuiltins);
     }
   }
   return visited;
@@ -52,6 +58,7 @@ describe('the package surface', () => {
       './contract/browser',
       './contract/types',
       './build',
+      './consumer',
       './sign',
     ]);
     for (const subpath of subpaths) {
@@ -82,6 +89,7 @@ describe('the package surface', () => {
     const contract = await import('scrollcase/contract');
     const browserContract = await import('scrollcase/contract/browser');
     const build = await import('scrollcase/build');
+    const consumer = await import('scrollcase/consumer');
     const sign = await import('scrollcase/sign');
 
     // A representative export from each, so a module that resolves but fails to evaluate is caught.
@@ -90,6 +98,9 @@ describe('the package surface', () => {
     expect(contract.documentKinds().release).toBe('scrollcase.box.release');
     expect(browserContract.isSignedBoxDocument({})).toBe(false);
     expect(typeof build.sha256File).toBe('function');
+    expect(typeof consumer.verifyAndExtractBox).toBe('function');
+    expect(typeof consumer.runExtractedBox).toBe('function');
+    expect(typeof consumer.runBox).toBe('function');
     expect(typeof sign.verifySignedDocument).toBe('function');
   });
 
@@ -104,6 +115,33 @@ describe('the package surface', () => {
       cwd: dirname(project),
       stdio: 'pipe',
     })).not.toThrow();
+  });
+
+  it('includes the complete consumer runtime import closure in an npm pack dry run', async () => {
+    const cache = await mkdtemp(join(tmpdir(), 'scrollcase-npm-pack-'));
+    try {
+      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const packed = JSON.parse(execFileSync(npm, [
+        'pack',
+        '--dry-run',
+        '--json',
+        '--ignore-scripts',
+        '--cache',
+        cache,
+      ], {
+        cwd: repoRootPath,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }));
+      const packedFiles = new Set(packed[0].files.map((file) => file.path));
+      const closure = await moduleClosure('src/consumer/index.mjs', new Set(), true);
+      for (const url of closure) {
+        const path = relative(repoRootPath, fileURLToPath(url)).replaceAll('\\', '/');
+        expect(packedFiles.has(path), `${path} is missing from npm pack`).toBe(true);
+      }
+    } finally {
+      await rm(cache, { recursive: true, force: true });
+    }
   });
 
   it('resolves the schema and fixture wildcards a mirror implementation relies on', async () => {

@@ -1,18 +1,19 @@
 ---
 title: Node API
-description: The importable surface — the format contract, the build primitives, and signing.
+description: The importable surface — contract, local consumer, build primitives, and signing.
 ---
 
 # Node API
 
-The CLI is the supported way to run the pipeline. The package additionally exports four modules,
-for clients that need to *understand* boxes rather than build them: validate a document, derive a
-target ID, check a signature, resolve a workspace.
+The CLI is the supported way to run the build pipeline. The package additionally exports five
+modules for clients that need to understand, prepare, or execute local boxes: validate a document,
+derive a target ID, check a signature, resolve a workspace, or run a verified application.
 
 ```js
 import { boxTargetId, documentKinds } from 'scrollcase/contract';
 import { isSignedBoxDocument } from 'scrollcase/contract/browser';
 import { sha256File, resolveWorkspace } from 'scrollcase/build';
+import { verifyAndExtractBox, runExtractedBox, runBox } from 'scrollcase/consumer';
 import { verifySignedDocument } from 'scrollcase/sign';
 ```
 
@@ -48,18 +49,89 @@ definition. A schema change that is not accompanied by `npm run types` fails the
 the two cannot drift — the same discipline that makes the licence audit a function of the lock.
 
 This subpath is **types only**: there is nothing to import at runtime, so use `import type`.
-`scrollcase/contract`, `scrollcase/contract/browser`, `scrollcase/build`, and
-`scrollcase/sign` also ship declarations generated from the typed JSDoc beside their JavaScript
-implementations. Strict TypeScript consumers therefore get checked parameters, return values,
-narrowing guards, hover documentation, and completion without a build step or a separate types
-package. `npm run types:check` fails if either the schema-derived format types or the runtime
-declarations drift from their source.
+`scrollcase/contract`, `scrollcase/contract/browser`, `scrollcase/build`,
+`scrollcase/consumer`, and `scrollcase/sign` also ship declarations generated from the typed JSDoc
+beside their JavaScript implementations. Strict TypeScript consumers therefore get checked
+parameters, return values, narrowing guards, hover documentation, and completion without a build
+step or a separate types package. `npm run types:check` fails if either the schema-derived format
+types or the runtime declarations drift from their source.
 
 ::: info The pipeline verbs are CLI-only
 `build`, `verify`, `audit`, `lock`, `init`, `new scroll`, and `doctor` are not part of the exported surface.
 They orchestrate a process — spawning pixi, writing a workspace, exiting non-zero — and are
 driven through `scrollcase <verb>`. What is exported is what a *consumer* of boxes needs.
 :::
+
+## `scrollcase/consumer`
+
+The Node consumer prepares and executes release documents and archives already present on the local
+machine. Every path and trust anchor comes from the caller. It never selects a channel, downloads an
+archive or asset, installs globally, updates an existing destination, or applies application
+lifecycle policy.
+
+```js
+import {
+  verifyAndExtractBox,
+  runExtractedBox,
+  runBox,
+} from 'scrollcase/consumer';
+
+const prepared = await verifyAndExtractBox('release.json', {
+  publicPath: 'trusted-keys.json',
+  archive: 'box.zip',
+  destination: '/srv/boxes/example-1.0.0',
+});
+
+const result = await runExtractedBox(prepared, {
+  args: ['--port', '8080'],
+  env: { APPLICATION_MODE: 'local' },
+  stdin: 'ignore',
+  stdout: 'inherit',
+  stderr: 'inherit',
+});
+```
+
+### Preparation
+
+`verifyAndExtractBox(releaseDocumentPath, { publicPath, archive, destination })` verifies the signed
+document against a single trusted-key file or key bundle, validates the v2 release, checks archive
+size and SHA-256, rejects unsafe ZIP entries, extracts through the shared safe extractor, compares
+`box.json` recursively with the signed release, checks logical installed size and execution
+prerequisites, then atomically renames a fresh staging tree into `destination`. The destination must
+not exist.
+
+It returns an immutable `PreparedBox` receipt with signed identity, target, execution, archive and
+signing information. The receipt is process-bound: `runExtractedBox` rejects copied or constructed
+lookalikes, and also rejects a prepared root replaced after verification.
+
+For `on-demand` weights, `prepared.requiredAssets` contains the signed URL, relative path, size and
+SHA-256 descriptors. Scrollcase does not fetch them. The caller may materialize those files under
+`prepared.root`; execution refuses a missing, non-regular, wrong-size, or wrong-hash asset.
+
+### Execution
+
+`runExtractedBox(prepared, options)` runs only a receipt returned by
+`verifyAndExtractBox` in the current process. It rechecks the prepared tree and required assets,
+enforces the native target, starts the declared script or `-m` module with the box's own Python,
+uses the box root as `cwd`, and appends caller `args` after signed `defaultArgs`. It never invokes a
+shell.
+
+`stdin`, `stdout`, and `stderr` accept Node child-process stdio values or streams; `env` is merged
+over the current environment. `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded while the child is
+alive. The returned `{ exitCode, signal }` preserves the child's terminal result.
+
+`runBox(releaseDocumentPath, options)` composes preparation and execution in a private temporary
+directory and guarantees cleanup after a normal exit, non-zero exit, spawn failure, or forwarded
+signal:
+
+```js
+const result = await runBox('release.json', {
+  publicPath: 'trusted-keys.json',
+  archive: 'box.zip',
+  args: ['--once'],
+});
+process.exitCode = result.exitCode ?? 1;
+```
 
 ## `scrollcase/contract`
 

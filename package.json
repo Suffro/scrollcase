@@ -48,6 +48,10 @@
       "types": "./src/build/index.d.mts",
       "import": "./src/build/index.mjs"
     },
+    "./consumer": {
+      "types": "./src/consumer/index.d.mts",
+      "import": "./src/consumer/index.mjs"
+    },
     "./contract/schema/*.json": "./src/contract/schema/*.json",
     "./contract/fixtures/*.json": "./src/contract/fixtures/*.json",
     "./sign": {

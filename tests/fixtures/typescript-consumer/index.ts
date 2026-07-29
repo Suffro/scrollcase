@@ -25,6 +25,15 @@ import {
   signDocument,
   verifySignedDocument,
 } from "scrollcase/sign";
+import {
+  runBox,
+  runExtractedBox,
+  verifyAndExtractBox,
+} from "scrollcase/consumer";
+import type {
+  BoxRunResult,
+  PreparedBox,
+} from "scrollcase/consumer";
 
 const target = {
   platform: "linux",
@@ -51,6 +60,24 @@ const newlySigned: Promise<SignedBoxDocument> = signDocument(release, {
   publicPath: "trusted-key.json",
   privatePath: "private-key.pem",
 });
+const prepared: Promise<Readonly<PreparedBox>> = verifyAndExtractBox("release.json", {
+  publicPath: "trusted-key.json",
+  archive: "box.zip",
+  destination: "prepared-box",
+});
+declare const preparedBox: PreparedBox;
+const extractedResult: Promise<BoxRunResult> = runExtractedBox(preparedBox, {
+  args: ["--model", "example"],
+  env: { SCROLLCASE_TEST_VALUE: "1" },
+  stdin: "ignore",
+  stdout: "pipe",
+  stderr: "inherit",
+});
+const temporaryResult: Promise<BoxRunResult> = runBox("release.json", {
+  publicPath: "trusted-key.json",
+  archive: "box.zip",
+  args: ["--serve"],
+});
 
 // These calls are deliberately invalid: the declarations must reject them instead of widening the
 // library surface to `any`.
@@ -60,6 +87,8 @@ boxTargetId({ platform: "linux" });
 void sha256File(42);
 // @ts-expect-error signing always requires a trust anchor for local verification
 void signDocument(release, {});
+// @ts-expect-error caller arguments must remain a closed array of strings
+void runExtractedBox(preparedBox, { args: [42] });
 
 void [
   BOX_SCHEMA_VERSION,
@@ -75,4 +104,7 @@ void [
   narrowed,
   verified,
   newlySigned,
+  prepared,
+  extractedResult,
+  temporaryResult,
 ];

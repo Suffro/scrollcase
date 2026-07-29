@@ -23,6 +23,7 @@ const ENTRY_POINTS = [
   'src/contract/index.mjs',
   'src/contract/browser.mjs',
   'src/build/index.mjs',
+  'src/consumer/index.mjs',
   'src/sign/index.mjs',
 ];
 

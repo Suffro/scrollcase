@@ -12,11 +12,12 @@ All notable changes to Scrollcase are documented here. The format follows
   The declarative source becomes `scroll.json` under `scrolls/`; v2 does not accept v1 documents,
   legacy input aliases, or dual code paths. Existing v1 boxes remain historical artefacts for the
   Scrollcase versions that produced them.
-- Define matching local consumer surfaces for Node/TypeScript (`scrollcase/consumer`) and Python
-  (`scrollcase_consumer`), held to one canonical contract and shared conformance cases. Consumers
-  may verify, safely extract, inspect, and execute caller-supplied local boxes only after all trust
-  checks pass; distribution, download, update, registry, channel, revocation, publication, runner,
-  and application-lifecycle responsibilities remain out of scope.
+- Add the typed Node/TypeScript consumer at `scrollcase/consumer`: it verifies signed local
+  releases, safely extracts into collision-free destinations, returns opaque prepared receipts,
+  executes script/module entry points without a shell, verifies caller-materialized on-demand
+  assets, forwards termination signals, and guarantees one-shot temporary cleanup. Distribution,
+  download, update, registry, channel, revocation, publication, runner, and application-lifecycle
+  responsibilities remain out of scope.
 - Improve human CLI readability with restrained, TTY-aware coloured status symbols across setup,
   diagnostics, locking, auditing, and building. Successful builds now end with one relative-path
   summary naming the box directory and channel document that must be distributed.

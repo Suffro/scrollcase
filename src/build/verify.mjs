@@ -56,6 +56,7 @@ const schemaUrls = [
   new URL('../contract/schema/box-manifest.schema.json', import.meta.url),
   new URL('../contract/schema/target.schema.json', import.meta.url),
   new URL('../contract/schema/execution.schema.json', import.meta.url),
+  new URL('../contract/schema/signed-document.schema.json', import.meta.url),
 ];
 let manifestSchemas;
 
@@ -65,22 +66,23 @@ async function loadManifestSchemas() {
 }
 
 /**
- * Verifies a signed release document and the archive it commits to.
+ * Performs the complete read-only trust chain shared by `verify` and the local consumer.
  *
- * `publicPath` names the trusted key file; `archive` overrides the convention of the archive
- * sitting next to its release document; `selfTest` additionally extracts the box and runs its own
- * interpreter, which only works on a matching native host. Returns a summary of what was checked.
+ * Keeping this as one operation matters: adding an execution API must not create a second,
+ * subtly different interpretation of a signed release. The caller receives the validated
+ * in-memory objects and exact archive path, but extraction and execution remain separate steps.
  */
-export async function verifyBox(releaseDocumentPath, options = {}) {
-  const {
-    publicPath,
-    archive: archiveOverride = null,
-    selfTest = false,
-    run = runProcess,
-    log = console.log,
-  } = options;
+export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
+  const { publicPath, archive: archiveOverride = null } = options;
   const releasePath = resolve(releaseDocumentPath);
   const signed = JSON.parse(await readFile(releasePath, 'utf8'));
+  if (signed?.schemaVersion === 1) {
+    fail('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
+  }
+  const [releaseSchema, boxSchema, targetSchema, executionSchema, signedSchema] =
+    await loadManifestSchemas();
+  const signedError = schemaValidationError(signed, signedSchema);
+  if (signedError) fail(`Invalid signed document: ${signedError}.`);
   const release = await verifySignedDocument(signed, publicPath);
   if (release?.schemaVersion === 1) {
     fail('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
@@ -88,7 +90,6 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
   if (release?.schemaVersion !== BOX_SCHEMA_VERSION) {
     fail(`Unsupported schemaVersion ${String(release?.schemaVersion)}; expected ${BOX_SCHEMA_VERSION}.`);
   }
-  const [releaseSchema, boxSchema, targetSchema, executionSchema] = await loadManifestSchemas();
   const releaseError = schemaValidationError(
     release,
     releaseSchema,
@@ -131,6 +132,39 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
     pythonVersion: release.provenance.pythonVersion,
     files,
   });
+
+  return {
+    releasePath,
+    archivePath,
+    signed,
+    release,
+    box,
+    adapter,
+    entries,
+    files,
+  };
+}
+
+/**
+ * Verifies a signed release document and the archive it commits to.
+ *
+ * `publicPath` names the trusted key file; `archive` overrides the convention of the archive
+ * sitting next to its release document; `selfTest` additionally extracts the box and runs its own
+ * interpreter, which only works on a matching native host. Returns a summary of what was checked.
+ */
+export async function verifyBox(releaseDocumentPath, options = {}) {
+  const {
+    selfTest = false,
+    run = runProcess,
+    log = console.log,
+  } = options;
+  const inspected = await inspectBoxArchive(releaseDocumentPath, options);
+  const {
+    archivePath,
+    signed,
+    release,
+    adapter,
+  } = inspected;
 
   if (selfTest) {
     assertNativeHost(adapter);
