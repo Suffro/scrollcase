@@ -122,7 +122,7 @@ const capabilities = [
             <div class="code-line"><span class="c-prompt">$</span> <span class="c-cmd">scrollcase init</span></div>
             <div class="code-line"><span class="c-muted">Which target? ❯ macos-aarch64-metal</span></div>
             <div class="code-line"><span class="c-success">✓</span> Created <span class="c-muted">scrollcase.config.json</span></div>
-            <div class="code-line"><span class="c-success">✓</span> Installed <span class="c-info">pixi 0.74.0</span> and <span class="c-info">conda-pack</span></div>
+            <div class="code-line"><span class="c-success">✓</span> Installed <span class="c-muted">pixi and conda-pack</span></div>
             
             <div class="code-line mt"><span class="c-prompt">$</span> <span class="c-cmd">scrollcase lock example-box</span></div>
             <div class="code-line"><span class="c-muted">  + C python           3.11.15 h0c9c016_1_cpython</span></div>
