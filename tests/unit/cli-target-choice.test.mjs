@@ -183,6 +183,16 @@ describe('CLI target selection', () => {
       join(root, 'scrollcase-scripts', `example-box-${targetId}.py`),
       'utf8',
     )).toContain('Scrollcase box is ready.');
+    expect(await readFile(
+      join(root, 'consumer-examples', 'run-box.ts'),
+      'utf8',
+    )).toContain("from 'scrollcase/consumer'");
+    const pythonConsumer = await readFile(
+      join(root, 'consumer-examples', 'run_box.py'),
+      'utf8',
+    );
+    expect(pythonConsumer).toContain('from scrollcase_consumer import');
+    expect(pythonConsumer).toContain('run_box');
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain(`Example: scrollcase lock example-box/${targetId}`);
     expect(result.stdout).toContain('Create your own: scrollcase new scroll');

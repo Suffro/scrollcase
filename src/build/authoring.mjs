@@ -37,7 +37,85 @@ if __name__ == "__main__":
     sys.exit(main())
 `;
 
+const TYPESCRIPT_CONSUMER_EXAMPLE = `/**
+ * Runs a local box through the typed Node consumer.
+ *
+ * Build the example first, then pass its release document followed by application arguments.
+ */
+import { runBox } from 'scrollcase/consumer';
+
+const [releaseDocumentPath, ...boxArgs] = process.argv.slice(2);
+if (!releaseDocumentPath) {
+  console.error('Usage: tsx consumer-examples/run-box.ts <release.json> [box arguments]');
+  process.exit(2);
+}
+
+const result = await runBox(releaseDocumentPath, {
+  publicPath: '.scrollcase/keys/signing-public.json',
+  args: boxArgs,
+  stdin: 'inherit',
+  stdout: 'inherit',
+  stderr: 'inherit',
+  onPrepared: ({ boxId, version, targetId }) => {
+    console.log(\`Running \${boxId} \${version} (\${targetId})\`);
+  },
+});
+
+if (result.signal) console.error(\`Box exited after \${result.signal}.\`);
+process.exitCode = result.exitCode ?? 1;
+`;
+
+const PYTHON_CONSUMER_EXAMPLE = `"""Run a local box through the typed Python consumer."""
+
+from __future__ import annotations
+
+import sys
+
+from scrollcase_consumer import PreparedBox, run_box
+
+
+def _report(prepared: PreparedBox) -> None:
+    print(
+        f"Running {prepared.box_id} {prepared.version} ({prepared.target_id})"
+    )
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(
+            "Usage: python consumer-examples/run_box.py "
+            "<release.json> [box arguments]",
+            file=sys.stderr,
+        )
+        return 2
+
+    result = run_box(
+        sys.argv[1],
+        public_key_path=".scrollcase/keys/signing-public.json",
+        args=sys.argv[2:],
+        on_prepared=_report,
+    )
+    if result.signal is not None:
+        print(f"Box exited after {result.signal}.", file=sys.stderr)
+    return result.exit_code if result.exit_code is not None else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+`;
+
 const textHash = (value) => createHash('sha256').update(value, 'utf8').digest('hex');
+
+async function ensureTextFile(path, contents) {
+  await mkdir(dirname(path), { recursive: true });
+  try {
+    await writeFile(path, contents, { flag: 'wx' });
+    return true;
+  } catch (error) {
+    if (error?.code === 'EEXIST') return false;
+    throw error;
+  }
+}
 
 function requiredText(value, name) {
   if (typeof value !== 'string' || value.trim() === '') fail(`${name} is required.`);
@@ -257,8 +335,9 @@ export async function ensureExampleScroll({
   const targetId = boxTargetId(target);
   const scrollRef = `example-box/${targetId}`;
   const scrollDir = join(workspace.scrollsDir, 'example-box', targetId);
+  let result;
   if (await fileExists(scrollDir)) {
-    return {
+    result = {
       created: false,
       written: [],
       scrollDir,
@@ -266,25 +345,36 @@ export async function ensureExampleScroll({
       targetId,
       generatedScriptPath: null,
     };
+  } else {
+    result = {
+      created: true,
+      ...await createScroll({
+        workspace,
+        boxId: 'example-box',
+        target,
+        modelId: 'example-org-example-box',
+        runtimeId: 'example-box-runtime',
+        version: '1.0.0',
+        scrollVersion: '1.0.0',
+        sourceRevision: 'example-source-1.0.0',
+        pythonVersion: '3.11',
+        pixiVersion,
+        compatibility: { minHostAppVersion: '1.0.0' },
+        assetBaseUrl: 'https://example.org/boxes',
+        weights: 'embed',
+        executionKind: 'python-script',
+        generateScript: true,
+      }),
+    };
   }
-  return {
-    created: true,
-    ...await createScroll({
-      workspace,
-      boxId: 'example-box',
-      target,
-      modelId: 'example-org-example-box',
-      runtimeId: 'example-box-runtime',
-      version: '1.0.0',
-      scrollVersion: '1.0.0',
-      sourceRevision: 'example-source-1.0.0',
-      pythonVersion: '3.11',
-      pixiVersion,
-      compatibility: { minHostAppVersion: '1.0.0' },
-      assetBaseUrl: 'https://example.org/boxes',
-      weights: 'embed',
-      executionKind: 'python-script',
-      generateScript: true,
-    }),
-  };
+
+  const consumerExamples = [
+    [join(workspace.root, 'consumer-examples', 'run-box.ts'), TYPESCRIPT_CONSUMER_EXAMPLE],
+    [join(workspace.root, 'consumer-examples', 'run_box.py'), PYTHON_CONSUMER_EXAMPLE],
+  ];
+  const consumerWritten = [];
+  for (const [path, contents] of consumerExamples) {
+    if (await ensureTextFile(path, contents)) consumerWritten.push(path);
+  }
+  return { ...result, written: [...result.written, ...consumerWritten] };
 }

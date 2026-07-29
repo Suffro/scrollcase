@@ -182,12 +182,21 @@ describe('scroll authoring', () => {
     const current = await workspace();
     const first = await ensureExampleScroll({ workspace: current, target: TARGET });
     await writeFile(first.generatedScriptPath, 'print("customized")\n');
+    const typescriptExample = join(current.root, 'consumer-examples', 'run-box.ts');
+    const pythonExample = join(current.root, 'consumer-examples', 'run_box.py');
+    await writeFile(typescriptExample, '// customized\n');
+    await rm(pythonExample);
 
     const second = await ensureExampleScroll({ workspace: current, target: TARGET });
 
     expect(second.created).toBe(false);
-    expect(second.written).toEqual([]);
+    expect(second.written).toEqual([pythonExample]);
     expect(await readFile(first.generatedScriptPath, 'utf8')).toBe('print("customized")\n');
+    expect(await readFile(typescriptExample, 'utf8')).toBe('// customized\n');
+    expect(await readFile(pythonExample, 'utf8')).toContain('run_box');
+
+    const third = await ensureExampleScroll({ workspace: current, target: TARGET });
+    expect(third.written).toEqual([]);
   });
 
   it('never overwrites an existing scroll or generated script', async () => {

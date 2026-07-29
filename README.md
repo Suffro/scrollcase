@@ -64,7 +64,7 @@ cd scrollcase && npm install && npm link
 ## Quickstart
 
 ```sh
-scrollcase init                     # initialize the workspace and runnable example-box
+scrollcase init                     # workspace, runnable example-box, and consumer API examples
 scrollcase new scroll               # guided creation of your own target-specific scroll
 scrollcase doctor                   # can this machine build?
 scrollcase keygen                   # create a local ed25519 signing key
@@ -79,6 +79,11 @@ Python 3.11 environment that exercises the whole pipeline in about a minute and 
 archive. Its final `verify --self-test` extracts the box and imports `json` and `sqlite3` with the
 interpreter *inside* it — the check that proves the environment runs somewhere other than where it
 was built. See [examples/README.md](examples/README.md).
+
+`init` also writes a concise `SCROLLCASE.md`, plus `consumer-examples/run-box.ts` and
+`consumer-examples/run_box.py`. The examples show the external application side of the boundary by
+accepting a local `release.json` and calling `runBox` from `scrollcase/consumer` or `run_box` from
+`scrollcase_consumer`.
 
 ## Commands
 

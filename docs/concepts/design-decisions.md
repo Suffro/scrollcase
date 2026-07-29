@@ -187,6 +187,11 @@ anywhere against any project that declares one.
 native host. The example is a complete runnable v2 scroll produced through the same validated
 authoring path as any other scroll. It prefers Metal on Apple Silicon and CPU elsewhere, never
 guesses a CUDA ABI, never overwrites an existing example, and can be omitted with `--no-example`.
+Two adjacent, non-overwriting consumer examples show the other side of the boundary:
+`scrollcase/consumer` from TypeScript and `scrollcase_consumer` from Python. They accept local
+release and trust inputs; they do not add download or distribution behavior. They live under
+`consumer-examples/`, while a short non-overwriting `SCROLLCASE.md` keeps the basic workflow and
+links to the canonical documentation visible in the project.
 
 `scrollcase new scroll` remains the only command that authors real project identity, target,
 versions, compatibility, weights, and execution intent. A non-terminal authoring call must provide

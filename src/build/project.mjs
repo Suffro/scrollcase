@@ -29,8 +29,34 @@ import { DEFAULT_WORKSPACE_PATHS, SCROLLCASE_CONFIG_FILENAME } from './workspace
 // makes an already-scaffolded project look unmarked and append the rules a second time.
 const GITIGNORE_MARKER = '# scrollcase build state';
 
+const PROJECT_GUIDE = `[Scrollcase documentation](https://scrollcase.dev/)
+
+# Scrollcase in this project
+
+Scrollcase turns a declarative [scroll](https://scrollcase.dev/reference/scroll) into a signed,
+portable [box](https://scrollcase.dev/reference/box-format) for one
+[target](https://scrollcase.dev/reference/box-format#targets).
+
+## Usual workflow
+
+\`scrollcase init\` prints the exact example reference for this machine. Then:
+
+1. \`scrollcase lock <boxId>/<targetId>\`
+2. \`scrollcase keygen\`
+3. \`scrollcase build <boxId>/<targetId>\`
+4. \`scrollcase verify <release.json> --self-test\` or \`scrollcase run <release.json>\`
+
+See the [CLI reference](https://scrollcase.dev/reference/cli) for every option and
+[signing and key custody](https://scrollcase.dev/guides/signing-and-custody) before distributing a
+box. The files in \`consumer-examples/\` demonstrate the
+[Node and Python consumer APIs](https://scrollcase.dev/reference/api) against local release files;
+they do not download or publish boxes.
+
+[Scrollcase documentation](https://scrollcase.dev/)
+`;
+
 /**
- * Scaffolds a workspace config, the scroll root, and ignore rules for generated state.
+ * Scaffolds a workspace config, concise project guide, scroll root, and generated-state ignores.
  *
  * This low-level primitive deliberately creates no scroll. Existing files are never overwritten,
  * so a half-configured workspace can be completed by running the command again without changing
@@ -53,6 +79,7 @@ export async function initProject({
     version: 1,
     paths: { ...DEFAULT_WORKSPACE_PATHS },
   }, null, 2)}\n`);
+  await write(join(root, 'SCROLLCASE.md'), PROJECT_GUIDE);
 
   if (await fileExists(scrollsDir)) skipped.push(scrollsDir);
   else {

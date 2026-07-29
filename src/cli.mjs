@@ -150,10 +150,10 @@ async function init(flags) {
     });
     if (example.created) {
       success(`Created example scroll ${example.scrollRef}`);
-      for (const path of example.written) info(path);
     } else {
       info(`Kept example scroll ${example.scrollRef} (already present)`);
     }
+    for (const path of example.written) info(path);
   }
 
   const always = Boolean(flags.get('install-toolchain'));

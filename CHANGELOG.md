@@ -41,8 +41,11 @@ All notable changes to Scrollcase are documented here. The format follows
   choices are closed to `nightly`, `beta`, and `stable`, with `beta` remaining the build default.
 - Keep real authoring separate while restoring a useful first-run example. `scrollcase init` now
   creates a disposable runnable `example-box` for the native host by default, without overwriting
-  existing files; `--no-example` creates an empty workspace. `scrollcase new scroll` still gathers
-  complete project metadata interactively or from explicit non-terminal flags.
+  existing files, a concise linked `SCROLLCASE.md`, and TypeScript/Python examples under
+  `consumer-examples/` that run a caller-supplied local release through the public APIs;
+  `--no-example` omits the box and consumer examples while retaining the workspace guide.
+  `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
+  non-terminal flags.
 - Organise new scrolls as `scrolls/<boxId>/<targetId>/`, validating both path components against
   the scroll's declared `boxId` and canonical target. `scrollId` is now optional input and is
   derived as `<boxId>-<targetId>` for release provenance; the flat v1 layout is rejected.

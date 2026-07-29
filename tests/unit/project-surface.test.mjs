@@ -40,7 +40,7 @@ describe('setting a project up', () => {
     return root;
   }
 
-  it('scaffolds only the workspace config, scrolls directory, and ignore rules', async () => {
+  it('scaffolds the workspace and a concise linked project guide', async () => {
     const root = await emptyProject();
     const result = await initProject({ root });
     expect(result.written.length).toBeGreaterThan(0);
@@ -51,12 +51,23 @@ describe('setting a project up', () => {
     expect(await fileExists(join(root, 'scrolls'))).toBe(true);
     expect(await fileExists(join(root, 'scrolls', 'example-box'))).toBe(false);
     expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.scrollcase/');
+    const guide = await readFile(join(root, 'SCROLLCASE.md'), 'utf8');
+    const lines = guide.trim().split('\n');
+    expect(lines.length).toBeLessThan(40);
+    expect(lines[0]).toBe('[Scrollcase documentation](https://scrollcase.dev/)');
+    expect(lines.at(-1)).toBe('[Scrollcase documentation](https://scrollcase.dev/)');
+    expect(guide.match(/https:\/\/scrollcase\.dev\//g)).toHaveLength(8);
+    expect(guide).toContain('https://scrollcase.dev/reference/scroll');
+    expect(guide).toContain('https://scrollcase.dev/reference/box-format');
+    expect(guide).toContain('https://scrollcase.dev/reference/box-format#targets');
+    expect(guide).toContain('https://scrollcase.dev/reference/api');
   });
 
   it('never overwrites what is already there, so it is safe to re-run', async () => {
     const root = await emptyProject();
     await writeFile(join(root, '.gitignore'), 'node_modules/\n');
     const first = await initProject({ root });
+    await writeFile(join(root, 'SCROLLCASE.md'), '# Customized guide\n');
     const second = await initProject({ root });
     expect(second.written).toEqual([]);
     expect(second.skipped.length).toBe(first.written.length);
@@ -64,6 +75,7 @@ describe('setting a project up', () => {
     const gitignore = await readFile(join(root, '.gitignore'), 'utf8');
     expect(gitignore).toContain('node_modules/');
     expect(gitignore).toContain('.scrollcase/');
+    expect(await readFile(join(root, 'SCROLLCASE.md'), 'utf8')).toBe('# Customized guide\n');
   });
 
 });
