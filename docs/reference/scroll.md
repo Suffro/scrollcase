@@ -289,8 +289,9 @@ consumer runs the target assertion and signed imports only.
 
 `embed` (the default) packs assets into the archive: the box installs with no network and works
 air-gapped, at the cost of a large artefact. `on-demand` leaves them out and carries their URL,
-path, size and SHA-256 in the signed release, so a consumer fetches and verifies them at install
-time. A build may override this with `--weights`. See
+path, size and SHA-256 in the signed release. A caller must materialize those files; the local
+consumers verify them before execution and do not download them. A build may override this with
+`--weights`. See
 [Managing Model Weights](/guides/managing-weights).
 
 ## Parity (optional)

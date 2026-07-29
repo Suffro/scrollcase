@@ -66,7 +66,7 @@ byte-for-byte what is published**. Details of the envelope in
 ## Verifying
 
 ```sh
-scrollcase verify .scrollcase/dist/my-model-1.0.0-macos-aarch64-metal.release.json --self-test
+scrollcase verify .scrollcase/dist/boxes/my-model/1.0.0/macos-aarch64-metal/*.release.json --self-test
 ```
 
 Verification loads the trusted key file (`--public-key`, default `<keys>/signing-public.json`)
@@ -90,15 +90,16 @@ An operator with real key custody — a KMS, an HSM, a signing service — confi
 instead of a local key. The private key never touches the build machine.
 
 ```sh
-scrollcase build my-model --signer-command "./tools/kms-sign.sh" \
-                          --public-key ./trust/production-keys.json
+scrollcase build my-model/macos-aarch64-metal \
+  --signer-command "./tools/kms-sign.sh" \
+  --public-key ./trust/production-keys.json
 ```
 
 When the command itself needs arguments, pass the whole value as one shell argument; quoted groups
 inside it are preserved, including executable and argument paths containing spaces:
 
 ```sh
-scrollcase build my-model \
+scrollcase build my-model/macos-aarch64-metal \
   --signer-command '"/opt/signing tools/kms-sign" --key "production release"'
 ```
 

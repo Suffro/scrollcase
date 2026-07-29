@@ -5,7 +5,7 @@ description: Safe diagnosis and correction for common Scrollcase build, signing,
 
 # Troubleshooting
 
-Start with the exact one-line error and `scrollcase doctor --scroll <name>`. Do not delete a guard,
+Start with the exact one-line error and `scrollcase doctor --scroll <boxId>/<targetId>`. Do not delete a guard,
 replace a lock opportunistically, or overwrite a key to make an error disappear.
 
 ## Toolchain
@@ -14,7 +14,7 @@ replace a lock opportunistically, or overwrite a key to make an error disappear.
 
 - **Symptom:** `pixi not found` or `Scroll requires pixi X, found Y`.
 - **Cause:** discovery found no executable, or not the scroll's `pixiVersion`.
-- **Diagnose:** run `scrollcase doctor --scroll <name>` and inspect flag, environment,
+- **Diagnose:** run `scrollcase doctor --scroll <boxId>/<targetId>` and inspect flag, environment,
   project-toolchain, then `PATH` precedence.
 - **Correct:** install or select the exact pinned release, then relock only if intentionally
   changing that pin.
@@ -43,8 +43,8 @@ replace a lock opportunistically, or overwrite a key to make an error disappear.
 
 - **Symptom:** `Missing dependency lock`, or a reviewed licence audit no longer matches.
 - **Cause:** the scroll has not been locked, or dependency declarations changed.
-- **Correct:** run `scrollcase lock <name>`, review and commit the lock, then run
-  `scrollcase audit <name> --write` only after reviewing the new inventory.
+- **Correct:** run `scrollcase lock <boxId>/<targetId>`, review and commit the lock, then run
+  `scrollcase audit <boxId>/<targetId> --write` only after reviewing the new inventory.
 - **Never:** let a production build resolve dependencies on the fly.
 
 ### Licence audit drift

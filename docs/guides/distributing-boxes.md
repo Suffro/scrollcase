@@ -174,7 +174,7 @@ If you already have boxes installed in the field under your own document kinds, 
 them:
 
 ```sh
-scrollcase build my-model --namespace acme.model-pack
+scrollcase build my-model/macos-aarch64-metal --namespace acme.model-pack
 # → kinds: acme.model-pack.release, acme.model-pack.channel, acme.model-pack.revocations
 ```
 

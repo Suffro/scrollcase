@@ -18,8 +18,8 @@ dependency licence inventory.
 
 The substrate is **pixi + conda-pack + conda-forge**, and only that. `pixi` solves a committed
 `pixi.lock`, `conda-pack` relocates the resulting prefix, and the tree is extracted into the box's
-`venv/`. The released CLI currently has seven verbs: `init`, `doctor`, `keygen`, `lock`, `audit`,
-`build`, `verify`. v2 adds `new` and `run`.
+`venv/`. The v2 CLI has nine verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`,
+`verify`, and `run`.
 
 Scrollcase is **a library as well as a CLI**. Its public Node surfaces include the contract, build
 and signing APIs; v2 adds the local execution API at `scrollcase/consumer`. The Python consumer

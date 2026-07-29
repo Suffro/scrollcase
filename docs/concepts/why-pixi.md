@@ -49,8 +49,8 @@ in the manifest, so resolution is independent of the machine doing it. Scrollcas
 into two verbs on purpose:
 
 ```sh
-scrollcase lock my-model     # resolve — a human step, reviewed and committed
-scrollcase build my-model    # install --frozen — never resolves
+scrollcase lock my-model/linux-x86_64-cpu     # resolve — a human step, reviewed and committed
+scrollcase build my-model/linux-x86_64-cpu    # install --frozen — never resolves
 ```
 
 `pixi install --frozen` installs exactly the locked packages without touching or re-checking the

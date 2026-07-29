@@ -7,7 +7,8 @@ description: Minimal target and shell examples for macOS CPU, Linux CPU/CUDA, an
 
 Every box is built natively for one exact target. These snippets show target declarations and shell
 syntax; they do not claim that a particular scroll or scientific workload has been validated.
-Replace `my-scroll` and use the exact `pixiVersion` pinned by that scroll.
+Replace the example `<boxId>/<targetId>` references and use the exact `pixiVersion` pinned by each
+scroll.
 
 <Tabs :titles="['macOS CPU', 'Linux CPU', 'Linux CUDA', 'Windows CPU', 'Windows CUDA']">
   <Tab title="macOS CPU">
@@ -17,10 +18,10 @@ Replace `my-scroll` and use the exact `pixiVersion` pinned by that scroll.
 ```
 
 ```sh
-scrollcase doctor --scroll my-scroll
-scrollcase lock my-scroll
-scrollcase audit my-scroll
-scrollcase build my-scroll
+scrollcase doctor --scroll my-box/macos-aarch64-cpu
+scrollcase lock my-box/macos-aarch64-cpu
+scrollcase audit my-box/macos-aarch64-cpu
+scrollcase build my-box/macos-aarch64-cpu
 ```
 
 The interpreter is `venv/bin/python`; the target ID is `macos-aarch64-cpu`.
@@ -33,10 +34,10 @@ The interpreter is `venv/bin/python`; the target ID is `macos-aarch64-cpu`.
 ```
 
 ```sh
-scrollcase doctor --scroll my-scroll
-scrollcase lock my-scroll
-scrollcase audit my-scroll
-scrollcase build my-scroll
+scrollcase doctor --scroll my-box/linux-x86_64-cpu
+scrollcase lock my-box/linux-x86_64-cpu
+scrollcase audit my-box/linux-x86_64-cpu
+scrollcase build my-box/linux-x86_64-cpu
 ```
 
 The interpreter is `venv/bin/python`; the target ID is `linux-x86_64-cpu`.
@@ -54,10 +55,10 @@ The interpreter is `venv/bin/python`; the target ID is `linux-x86_64-cpu`.
 ```
 
 ```sh
-scrollcase doctor --scroll my-scroll
-scrollcase lock my-scroll
-scrollcase audit my-scroll
-scrollcase build my-scroll
+scrollcase doctor --scroll my-box/linux-x86_64-cuda12.4
+scrollcase lock my-box/linux-x86_64-cuda12.4
+scrollcase audit my-box/linux-x86_64-cuda12.4
+scrollcase build my-box/linux-x86_64-cuda12.4
 ```
 
 `12.4` is an example ABI. The generic target suffix is `cuda<major.minor>`. A successful native
@@ -71,10 +72,10 @@ build proves packaging and declared gates, not scientific parity with another ac
 ```
 
 ```powershell
-scrollcase doctor --scroll my-scroll
-scrollcase lock my-scroll
-scrollcase audit my-scroll
-scrollcase build my-scroll
+scrollcase doctor --scroll my-box/windows-x86_64-cpu
+scrollcase lock my-box/windows-x86_64-cpu
+scrollcase audit my-box/windows-x86_64-cpu
+scrollcase build my-box/windows-x86_64-cpu
 ```
 
 The interpreter is `venv/python.exe`; the target ID is `windows-x86_64-cpu`.
@@ -92,10 +93,10 @@ The interpreter is `venv/python.exe`; the target ID is `windows-x86_64-cpu`.
 ```
 
 ```powershell
-scrollcase doctor --scroll my-scroll
-scrollcase lock my-scroll
-scrollcase audit my-scroll
-scrollcase build my-scroll
+scrollcase doctor --scroll my-box/windows-x86_64-cuda12.4
+scrollcase lock my-box/windows-x86_64-cuda12.4
+scrollcase audit my-box/windows-x86_64-cuda12.4
+scrollcase build my-box/windows-x86_64-cuda12.4
 ```
 
 Windows CUDA is defined by the target contract and is buildable on a matching native host. This

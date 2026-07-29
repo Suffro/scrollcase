@@ -187,7 +187,7 @@ export interface BoxScroll {
     pythonCode?: string;
   };
   /**
-   * Whether assets are packed into the archive (embed, the default: the box installs with no network and works air-gapped) or fetched by the consumer at install time from the descriptors in the signed release (on-demand). A build may override this.
+   * Whether assets are packed into the archive (embed, the default: the box installs with no network and works air-gapped) or left out for the caller to materialize from descriptors in the signed release (on-demand). Consumers verify materialized assets before execution and do not download them. A build may override this.
    */
   weights?: 'embed' | 'on-demand';
   execution?: BoxExecution;

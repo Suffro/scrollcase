@@ -103,8 +103,8 @@ This is the one real decision, and it is per build:
 | Integrity guaranteed by | the archive's own signed hash | the per-asset size + SHA-256 in the signed release |
 
 ```sh
-scrollcase build my-model --weights embed        # the default
-scrollcase build my-model --weights on-demand
+scrollcase build my-model/linux-x86_64-cpu --weights embed        # the default
+scrollcase build my-model/linux-x86_64-cpu --weights on-demand
 ```
 
 A scroll may set `"weights": "embed" | "on-demand"` as its own default; the flag overrides it.
@@ -123,8 +123,9 @@ The assets are left out of the archive, and their descriptors travel in the sign
 ```
 
 The declared hash is what makes deferring safe: the release **commits to exactly which bytes the
-box expects**, whatever host serves them. A consumer fetches each asset, checks size and hash,
-and places it at `relativePath` under the box root before first use.
+box expects**, whatever host serves them. Retrieval belongs to the caller's distribution layer,
+which places each asset at `relativePath` under the box root. The official consumers do not fetch
+assets; they check every materialized file's size and hash before execution.
 
 ::: warning Two constraints
 `on-demand` cannot be combined with `assetArchives` — archives are expanded at build time, so

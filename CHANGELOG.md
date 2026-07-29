@@ -59,6 +59,10 @@ All notable changes to Scrollcase are documented here. The format follows
   manifests. Script files and dotted modules must be present in the final payload after staging and
   pruning; `verify` checks their schema, recursive manifest agreement, interpreter layout, and
   archive presence before any optional self-test can execute box code.
+- Complete the repository-wide v2 migration across public guides, examples, CLI references,
+  package API documentation, generated schema routes, and contributor instructions. Documentation
+  now distinguishes caller-owned retrieval from consumer verification, uses content-addressed
+  output names, and a tracked-tree guard prevents the retired product terminology from returning.
 
 ## [0.1.3] — 2026-07-27
 

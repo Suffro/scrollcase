@@ -123,7 +123,8 @@ execution before the trust chain has finished.
 
 `embed` packs assets into the archive: the box installs with no network and works air-gapped, at the
 cost of a large artefact. `on-demand` leaves them out and carries their url, path, size and SHA-256 in
-the signed release and in `box.json`, so a consumer fetches and verifies them at install time.
+the signed release and in `box.json`. Retrieval belongs to the caller's distribution layer; the
+local consumers verify caller-materialized files before execution and never download them.
 
 The declared hash is what makes deferring safe: the release commits to exactly which bytes the box
 expects, whatever host serves them.

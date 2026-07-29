@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   BOX_SCHEMA_VERSION,
@@ -8,6 +10,8 @@ import {
 } from '../../src/contract/index.mjs';
 import { decodeSignedDocument } from '../../src/sign/index.mjs';
 import { resolveWorkspace } from '../../src/build/workspace.mjs';
+
+const root = fileURLToPath(new URL('../..', import.meta.url));
 
 describe('the v2-only contract boundary', () => {
   it('publishes only the canonical v2 scroll schema', async () => {
@@ -41,5 +45,22 @@ describe('canonical scroll workspace names', () => {
     expect(workspace.scrollsDir).toBe('/tmp/scrollcase-v2-workspace/scrolls');
     const legacyField = ['re', 'cipesDir'].join('');
     expect(workspace).not.toHaveProperty(legacyField);
+  });
+
+  it('keeps retired product terminology out of tracked content and paths', () => {
+    const retired = ['re', 'cipe'].join('');
+    const contentSearch = spawnSync(
+      'git',
+      ['grep', '-I', '-i', '--name-only', retired, '--', '.'],
+      { cwd: root, encoding: 'utf8' },
+    );
+    expect(contentSearch.status, contentSearch.stderr).toBe(1);
+    expect(contentSearch.stdout).toBe('');
+
+    const trackedPaths = execFileSync('git', ['ls-files', '-z'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).split('\0').filter(Boolean);
+    expect(trackedPaths.filter((path) => path.toLowerCase().includes(retired))).toEqual([]);
   });
 });

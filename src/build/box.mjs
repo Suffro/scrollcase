@@ -155,10 +155,10 @@ export async function buildBox(name, options = {}) {
   });
 
   // `embed` packs the assets into the archive, so an installed box needs no network and works
-  // air-gapped. `on-demand` leaves them out and lets the consumer fetch them at install time from the
-  // descriptors carried in the signed release — the declared hash is what keeps that safe. The choice
-  // trades archive size against an install-time dependency on the asset host, so it is the project's
-  // to make, per build.
+  // air-gapped. `on-demand` leaves them out for the caller's distribution layer to materialize from
+  // descriptors carried in the signed release. Consumers verify those bytes before execution; the
+  // declared hash is what keeps that safe. The choice trades archive size against an install-time
+  // dependency on the asset host, so it is the project's to make, per build.
   const embedded = weightsMode === 'embed';
   for (const asset of embedded ? scroll.assets : []) {
     log(`Downloading ${asset.relativePath}`);

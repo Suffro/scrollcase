@@ -54,15 +54,15 @@ flowchart TB
 3. run `scrollcase new scroll`
 4. review the generated [scroll](/reference/scroll)
 5. define the **dependencies**
-6. run `scrollcase lock`
+6. run `scrollcase lock <boxId>/<targetId>`
 7. generate or configure the [signing key](/guides/signing-and-custody)
-8. run `scrollcase build`
+8. run `scrollcase build <boxId>/<targetId>`
 
 ## Normal update
 
 1. update code, version, weights, or dependencies
-2. re-run `scrollcase lock` only when required
-3. run `scrollcase build`
+2. re-run `scrollcase lock <boxId>/<targetId>` only when required
+3. run `scrollcase build <boxId>/<targetId>`
 
 ## Responsibility split
 
@@ -79,7 +79,8 @@ Builds the environment, downloads and verifies assets, prepares the box, runs te
 </Tab>
 <Tab title="The Consuming Application">
 
-Selects the box, downloads it, verifies it, extracts it, starts it, and manages updates and uninstallation.
+Selects and downloads the box, supplies local inputs to a conforming consumer, and manages updates,
+activation, rollback, and removal.
 
 </Tab>
 <Tab title="The End User">
@@ -94,7 +95,7 @@ The most demanding parts are usually:
 
 - defining a correct scroll;
 - dealing with difficult scientific dependencies;
-- implementing download, verification, and execution in the consuming application.
+- integrating distribution and lifecycle policy with the Node or Python consumer.
 
 Conceptually, Scrollcase is therefore fairly linear: the developer declares the desired environment, and the tool turns that declaration into a distributable and verifiable release.
 

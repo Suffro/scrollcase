@@ -5,7 +5,8 @@ description: A comprehensive overview of how Scrollcase works, automated steps, 
 
 # Scrollcase Overview
 
-Scrollcase is a tool for packaging and distributing complete Python environments, especially when a project needs to include:
+Scrollcase builds signed, portable Python environments, especially when a project needs to
+include:
 
 - a specific Python version;
 - exact libraries and dependencies;
@@ -16,7 +17,8 @@ Scrollcase is a tool for packaging and distributing complete Python environments
 
 Its purpose is to avoid forcing each end user to install Python, native libraries, model dependencies, and model files manually.
 
-The developer describes what the box should contain, runs a small number of commands, and Scrollcase produces a package that can be published and later installed by another application.
+The developer describes what the box should contain, runs a small number of commands, and
+Scrollcase produces a box plus signed documents that another system may publish.
 
 ## Who Uses Scrollcase
 
@@ -31,12 +33,12 @@ This is the person or team that builds and publishes the box.
 
 The developer must:
 
-- defines the Python environment;
-- specifies the dependencies;
-- provides model files or downloadable assets;
-- chooses the target platform;
-- builds the box;
-- publishes the generated files.
+- define the Python environment;
+- specify the dependencies;
+- provide model files or downloadable assets;
+- choose the target platform;
+- build the box;
+- publish the generated files.
 
 </Tab>
 <Tab title="The Consuming Application">
@@ -49,11 +51,11 @@ The consuming application must:
 
 - choose the correct box for the user's computer;
 - download it;
-- verify it;
-- extract it;
-- start the Python runtime or scripts contained inside it.
+- supply the local release, archive, and trust keys to a conforming consumer;
+- own updates, activation, rollback, and removal policy.
 
-The end user should not normally interact with Scrollcase directly.
+The official Node and Python consumers verify, safely extract, and run local caller-supplied boxes.
+They do not select channels or download boxes.
 
 </Tab>
 </Tabs>
@@ -179,7 +181,7 @@ It does not necessarily select the exact build of every package yet.
 After defining the dependencies, run:
 
 ```bash
-scrollcase lock scroll-name
+scrollcase lock model-x/macos-aarch64-metal
 ```
 
 This generates a lock file containing the exact resolved dependency versions.
@@ -201,7 +203,7 @@ It does not need to be rerun for every build if the dependencies have not change
 Before building, the developer can run:
 
 ```bash
-scrollcase doctor --scroll scroll-name
+scrollcase doctor --scroll model-x/macos-aarch64-metal
 ```
 
 This checks things such as:
@@ -245,7 +247,7 @@ Define:
 ### 3. Lock Dependencies
 
 ```bash
-scrollcase lock scroll-name
+scrollcase lock model-x/macos-aarch64-metal
 ```
 
 ### 4. Commit the Configuration
@@ -261,7 +263,7 @@ scrollcase keygen
 ### 6. Build the Box
 
 ```bash
-scrollcase build scroll-name
+scrollcase build model-x/macos-aarch64-metal
 ```
 
 ### 7. Review the Output
@@ -284,12 +286,29 @@ Upload the generated files to the chosen distribution system, such as:
 
 Scrollcase prepares the files, but does not upload them anywhere.
 
+## Preparing and running a local box
+
+The Node API at `scrollcase/consumer` and the Python package imported as
+`scrollcase_consumer` accept local release documents, archives, trust keys, and destinations.
+They share verification, safe extraction, execution, receipt, signal, cleanup, and on-demand
+asset semantics.
+
+For a one-shot terminal run, the CLI is a thin wrapper over the Node consumer:
+
+```bash
+scrollcase run ./release.json --archive ./box.zip -- --help
+```
+
+It verifies first, runs the signed script or module without a shell, preserves the child result,
+and removes its temporary extraction. See [Library APIs](/reference/api) and
+[CLI Commands](/reference/cli#run).
+
 ## What Happens During `build`
 
 From the developer's perspective, the build is a single command:
 
 ```bash
-scrollcase build scroll-name
+scrollcase build model-x/macos-aarch64-metal
 ```
 
 Scrollcase then performs the internal packaging steps automatically.
@@ -343,7 +362,7 @@ After the initial setup, publishing a new version requires fewer steps.
 4. publish the new files.
 
 ```bash
-scrollcase build scroll-name
+scrollcase build model-x/macos-aarch64-metal
 ```
 
 ### Case 2: Dependencies Change
@@ -355,8 +374,8 @@ scrollcase build scroll-name
 5. publish the new files.
 
 ```bash
-scrollcase lock scroll-name
-scrollcase build scroll-name
+scrollcase lock model-x/macos-aarch64-metal
+scrollcase build model-x/macos-aarch64-metal
 ```
 
 ### Case 3: Model Weights Change

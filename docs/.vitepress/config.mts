@@ -91,7 +91,7 @@ export default defineConfig({
           { text: 'The Scroll (scroll.json)', link: '/reference/scroll' },
           { text: 'The Box Format', link: '/reference/box-format' },
           { text: 'JSON Schemas', link: '/reference/schemas' },
-          { text: 'Node API', link: '/reference/api' }
+          { text: 'Library APIs', link: '/reference/api' }
         ]
       },
       {

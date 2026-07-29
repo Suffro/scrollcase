@@ -116,7 +116,9 @@ If `pixi` and `conda-pack` are on `PATH`, nothing more is needed. If they live e
 dedicated toolchain directory, a CI cache — point Scrollcase at them per invocation:
 
 ```sh
-scrollcase build my-scroll --pixi /opt/toolchain/bin/pixi --conda-pack /opt/toolchain/bin/conda-pack
+scrollcase build my-box/linux-x86_64-cpu \
+  --pixi /opt/toolchain/bin/pixi \
+  --conda-pack /opt/toolchain/bin/conda-pack
 ```
 
 or once, through the environment:
@@ -150,7 +152,7 @@ missing. It only reads; it never writes and never touches the network.
 ```sh
 scrollcase doctor --pixi-version 0.73.0
 # or take the required pixi version from a scroll:
-scrollcase doctor --scroll my-scroll
+scrollcase doctor --scroll my-box/linux-x86_64-cpu
 ```
 
 Sample output:

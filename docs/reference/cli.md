@@ -258,7 +258,7 @@ scrollcase build <scroll> [--target <targetId>]
 | --- | --- | --- |
 | `--target` | ask when a box has several scrolls | Canonical target scroll to build |
 | `--channel` | `beta` | Channel the signed pointer names. The v2 vocabulary is closed to `nightly`, `beta`, and `stable` |
-| `--weights` | scroll's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the consumer to fetch and verify at install time |
+| `--weights` | scroll's `weights`, else `embed` | The navigable menu offers `embed`, which packs assets into the archive (works air-gapped), and `on-demand`, which leaves them out for the caller to materialize; consumers verify them before execution |
 | `--asset-base-url` | scroll's `assetBaseUrl` | Base URL the signed documents point at; one of the two must be set |
 | `--namespace` | `scrollcase.box` | Document `kind` namespace — a project with boxes already in the field keeps emitting its own |
 | `--allow-dirty` | off | Permit a build from an uncommitted tree; recorded as `sourceTreeDirty: true` in the box |

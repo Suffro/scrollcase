@@ -44,7 +44,8 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 - For real builds: `pixi` at the version the scroll pins and `conda-pack` 0.9.2. Point Scrollcase
   at them with `--pixi` / `--conda-pack` or `SCROLLCASE_PIXI` /
   `SCROLLCASE_CONDA_PACK` if they are not on `PATH`. `scrollcase doctor` reports exactly what is
-  missing and how to install it. `init` installs the pinned conda-pack release automatically.
+  missing and how to install it. `init` offers to install the pinned toolchain into the project and
+  downloads nothing without explicit consent.
 - Locking, auditing, signing and verifying an existing archive need no toolchain at all.
 
 ## Install
@@ -91,12 +92,15 @@ was built. See [examples/README.md](examples/README.md).
 | `audit <scroll>` | Dependency licence inventory, derived from the lock |
 | `build <scroll>` | Build, self-test, archive, and sign a box |
 | `verify <release.json>` | Verify signature, archive hash, and layout |
+| `run <release.json>` | Verify, temporarily extract, and run a local box |
 
 `scrollcase help` documents every option.
 
 Projects that consume the box contract directly can import the full Node surface from
 `scrollcase/contract`, or its target/document-shape helpers with no Node built-ins from
 `scrollcase/contract/browser`. Generated format types remain under `scrollcase/contract/types`.
+Local preparation and shell-free execution are available from `scrollcase/consumer`; the typed
+Python package under `python/` exposes the same semantics as `scrollcase_consumer`.
 
 ## Workspace
 
@@ -121,8 +125,8 @@ emitting the kinds its clients recognise.
 
 `--weights embed` (the default) packs assets into the archive: the box installs with no network
 and works air-gapped. `--weights on-demand` leaves them out and carries their URL, path, size and
-SHA-256 in the signed release, so a consumer fetches and verifies them at install time — the
-declared hash commits to exactly which bytes the box expects, whatever host serves them.
+SHA-256 in the signed release. The caller's distribution layer materializes those files; the
+official consumers do not download them and verify their signed size and hash before execution.
 
 ## Accelerator parity
 

@@ -318,7 +318,7 @@ Build options:
   --channel <name>           Channel the signed pointer names (nightly, beta, or stable;
                              default beta)
   --weights <mode>           embed (default: assets packed in, works air-gapped) or
-                             on-demand (fetched by the consumer at install time)
+                             on-demand (caller-materialized; verified before execution)
                              Without either flag, build shows an arrow-key menu. With no
                              terminal to ask, it says which default it took and carries on.
   --asset-base-url <url>     Override the scroll's published base URL

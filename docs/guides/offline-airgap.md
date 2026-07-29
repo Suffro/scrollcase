@@ -21,14 +21,15 @@ This guide covers what makes that true, and what to check before relying on it.
 | The verifier runs offline | `scrollcase verify` never touches the network |
 
 The one thing that breaks air-gapped installation is `--weights on-demand`, which deliberately
-leaves the assets out for a consumer to fetch. That is why `embed` is the default: air-gapped
-installation is a property worth keeping unless a project explicitly trades it away.
+leaves the assets out for the caller's distribution layer to materialize. That is why `embed` is
+the default: air-gapped installation is a property worth keeping unless a project explicitly
+trades it away.
 
 ## Build on the connected side
 
 ```sh
-scrollcase build my-model --weights embed
-scrollcase verify .scrollcase/dist/my-model-1.0.0-linux-x86_64-cpu.release.json --self-test
+scrollcase build my-model/linux-x86_64-cpu --weights embed
+scrollcase verify .scrollcase/dist/boxes/my-model/1.0.0/linux-x86_64-cpu/*.release.json --self-test
 ```
 
 Verify **before** transferring, on a machine matching the target. `--self-test` extracts the
@@ -41,23 +42,24 @@ never makes the trip.
 Three files travel:
 
 ```text
-my-model-1.0.0-linux-x86_64-cpu.zip            # the box
-my-model-1.0.0-linux-x86_64-cpu.release.json   # the signed release document
-signing-public.json                            # the trust anchor
+<archive sha256>.zip                  # the box
+<release document sha256>.release.json # the signed release document
+signing-public.json                    # the trust anchor
 ```
 
 The trust anchor should travel by a **different route** than the box, or be already present on
 the isolated machine. A signature checked against a key that arrived alongside the artefact
 proves only that they were produced together.
 
-Note the naming convention: the archive and its release document share a stem, so `verify` finds
-the archive next to the document without being told. Keep them together, or pass `--archive`.
+Keep the archive beside the release document under its content-addressed filename. `verify` reads
+the archive SHA-256 from the signed release and resolves `<archive sha256>.zip`; if the files are
+stored separately, pass `--archive`.
 
 ## Verify on the isolated side
 
 ```sh
-scrollcase verify my-model-1.0.0-linux-x86_64-cpu.release.json \
-  --archive my-model-1.0.0-linux-x86_64-cpu.zip \
+scrollcase verify RELEASE_DOCUMENT_SHA256.release.json \
+  --archive ARCHIVE_SHA256.zip \
   --public-key ./signing-public.json \
   --self-test
 ```
@@ -76,7 +78,7 @@ Scrollcase does not install or extract into an arbitrary final destination. Afte
 the consuming project may extract into a fresh destination using a path-safe extractor:
 
 ```sh
-unzip my-model-1.0.0-linux-x86_64-cpu.zip -d /opt/boxes/my-model-1.0.0
+unzip ARCHIVE_SHA256.zip -d /opt/boxes/my-model-1.0.0
 /opt/boxes/my-model-1.0.0/venv/bin/python -c "import torch; print(torch.__version__)"
 ```
 
