@@ -130,12 +130,12 @@ const capabilities = [
             <div class="code-line"><span class="c-success">✓</span> Updated <span class="c-muted">pixi.lock</span></div>
             
             <div class="code-line mt"><span class="c-prompt">$</span> <span class="c-cmd">scrollcase keygen</span></div>
-            <div class="code-line"><span class="c-success">✓</span> Created signing key <span class="c-info">scrollcase-fa120ac69c</span></div>
+            <div class="code-line"><span class="c-success">✓</span> Created signing key <span class="c-muted">scrollcase-fa120ac69c</span></div>
             
             <div class="code-line mt"><span class="c-prompt">$</span> <span class="c-cmd">scrollcase build example-box</span></div>
             <div class="code-line"><span class="c-muted">→ Building example-box/macos-aarch64-metal (beta, embed)</span></div>
             <div class="code-line"><span class="c-muted">[########################################] 100%</span></div>
-            <div class="code-line"><span class="c-success">✓ Build complete</span> <span class="c-muted">— your box is ready</span></div>
+            <div class="code-line"><span class="c-success">✓ Build complete</span> <span class="c-muted">— your box is ready!</span></div>
           </div>
         </div>
       </div>
