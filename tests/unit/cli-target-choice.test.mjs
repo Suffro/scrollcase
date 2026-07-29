@@ -188,15 +188,25 @@ describe('CLI target selection', () => {
       'utf8',
     )).toContain('Scrollcase box is ready.');
     expect(await readFile(
-      join(root, 'consumer-examples', 'run-box.ts'),
+      join(root, 'consumer-templates', 'run-box.ts'),
       'utf8',
-    )).toContain("from 'scrollcase/consumer'");
+    )).toContain('runBox(releaseToRun');
     const pythonConsumer = await readFile(
-      join(root, 'consumer-examples', 'run_box.py'),
+      join(root, 'consumer-templates', 'run_box.py'),
       'utf8',
     );
     expect(pythonConsumer).toContain('from scrollcase_consumer import');
     expect(pythonConsumer).toContain('run_box');
+    const pyproject = await readFile(
+      fileURLToPath(new URL('../../python/pyproject.toml', import.meta.url)),
+      'utf8',
+    );
+    const pythonPackageVersion = pyproject.match(/^version = "([^"]+)"$/m)?.[1];
+    expect(pythonPackageVersion).toBeTruthy();
+    expect(pythonConsumer).toContain(
+      `pip install scrollcase-consumer==${pythonPackageVersion}`,
+    );
+    expect(await readdir(root)).not.toContain('consumer-examples');
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain(`Example: scrollcase lock example-box/${targetId}`);
     expect(result.stdout).toContain('Create your own: scrollcase new scroll');

@@ -37,41 +37,65 @@ if __name__ == "__main__":
     sys.exit(main())
 `;
 
-const TYPESCRIPT_CONSUMER_EXAMPLE = `/**
+const TYPESCRIPT_CONSUMER_TEMPLATE = `/**
  * Runs a local box through the typed Node consumer.
  *
- * Build the example first, then pass its release document followed by application arguments.
+ * SETUP (once):
+ *   npm install scrollcase
+ *   npm install --save-dev tsx
+ *
+ * RUN:
+ *   npx tsx consumer-templates/run-box.ts
+ *
+ * Replace <target> and <hash> below with the values printed by scrollcase build.
  */
 import { runBox } from 'scrollcase/consumer';
 
-const [releaseDocumentPath, ...boxArgs] = process.argv.slice(2);
-if (!releaseDocumentPath) {
-  console.error('Usage: tsx consumer-examples/run-box.ts <release.json> [box arguments]');
-  process.exit(2);
-}
+const releaseToRun =
+  '.scrollcase/dist/boxes/example-box/1.0.0/<target>/<hash>.release.json';
 
-const result = await runBox(releaseDocumentPath, {
+runBox(releaseToRun, {
   publicPath: '.scrollcase/keys/signing-public.json',
-  args: boxArgs,
+  args: [],
   stdin: 'inherit',
   stdout: 'inherit',
   stderr: 'inherit',
   onPrepared: ({ boxId, version, targetId }) => {
     console.log(\`Running \${boxId} \${version} (\${targetId})\`);
   },
+}).then((result) => {
+  if (result.signal) console.error(\`Box exited after \${result.signal}.\`);
+  process.exitCode = result.exitCode ?? 1;
 });
-
-if (result.signal) console.error(\`Box exited after \${result.signal}.\`);
-process.exitCode = result.exitCode ?? 1;
 `;
 
-const PYTHON_CONSUMER_EXAMPLE = `"""Run a local box through the typed Python consumer."""
+const PYTHON_CONSUMER_VERSION = '0.1.0';
+
+const PYTHON_CONSUMER_TEMPLATE = `"""
+Runs a local box through the typed Python consumer.
+
+SETUP (once):
+
+    python3 -m venv .scrollcase/python-consumer
+    .scrollcase/python-consumer/bin/python -m pip install scrollcase-consumer==${PYTHON_CONSUMER_VERSION}
+
+RUN (from the project root):
+
+    .scrollcase/python-consumer/bin/python consumer-templates/run_box.py
+
+Replace <target> and <hash> below with the values printed by scrollcase build.
+"""
 
 from __future__ import annotations
 
 import sys
 
 from scrollcase_consumer import PreparedBox, run_box
+
+
+RELEASE_TO_RUN = (
+    ".scrollcase/dist/boxes/example-box/1.0.0/<target>/<hash>.release.json"
+)
 
 
 def _report(prepared: PreparedBox) -> None:
@@ -81,20 +105,13 @@ def _report(prepared: PreparedBox) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print(
-            "Usage: python consumer-examples/run_box.py "
-            "<release.json> [box arguments]",
-            file=sys.stderr,
-        )
-        return 2
-
     result = run_box(
-        sys.argv[1],
+        RELEASE_TO_RUN,
         public_key_path=".scrollcase/keys/signing-public.json",
-        args=sys.argv[2:],
+        args=[],
         on_prepared=_report,
     )
+
     if result.signal is not None:
         print(f"Box exited after {result.signal}.", file=sys.stderr)
     return result.exit_code if result.exit_code is not None else 1
@@ -368,13 +385,13 @@ export async function ensureExampleScroll({
     };
   }
 
-  const consumerExamples = [
-    [join(workspace.root, 'consumer-examples', 'run-box.ts'), TYPESCRIPT_CONSUMER_EXAMPLE],
-    [join(workspace.root, 'consumer-examples', 'run_box.py'), PYTHON_CONSUMER_EXAMPLE],
+  const consumerTemplates = [
+    [join(workspace.root, 'consumer-templates', 'run-box.ts'), TYPESCRIPT_CONSUMER_TEMPLATE],
+    [join(workspace.root, 'consumer-templates', 'run_box.py'), PYTHON_CONSUMER_TEMPLATE],
   ];
-  const consumerWritten = [];
-  for (const [path, contents] of consumerExamples) {
-    if (await ensureTextFile(path, contents)) consumerWritten.push(path);
+  const templateWritten = [];
+  for (const [path, contents] of consumerTemplates) {
+    if (await ensureTextFile(path, contents)) templateWritten.push(path);
   }
-  return { ...result, written: [...result.written, ...consumerWritten] };
+  return { ...result, written: [...result.written, ...templateWritten] };
 }

@@ -51,10 +51,10 @@ the caller to pass `--target`. v2 accepts only the nested
 Initialize a workspace and a fixed, disposable `example-box` for the native host. The example is a
 complete runnable v2 scroll: Metal on Apple Silicon and CPU on Linux or Windows. It is created
 through the normal validated authoring path and never overwritten. It also includes
-`consumer-examples/run-box.ts` and `consumer-examples/run_box.py`, which demonstrate the public Node
-and Python consumer APIs against a caller-supplied local release. A concise, linked `SCROLLCASE.md`
-is always created unless one already exists. Pass `--no-example` to omit `example-box` and the
-consumer examples while retaining the workspace guide.
+`consumer-templates/run-box.ts` and `consumer-templates/run_box.py`, which demonstrate the public
+Node and Python consumer APIs against a caller-supplied local release and include their setup
+commands. A concise, linked `SCROLLCASE.md` is always created unless one already exists. Pass
+`--no-example` to omit `example-box` and the consumer examples while retaining the workspace guide.
 
 `init` then offers to install `pixi` and `conda-pack` if they are missing. It downloads nothing
 before you say yes.

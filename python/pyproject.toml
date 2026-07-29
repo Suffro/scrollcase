@@ -9,6 +9,7 @@ description = "Verify, prepare, and run caller-supplied local Scrollcase boxes."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = [
   "scrollcase",
   "ed25519",
@@ -35,6 +36,7 @@ Issues = "https://github.com/suffro/scrollcase/issues"
 test = [
   "build>=1.2,<2",
   "mypy>=1.13,<2",
+  "tomli>=2; python_version < '3.11'",
   "types-jsonschema>=4.21",
 ]
 

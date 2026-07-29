@@ -142,6 +142,10 @@ process.exitCode = result.exitCode ?? 1;
 
 The typed Python package mirrors the local Node consumer without depending on Node or its CLI:
 
+```sh
+python -m pip install scrollcase-consumer
+```
+
 ```python
 from scrollcase_consumer import (
     run_box,
@@ -171,8 +175,7 @@ previous handlers are restored.
 
 The distribution is not a downloader: callers still supply local release, archive, trust-key,
 destination, and on-demand asset paths. It verifies Ed25519 signatures with `cryptography` and
-validates bundled, generated copies of the canonical schemas. Publication to PyPI remains outside
-the current repository phase.
+validates bundled, generated copies of the canonical schemas.
 
 ## `scrollcase/contract`
 

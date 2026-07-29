@@ -3,6 +3,10 @@
 `scrollcase-consumer` is the typed Python API for verifying, preparing, and running a
 caller-supplied local Scrollcase box:
 
+```sh
+python -m pip install scrollcase-consumer
+```
+
 ```python
 from scrollcase_consumer import run_box
 

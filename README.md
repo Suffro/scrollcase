@@ -80,11 +80,11 @@ archive. Its final `verify --self-test` extracts the box and imports `json` and 
 interpreter *inside* it — the check that proves the environment runs somewhere other than where it
 was built. See [examples/README.md](examples/README.md).
 
-`init` also writes a concise `SCROLLCASE.md`, plus `consumer-examples/run-box.ts` and
-`consumer-examples/run_box.py`. The examples show the external application side of the boundary by
-accepting a local `release.json` and calling `runBox` from `scrollcase/consumer` or `run_box` from
-`scrollcase_consumer`. The application executed inside the example box is kept separately at
-`box-entrypoints/<boxId>/<targetId>/entrypoint.py`.
+`init` also writes a concise `SCROLLCASE.md`, plus `consumer-templates/run-box.ts` and
+`consumer-templates/run_box.py`. The templates show the external application side of the boundary
+by calling `runBox` from `scrollcase/consumer` or `run_box` from the separately installed
+`scrollcase-consumer` Python package. The application executed inside the example box is kept
+separately at `box-entrypoints/<boxId>/<targetId>/entrypoint.py`.
 
 ## Commands
 

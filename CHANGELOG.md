@@ -22,7 +22,8 @@ All notable changes to Scrollcase are documented here. The format follows
   verification, collision-free safe ZIP extraction, immutable prepared receipts, script/module
   execution, on-demand asset checks, signal forwarding, child terminal results, and one-shot
   cleanup without a Node runtime dependency. The distribution bundles generated, drift-checked
-  copies of the canonical schemas and uses maintained `cryptography` Ed25519 verification.
+  copies of the canonical schemas, uses maintained `cryptography` Ed25519 verification, and is
+  released independently to PyPI as `scrollcase-consumer`.
 - Hold the Node and Python consumers to one language-neutral conformance matrix covering trust,
   tampering, hostile archives, execution, streams, signals, cleanup, on-demand assets, and all
   supported interpreter layouts. ZIP path collisions are now rejected during inspection in both
@@ -42,7 +43,7 @@ All notable changes to Scrollcase are documented here. The format follows
 - Keep real authoring separate while restoring a useful first-run example. `scrollcase init` now
   creates a disposable runnable `example-box` for the native host by default, without overwriting
   existing files, a concise linked `SCROLLCASE.md`, and TypeScript/Python examples under
-  `consumer-examples/` that run a caller-supplied local release through the public APIs;
+  `consumer-templates/` that run a caller-supplied local release through the public APIs;
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under

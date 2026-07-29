@@ -48,7 +48,7 @@ portable [box](https://scrollcase.dev/reference/box-format) for one
 
 See the [CLI reference](https://scrollcase.dev/reference/cli) for every option and
 [signing and key custody](https://scrollcase.dev/guides/signing-and-custody) before distributing a
-box. The files in \`consumer-examples/\` demonstrate the
+box. The files in \`consumer-templates/\` demonstrate the
 [Node and Python consumer APIs](https://scrollcase.dev/reference/api) against local release files;
 they do not download or publish boxes.
 

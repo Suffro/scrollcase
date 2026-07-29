@@ -6,7 +6,15 @@ from __future__ import annotations
 import argparse
 import tarfile
 import zipfile
+from email.parser import BytesParser
+from email.policy import default
 from pathlib import Path
+from typing import Any, cast
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 distribution checks install the test extra.
+    import tomli as tomllib
 
 SCHEMA_FILES = (
     "signed-document.schema.json",
@@ -27,6 +35,17 @@ PACKAGE_FILES = (
 )
 
 
+def project_metadata() -> tuple[str, str, str]:
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    parsed = cast(dict[str, Any], tomllib.loads(pyproject.read_text(encoding="utf-8")))
+    project = cast(dict[str, Any], parsed["project"])
+    return (
+        cast(str, project["name"]),
+        cast(str, project["version"]),
+        cast(str, project["requires-python"]),
+    )
+
+
 def expected_suffixes() -> tuple[str, ...]:
     return (
         *(f"scrollcase_consumer/{name}" for name in PACKAGE_FILES),
@@ -34,7 +53,11 @@ def expected_suffixes() -> tuple[str, ...]:
     )
 
 
-def inspect_wheel(path: Path, canonical: Path) -> None:
+def inspect_wheel(
+    path: Path,
+    canonical: Path,
+    expected_metadata: tuple[str, str, str],
+) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         for suffix in expected_suffixes():
@@ -44,8 +67,25 @@ def inspect_wheel(path: Path, canonical: Path) -> None:
         metadata = [name for name in names if name.endswith(".dist-info/METADATA")]
         if len(metadata) != 1:
             raise SystemExit(f"{path.name}: missing wheel metadata")
-        if b"\nAuthor:" in archive.read(metadata[0]):
+        raw_metadata = archive.read(metadata[0])
+        if b"\nAuthor:" in raw_metadata:
             raise SystemExit(f"{path.name}: unexpected author metadata")
+        parsed = BytesParser(policy=default).parsebytes(raw_metadata)
+        actual_metadata = (
+            parsed["Name"],
+            parsed["Version"],
+            parsed["Requires-Python"],
+        )
+        if actual_metadata != expected_metadata:
+            raise SystemExit(
+                f"{path.name}: metadata {actual_metadata!r} does not match "
+                f"{expected_metadata!r}"
+            )
+        licences = [name for name in names if name.endswith(".dist-info/licenses/LICENSE")]
+        if len(licences) != 1:
+            raise SystemExit(
+                f"{path.name}: expected one packaged LICENSE, found {len(licences)}"
+            )
         for name in SCHEMA_FILES:
             packaged = archive.read(f"scrollcase_consumer/schemas/{name}")
             if packaged != (canonical / name).read_bytes():
@@ -59,7 +99,7 @@ def inspect_sdist(path: Path, canonical: Path) -> None:
             matches = [name for name in names if name.endswith(suffix)]
             if len(matches) != 1:
                 raise SystemExit(f"{path.name}: expected one {suffix}, found {len(matches)}")
-        for suffix in ("pyproject.toml", "README.md"):
+        for suffix in ("pyproject.toml", "README.md", "LICENSE"):
             matches = [name for name in names if name.endswith(suffix)]
             if len(matches) != 1:
                 raise SystemExit(
@@ -83,11 +123,12 @@ def main() -> int:
     parser.add_argument("artifacts", nargs="+", type=Path)
     options = parser.parse_args()
     canonical = Path(__file__).resolve().parents[2] / "src" / "contract" / "schema"
+    expected_metadata = project_metadata()
     saw_wheel = False
     saw_sdist = False
     for artifact in options.artifacts:
         if artifact.suffix == ".whl":
-            inspect_wheel(artifact, canonical)
+            inspect_wheel(artifact, canonical, expected_metadata)
             saw_wheel = True
         elif artifact.name.endswith(".tar.gz"):
             inspect_sdist(artifact, canonical)

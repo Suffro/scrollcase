@@ -54,6 +54,26 @@ python scripts/check_distribution.py dist/*
 Its tests use only temporary local fixtures. The copied schemas must stay byte-identical to
 `src/contract/schema/`; regenerate them only through `python/scripts/sync_schemas.py`.
 
+## Python releases
+
+The Python consumer has an independent version and tag namespace. To prepare a release:
+
+1. update `project.version` in `python/pyproject.toml` and the version pinned in the generated
+   Python consumer template;
+2. run every Python verification command above and inspect both distribution artifacts;
+3. configure the `pypi` GitHub environment as the PyPI Trusted Publisher environment for
+   `scrollcase-consumer`;
+4. create and push the exact tag `python-v<project.version>`.
+
+`.github/workflows/publish-python.yml` rejects a tag/version mismatch, rebuilds and inspects the
+wheel and sdist, then publishes them through PyPI Trusted Publishing. Do not upload the artifacts
+manually or reuse the npm `v<version>` tag namespace.
+
+The conda-forge package is bootstrapped only after the PyPI release exists: submit its exact sdist
+URL and SHA-256 through conda-forge's staged contribution repository. After acceptance, the
+generated feedstock is the authority for conda packaging and conda-forge's update bot proposes
+later PyPI versions.
+
 Building for real additionally needs `pixi` at the version a scroll pins, plus `conda-pack` 0.9.2;
 `scrollcase doctor` reports what is missing.
 

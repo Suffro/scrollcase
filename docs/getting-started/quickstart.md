@@ -51,8 +51,8 @@ already exists:
   host: Metal on Apple Silicon, CPU on Linux and Windows.
 - `box-entrypoints/example-box/<native-target>/entrypoint.py` — the application executed inside
   that box and target.
-- `consumer-examples/run-box.ts` — a typed Node consumer using `scrollcase/consumer`.
-- `consumer-examples/run_box.py` — the equivalent Python consumer using `scrollcase_consumer`.
+- `consumer-templates/run-box.ts` — a typed Node consumer using `scrollcase/consumer`.
+- `consumer-templates/run_box.py` — the equivalent Python consumer using `scrollcase_consumer`.
 - `SCROLLCASE.md` — a short project-local workflow guide linked to the full documentation.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
@@ -129,10 +129,10 @@ git add . && git commit -m "Example box scroll and lock"
 Committing now also matters for the next steps: `build` refuses a dirty tree without
 `--allow-dirty`, because an artefact built from uncommitted changes is reproducible by nobody.
 
-After the build, the two files under `consumer-examples/` show how an application can run the
-local signed release through either public consumer API. They take the release document as their
-first argument and forward every remaining argument to the box; the Node or Python consumer package
-must be installed in the application that runs the corresponding example.
+After the build, the two files under `consumer-templates/` show how an application can run the
+local signed release through either public consumer API. Replace the `<target>` and `<hash>`
+placeholders in the chosen template, then follow its setup and run instructions. The Node or Python
+consumer package must be installed in the application that runs the template.
 
 ## 7. `keygen` — create a signing key
 
