@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { copyVerifiedLocalFile } from '../../src/build/assets.mjs';
-import { createScroll } from '../../src/build/authoring.mjs';
+import { createScroll, ensureExampleScroll } from '../../src/build/authoring.mjs';
 import { fileExists, sha256File } from '../../src/build/filesystem.mjs';
 import { initProject } from '../../src/build/project.mjs';
 import { readScroll } from '../../src/build/scroll.mjs';
@@ -176,6 +176,18 @@ describe('scroll authoring', () => {
     expect(result.scroll.localFiles[0].sourcePath).toBe(
       'scrollcase-scripts/example-model-macos-aarch64-metal.py',
     );
+  });
+
+  it('keeps an existing initialized example untouched', async () => {
+    const current = await workspace();
+    const first = await ensureExampleScroll({ workspace: current, target: TARGET });
+    await writeFile(first.generatedScriptPath, 'print("customized")\n');
+
+    const second = await ensureExampleScroll({ workspace: current, target: TARGET });
+
+    expect(second.created).toBe(false);
+    expect(second.written).toEqual([]);
+    expect(await readFile(first.generatedScriptPath, 'utf8')).toBe('print("customized")\n');
   });
 
   it('never overwrites an existing scroll or generated script', async () => {

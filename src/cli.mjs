@@ -17,21 +17,30 @@
 import { createInterface } from 'node:readline/promises';
 import { join, resolve } from 'node:path';
 import { auditScroll } from './build/audit.mjs';
-import { createScroll } from './build/authoring.mjs';
+import {
+  createScroll,
+  ensureExampleScroll,
+  EXAMPLE_PIXI_VERSION,
+} from './build/authoring.mjs';
 import { buildBox } from './build/box.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
 import { diagnose, ensureToolchain, initProject } from './build/project.mjs';
 import { scrollCandidates, readScroll } from './build/scroll.mjs';
 import { verifyBox } from './build/verify.mjs';
-import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
+import {
+  configureWorkspace,
+  getWorkspace,
+  SCROLLCASE_CONFIG_FILENAME,
+  workspaceOverridesFromFlags,
+} from './build/workspace.mjs';
 import { collectNewScrollOptions } from './cli-authoring.mjs';
 import { parseArgs } from './cli-args.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { runCliBox } from './cli-run.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
-import { chooseTarget } from './cli-targets.mjs';
+import { chooseTarget, nativeExampleTarget } from './cli-targets.mjs';
 import { CHANNELS } from './contract/index.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -102,10 +111,10 @@ async function selectScrollReference(name, flags) {
 }
 
 /**
- * `init` — scaffold only the workspace, then offer to install the shared build toolchain.
+ * `init` — scaffold the workspace and its disposable runnable example, then offer the toolchain.
  *
- * Scroll creation is deliberately separate: setup cannot invent product identity, target, or
- * execution metadata. The toolchain step downloads only after explicit consent.
+ * Real scroll creation remains separate: the fixed `example-box` is onboarding material, never a
+ * guess at the project's identity. The toolchain step downloads only after explicit consent.
  */
 async function init(flags) {
   const workspace = getWorkspace();
@@ -119,17 +128,38 @@ async function init(flags) {
     'runtime-id',
   ].filter((name) => flags.has(name));
   if (authoringFlags.length > 0) {
-    fail(`init prepares only the workspace; pass ${authoringFlags.map((name) => `--${name}`).join(', ')} to scrollcase new scroll.`);
+    fail(`init accepts only the fixed example; pass ${authoringFlags.map((name) => `--${name}`).join(', ')} to scrollcase new scroll.`);
   }
+  const exampleTarget = flags.get('no-example') ? null : nativeExampleTarget();
   const result = await initProject({ root: workspace.root, scrollsDir: workspace.scrollsDir });
   for (const path of result.written) success(`Created ${path}`);
   for (const path of result.skipped) info(`Kept ${path} (already present)`);
+
+  let example = null;
+  const pixiVersion = text(flags, 'pixi-version')
+    ?? (exampleTarget ? EXAMPLE_PIXI_VERSION : null);
+  if (exampleTarget) {
+    const initializedWorkspace = workspace.configPath
+      ? workspace
+      : { ...workspace, configPath: join(workspace.root, SCROLLCASE_CONFIG_FILENAME) };
+    example = await ensureExampleScroll({
+      workspace: initializedWorkspace,
+      target: exampleTarget,
+      pixiVersion,
+    });
+    if (example.created) {
+      success(`Created example scroll ${example.scrollRef}`);
+      for (const path of example.written) info(path);
+    } else {
+      info(`Kept example scroll ${example.scrollRef} (already present)`);
+    }
+  }
 
   const always = Boolean(flags.get('install-toolchain'));
   const never = Boolean(flags.get('no-install-toolchain'));
   const toolchain = await ensureToolchain({
     workspace,
-    pixiVersion: text(flags, 'pixi-version'),
+    pixiVersion,
     confirm: async (missing) => {
       if (never) return false;
       if (always) return true;
@@ -150,7 +180,8 @@ async function init(flags) {
   }
 
   success('Workspace initialized');
-  step('Next: scrollcase new scroll');
+  if (example) step(`Example: scrollcase lock ${example.scrollRef}`);
+  step(example ? 'Create your own: scrollcase new scroll' : 'Next: scrollcase new scroll');
 }
 
 /** `new scroll` — collect one complete authoring decision and create it atomically. */
@@ -256,7 +287,7 @@ function usage() {
   console.log(`Usage: scrollcase <command> [options]
 
 Commands:
-  init                       Initialize a workspace without creating a scroll
+  init                       Initialize a workspace with a runnable example
   new scroll                 Create one guided target-specific scroll
   doctor                     Report whether this machine can build a box
   keygen                     Create a local ed25519 signing key
@@ -268,6 +299,7 @@ Commands:
 
 Init options:
   --pixi-version <version>   Install this pixi release when setup is approved
+  --no-example              Initialize an empty workspace without example-box
   --install-toolchain        Install missing pixi/conda-pack without asking
   --no-install-toolchain     Never install them; just report what is missing
                              With neither flag, init asks before downloading anything, and

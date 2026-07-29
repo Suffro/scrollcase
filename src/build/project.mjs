@@ -1,9 +1,9 @@
 /**
  * Setting a project up, and telling it what is wrong.
  *
- * `init` scaffolds only the workspace; `doctor` inspects and never writes. Scroll authoring is a
- * separate operation because a workspace may carry many boxes and targets, and inventing one
- * example during setup made the first real scroll an edit of placeholder product metadata.
+ * `initProject` scaffolds only the workspace; the CLI may compose it with the explicitly
+ * disposable example used for onboarding. `doctor` inspects and never writes. Real scroll
+ * authoring remains a separate operation because a workspace may carry many boxes and targets.
  *
  * `init` may also install the build toolchain, but only after asking: scaffolding never reaches for
  * the network on its own, and the download is verified against a pinned checksum. See
@@ -32,8 +32,9 @@ const GITIGNORE_MARKER = '# scrollcase build state';
 /**
  * Scaffolds a workspace config, the scroll root, and ignore rules for generated state.
  *
- * It deliberately creates no scroll. Existing files are never overwritten, so a half-configured
- * workspace can be completed by running the command again without changing authored inputs.
+ * This low-level primitive deliberately creates no scroll. Existing files are never overwritten,
+ * so a half-configured workspace can be completed by running the command again without changing
+ * authored inputs.
  */
 export async function initProject({
   root,

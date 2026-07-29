@@ -39,18 +39,18 @@ All notable changes to Scrollcase are documented here. The format follows
   Incomplete pairs and missing external-signer trust keys also fail without overwriting anything.
 - Present target, weights, and suggested channel choices as navigable arrow-key menus. Channel
   choices are closed to `nightly`, `beta`, and `stable`, with `beta` remaining the build default.
-- Split workspace setup from authoring. `scrollcase init` now creates only the config, `scrolls/`
-  root, ignore rules, and optional verified project toolchain; `scrollcase new scroll` gathers one
-  complete target-specific scroll interactively or from explicit non-terminal flags. Script mode
-  can hash an existing project file or generate a starter without overwriting either source or
-  scroll files.
+- Keep real authoring separate while restoring a useful first-run example. `scrollcase init` now
+  creates a disposable runnable `example-box` for the native host by default, without overwriting
+  existing files; `--no-example` creates an empty workspace. `scrollcase new scroll` still gathers
+  complete project metadata interactively or from explicit non-terminal flags.
 - Organise new scrolls as `scrolls/<boxId>/<targetId>/`, validating both path components against
   the scroll's declared `boxId` and canonical target. `scrollId` is now optional input and is
   derived as `<boxId>-<targetId>` for release provenance; the flat v1 layout is rejected.
 - Let `lock`, `audit`, `build`, and scroll-aware `doctor` select a nested target through
   `<boxId>/<targetId>`, `--target`, or a navigable keyboard menu. A sole host target is the default,
   and Metal is preferred on macOS; other non-terminal ambiguities fail with an explicit `--target`
-  remedy. `new scroll` uses the target menu while `init` remains target-independent.
+  remedy. `new scroll` uses the target menu; the fixed init example deterministically selects Metal
+  on Apple Silicon and CPU on Linux or Windows.
 - Publish one editor-oriented v2 execution schema and reference it from scroll, signed release, and
   `box.json`. Generated scrolls self-associate through `$schema`; the schema supplies closed
   script/module alternatives, target conditionals, defaults, examples, safe paths, and strict

@@ -181,18 +181,21 @@ A tool that derives its paths from its own location on disk only works while it 
 project it serves. Making the layout the project's declaration is what lets Scrollcase run from
 anywhere against any project that declares one.
 
-## Workspace setup and scroll authoring are separate
+## Workspace setup keeps real authoring separate from the disposable example
 
-`scrollcase init` creates only project structure and may offer the shared verified toolchain.
-`scrollcase new scroll` owns box identity, target, versions, compatibility, weights, and execution
-intent. A non-terminal authoring call must provide every material value and fails before writing
-when one is missing; an interactive terminal uses the same finite-choice menus as the rest of the
-CLI. Neither path overwrites an existing scroll or source script.
+`scrollcase init` creates project structure and, by default, one clearly named `example-box` for the
+native host. The example is a complete runnable v2 scroll produced through the same validated
+authoring path as any other scroll. It prefers Metal on Apple Silicon and CPU elsewhere, never
+guesses a CUDA ABI, never overwrites an existing example, and can be omitted with `--no-example`.
 
-**Rejected:** having `init` invent an example box and target. A workspace can carry many unrelated
-boxes, so setup has no principled answer for product identity or execution behavior. The placeholder
-made the first real scroll an edit of guessed metadata and coupled toolchain installation to one
-arbitrary input.
+`scrollcase new scroll` remains the only command that authors real project identity, target,
+versions, compatibility, weights, and execution intent. A non-terminal authoring call must provide
+every material value and fails before writing when one is missing; an interactive terminal uses the
+same finite-choice menus as the rest of the CLI.
+
+**Rejected:** either treating setup metadata as the project's real scroll or leaving a newcomer with
+only an empty directory. The fixed example is explicitly disposable onboarding material; real
+inputs are created independently rather than edited from guessed product metadata.
 
 ## Scrolls are grouped by box, then target
 

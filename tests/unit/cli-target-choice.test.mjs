@@ -6,7 +6,12 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chooseCliValue } from '../../src/cli-menu.mjs';
-import { chooseTarget, parseCliTarget, selectTargetMenu } from '../../src/cli-targets.mjs';
+import {
+  chooseTarget,
+  nativeExampleTarget,
+  parseCliTarget,
+  selectTargetMenu,
+} from '../../src/cli-targets.mjs';
 import { boxTargetAdapters } from '../../src/contract/targets.mjs';
 
 const macos = { platform: 'darwin', arch: 'arm64' };
@@ -110,7 +115,15 @@ describe('CLI target selection', () => {
     expect(() => parseCliTarget('linux-x86_64-cuda')).toThrow(/complete target/);
   });
 
-  it('keeps init workspace-only and points to the authoring command', async () => {
+  it.each([
+    [{ platform: 'darwin', arch: 'arm64' }, 'macos-aarch64-metal'],
+    [{ platform: 'linux', arch: 'x64' }, 'linux-x86_64-cpu'],
+    [{ platform: 'win32', arch: 'x64' }, 'windows-x86_64-cpu'],
+  ])('chooses the portable init example target for %j', (host, targetId) => {
+    expect(nativeExampleTarget(host)).toEqual(parseCliTarget(targetId));
+  });
+
+  it('creates a runnable example scroll for the native host by default', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
     created.push(root);
     const result = spawnSync(process.execPath, [
@@ -123,6 +136,47 @@ describe('CLI target selection', () => {
     expect(JSON.parse(await readFile(join(root, 'scrollcase.config.json'), 'utf8'))).toMatchObject({
       version: 1,
     });
+    const adapter = boxTargetAdapters().find(({ host }) =>
+      host.platform === process.platform && host.arch === process.arch);
+    const accelerator = adapter.platform === 'macos' ? 'metal' : 'cpu';
+    const targetId = `${adapter.platform}-${adapter.arch}-${accelerator}`;
+    const scroll = JSON.parse(await readFile(
+      join(root, 'scrolls', 'example-box', targetId, 'scroll.json'),
+      'utf8',
+    ));
+    expect(scroll).toMatchObject({
+      schemaVersion: 2,
+      boxId: 'example-box',
+      target: {
+        platform: adapter.platform,
+        arch: adapter.arch,
+        accelerator,
+      },
+      execution: {
+        kind: 'python-script',
+        script: 'entrypoint.py',
+      },
+    });
+    expect(await readFile(
+      join(root, 'scrollcase-scripts', `example-box-${targetId}.py`),
+      'utf8',
+    )).toContain('Scrollcase box is ready.');
+    expect(result.stdout).toContain('Workspace initialized');
+    expect(result.stdout).toContain(`Example: scrollcase lock example-box/${targetId}`);
+    expect(result.stdout).toContain('Create your own: scrollcase new scroll');
+  });
+
+  it('supports an explicitly empty workspace with --no-example', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
+    created.push(root);
+    const result = spawnSync(process.execPath, [
+      cli,
+      'init',
+      '--project-root', root,
+      '--no-example',
+      '--no-install-toolchain',
+    ], { encoding: 'utf8' });
+    expect(result.status, result.stderr).toBe(0);
     expect(await readdir(join(root, 'scrolls'))).toEqual([]);
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain('Next: scrollcase new scroll');
@@ -135,6 +189,7 @@ describe('CLI target selection', () => {
       cli,
       'init',
       '--project-root', root,
+      '--no-example',
       '--no-install-toolchain',
     ], { encoding: 'utf8' });
     expect(initialized.status, initialized.stderr).toBe(0);

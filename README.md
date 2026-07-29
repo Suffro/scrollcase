@@ -64,8 +64,8 @@ cd scrollcase && npm install && npm link
 ## Quickstart
 
 ```sh
-scrollcase init                     # initialize config, scrolls root, and ignore rules
-scrollcase new scroll               # guided creation of one target-specific scroll
+scrollcase init                     # initialize the workspace and runnable example-box
+scrollcase new scroll               # guided creation of your own target-specific scroll
 scrollcase doctor                   # can this machine build?
 scrollcase keygen                   # create a local ed25519 signing key
 scrollcase lock my-box/macos-aarch64-metal     # resolve the scroll's pixi manifest into pixi.lock
@@ -84,7 +84,7 @@ was built. See [examples/README.md](examples/README.md).
 
 | Command | What it does |
 | --- | --- |
-| `init` | Initialize a workspace without inventing a scroll |
+| `init` | Initialize a workspace with a disposable runnable example (`--no-example` for none) |
 | `new scroll` | Create one guided target-specific scroll |
 | `doctor` | Report whether this machine can build a box |
 | `keygen` | Create a local ed25519 signing key |

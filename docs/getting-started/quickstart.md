@@ -42,11 +42,14 @@ For more details check the [installation page](/getting-started/installation).
 scrollcase init
 ```
 
-`init` writes three things and never overwrites anything that already exists:
+`init` writes the workspace plus a disposable runnable example, and never overwrites anything that
+already exists:
 
 - `scrollcase.config.json` — the [workspace declaration](/reference/configuration): where scrolls
   live and where builds, artefacts and keys go.
-- `scrolls/` — the empty authoring root.
+- `scrolls/example-box/<native-target>/` — a complete v2 scroll and pixi manifest for the native
+  host: Metal on Apple Silicon, CPU on Linux and Windows.
+- `scrollcase-scripts/example-box-<native-target>.py` — the example application entry point.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
 
@@ -62,25 +65,28 @@ conda-pack pinned to 0.9.2. Answer no and nothing is downloaded — install them
 described in [Installation](/getting-started/installation). Either way `init` never downloads
 anything you did not agree to, which is what makes it safe to re-run.
 
-Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script.
+Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script. Pass
+`--no-example` when an explicitly empty workspace is preferable.
 
 It finishes with:
 
 ```text
 ✓ Workspace initialized
-→ Next: scrollcase new scroll
+→ Example: scrollcase lock example-box/macos-aarch64-metal
+→ Create your own: scrollcase new scroll
 ```
 
-## 4. `new scroll` — author one target
+## 4. `new scroll` — optionally author your own target
 
 ```sh
 scrollcase new scroll
 ```
 
-The wizard asks for box/model/runtime identity, the complete target, versions, compatibility,
-asset base URL, weights mode, and execution kind. For this walkthrough choose `library-only`; the
-command creates `scrolls/<boxId>/<targetId>/scroll.json` and the matching `pixi.toml`, then prints
-the exact reference to use next.
+The generated example is already ready for the remaining walkthrough steps, so you can skip this
+command for a first build. Use the wizard for real project metadata: it asks for
+box/model/runtime identity, the complete target, versions, compatibility, asset base URL, weights
+mode, and execution kind. It creates `scrolls/<boxId>/<targetId>/scroll.json` and the matching
+`pixi.toml`, then prints the exact reference to use next.
 
 For CI or another non-terminal caller, provide the equivalent flags shown by
 `scrollcase help`. Missing material input fails before any file is written.
@@ -96,8 +102,8 @@ anything, so it is always safe.
 
 ::: info Scroll references
 The exact reference is `<boxId>/<targetId>` under `scrolls/` — here
-`example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the reference `new scroll`
-printed on your machine throughout. You may also pass `example-box --target
+`example-box/macos-aarch64-metal`, assuming an Apple Silicon Mac. Substitute the example reference
+printed by `init`, or the reference printed by `new scroll`, throughout. You may also pass `example-box --target
 macos-aarch64-metal`.
 :::
 

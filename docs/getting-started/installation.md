@@ -54,23 +54,25 @@ What you get is verified, not just fetched:
 - the verified digest is recorded under `toolchain` in `scrollcase.config.json`, so the next
   machine — a teammate's, a CI runner's — is checked against the value **your project committed**
   rather than whatever the server offers that day;
-- the managed toolchain pin is workspace state; each scroll created by `scrollcase new scroll`
-  still declares its own exact `pixiVersion`.
+- the generated example and managed toolchain share the same pixi pin; every project scroll created
+  by `scrollcase new scroll` still declares its own exact `pixiVersion`.
 
 For unattended setups, answer up front:
 
 ```sh
 scrollcase init --install-toolchain      # install without asking
 scrollcase init --no-install-toolchain   # never install; just report what is missing
+scrollcase init --no-example             # initialize without example-box
 ```
 
 With no terminal to prompt — CI, a pipe — Scrollcase never installs anything and simply reports
 what is missing. Silence is not consent.
 
 ::: tip Pin the version you want
-`--pixi-version 0.73.0` installs exactly that release. Without it, the installed release or newest
-available release is used for the workspace toolchain; `new scroll` asks which exact version the
-individual scroll requires.
+`--pixi-version 0.73.0` uses exactly that release for both the generated example and an approved
+managed install. With `--no-example`, omitting the flag uses the installed release or newest
+available release for the workspace toolchain. `new scroll` asks which exact version each project
+scroll requires.
 :::
 
 ## Install the toolchain yourself

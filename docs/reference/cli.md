@@ -48,26 +48,31 @@ the caller to pass `--target`. v2 accepts only the nested
 
 ## `init`
 
-Initialize a workspace without inventing box identity, target, or execution metadata. It creates
+Initialize a workspace and a fixed, disposable `example-box` for the native host. The example is a
+complete runnable v2 scroll: Metal on Apple Silicon and CPU on Linux or Windows. It is created
+through the normal validated authoring path and never overwritten. Pass `--no-example` for only
 `scrollcase.config.json`, the configured `scrolls/` root, and `.gitignore` rules for
-`.scrollcase/`. Existing files are reported as `Kept`, so re-running is safe.
+`.scrollcase/`.
 
 `init` then offers to install `pixi` and `conda-pack` if they are missing. It downloads nothing
 before you say yes.
 
 ```sh
 scrollcase init [--pixi-version <version>]
+                [--no-example]
                 [--install-toolchain | --no-install-toolchain]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--pixi-version` | installed or newest | Install exactly this pixi release when setup is approved |
+| `--pixi-version` | example pin | Use this exact pixi release for the example and managed toolchain |
+| `--no-example` | off | Initialize an empty workspace without `example-box` |
 | `--install-toolchain` | ask | Install missing tools without prompting |
 | `--no-install-toolchain` | ask | Never install; just report what is missing |
 
-The final guidance is `Next: scrollcase new scroll`. Target and product flags passed to `init` are
-rejected with the same remedy instead of being silently ignored.
+The final guidance names the example's exact lock command and points to `scrollcase new scroll` for
+real project metadata. With `--no-example`, it is simply `Next: scrollcase new scroll`. Target and
+product flags passed to `init` are rejected with the same remedy instead of being silently ignored.
 
 ### The toolchain step
 
@@ -77,8 +82,8 @@ consent.
 
 When you agree, `init`:
 
-1. resolves the pixi version — `--pixi-version`, else the installed pixi's, else the newest
-   release;
+1. resolves the pixi version — `--pixi-version`, else the example's repository pin; with
+   `--no-example`, the installed pixi's or newest release;
 2. downloads the release for this host and checks its SHA-256 against the checksum pixi publishes
    beside it. **A mismatch aborts and installs nothing**;
 3. installs pixi into the workspace's toolchain directory, then uses it to run
@@ -87,15 +92,15 @@ When you agree, `init`:
 4. records the verified pixi digest and the conda-pack version under `toolchain` in
    `scrollcase.config.json`, so later pixi installs are checked against the committed digest — see
    [Workspace Configuration](/reference/configuration#toolchain);
-5. leaves each scroll to declare its own `pixiVersion`; tool installation is workspace setup, not
-   authoring.
+5. keeps each scroll's own `pixiVersion`; the generated example and managed toolchain use the same
+   resolved pin.
 
 Nothing is added to `PATH` and nothing is installed system-wide; later commands find the tools
 because [tool discovery](#tool-discovery) looks in the toolchain directory. Deleting
 `.scrollcase/toolchain/` undoes the whole thing.
 
-Hosts pixi publishes builds for: macOS (arm64, x64), Linux (x64, arm64) and Windows (x64, arm64).
-On anything else `init` says so and leaves the install to you.
+The example follows Scrollcase's supported box target matrix. On another host, initialize with
+`--no-example`. Toolchain-only setup can still use any host for which pixi publishes a build.
 
 ## `new`
 

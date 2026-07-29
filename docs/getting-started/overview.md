@@ -97,9 +97,10 @@ Run:
 scrollcase init
 ```
 
-This creates the initial project structure.
+This creates the initial project structure and a disposable runnable `example-box` for the native
+host. Use `--no-example` when an empty workspace is required.
 
-### 3. Create a Scroll
+### 3. Create a Project Scroll
 
 Run:
 
@@ -107,8 +108,9 @@ Run:
 scrollcase new scroll
 ```
 
-This guided command creates one target-specific `scroll.json` and `pixi.toml` without overwriting
-existing source or scroll files.
+This optional guided command creates one target-specific `scroll.json` and `pixi.toml` with real
+project metadata, without overwriting existing source or scroll files. The generated example can
+instead be used for the first walkthrough.
 
 ### 4. Generate a Signing Key
 
@@ -227,9 +229,9 @@ The practical workflow for the first box is:
 scrollcase init
 ```
 
-### 2. Create or Update the Scroll
+### 2. Use the Example or Create a Project Scroll
 
-Start a new one with:
+`init` prints the exact example reference. To start a real one instead:
 
 ```bash
 scrollcase new scroll

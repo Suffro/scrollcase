@@ -50,9 +50,9 @@ flowchart TB
 ## Initial setup
 
 1. run `npm install -g scrollcase` to install the [CLI](/reference/cli)
-2. run `scrollcase init`
-3. run `scrollcase new scroll`
-4. review the generated [scroll](/reference/scroll)
+2. run `scrollcase init` to create the workspace and runnable native example
+3. optionally run `scrollcase new scroll` for real project metadata
+4. review the selected [scroll](/reference/scroll)
 5. define the **dependencies**
 6. run `scrollcase lock <boxId>/<targetId>`
 7. generate or configure the [signing key](/guides/signing-and-custody)

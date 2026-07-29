@@ -55,6 +55,30 @@ export function cliTargetFamilies(platform) {
   return families.sort((left, right) => compareStableStrings(left.targetId, right.targetId));
 }
 
+/**
+ * Chooses the deterministic native target for the example created by `init`.
+ *
+ * The demo prefers Metal on Apple Silicon and CPU elsewhere, so it never guesses a CUDA ABI and
+ * remains usable from a non-interactive setup.
+ */
+export function nativeExampleTarget(
+  host = { platform: process.platform, arch: process.arch },
+) {
+  const adapter = boxTargetAdapters().find((candidate) =>
+    candidate.host.platform === host.platform && candidate.host.arch === host.arch);
+  if (!adapter) {
+    return fail(
+      `No example target is available for ${host.platform}/${host.arch}; `
+      + 'use scrollcase init --no-example.',
+    );
+  }
+  return {
+    platform: adapter.platform,
+    arch: adapter.arch,
+    accelerator: adapter.platform === 'macos' ? 'metal' : 'cpu',
+  };
+}
+
 /** Shows a raw-key target menu and resolves to the selected index. */
 export function selectTargetMenu(targetIds, {
   initialIndex = null,
