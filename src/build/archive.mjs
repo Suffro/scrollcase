@@ -85,6 +85,27 @@ function classifyZipEntry(entry) {
   };
 }
 
+/** Rejects duplicate paths and file/directory collisions before extraction begins. */
+function assertNoZipEntryCollisions(entries) {
+  const seen = new Map();
+  const parentsWithChildren = new Set();
+  for (const entry of entries) {
+    if (seen.has(entry.path)) fail(`Archive entry collides with another entry: ${entry.path}`);
+    const parts = entry.path.split('/');
+    for (let index = 1; index < parts.length; index += 1) {
+      const parent = parts.slice(0, index).join('/');
+      if (seen.get(parent) === 'file') {
+        fail(`Archive entry collides with another entry: ${entry.path}`);
+      }
+      parentsWithChildren.add(parent);
+    }
+    if (entry.kind === 'file' && parentsWithChildren.has(entry.path)) {
+      fail(`Archive entry collides with another entry: ${entry.path}`);
+    }
+    seen.set(entry.path, entry.kind);
+  }
+}
+
 /** Opens a ZIP with strict names, path validation, and uncompressed-size checks enabled. */
 async function openZip(archivePath) {
   return yauzl.openPromise(archivePath, {
@@ -115,6 +136,7 @@ export async function listZipEntries(archivePath) {
   } finally {
     await zip.close();
   }
+  assertNoZipEntryCollisions(entries);
   return entries;
 }
 

@@ -23,6 +23,10 @@ All notable changes to Scrollcase are documented here. The format follows
   execution, on-demand asset checks, signal forwarding, child terminal results, and one-shot
   cleanup without a Node runtime dependency. The distribution bundles generated, drift-checked
   copies of the canonical schemas and uses maintained `cryptography` Ed25519 verification.
+- Hold the Node and Python consumers to one language-neutral conformance matrix covering trust,
+  tampering, hostile archives, execution, streams, signals, cleanup, on-demand assets, and all
+  supported interpreter layouts. ZIP path collisions are now rejected during inspection in both
+  implementations, before extraction writes any bytes.
 - Add `scrollcase run <release.json> [--archive <box.zip>] -- [application args]` as a thin
   terminal wrapper over `runBox`. It displays signed box identity, preserves argument strings and
   child exit status without a shell, forwards termination signals, and removes its temporary

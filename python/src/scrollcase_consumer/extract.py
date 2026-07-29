@@ -71,6 +71,7 @@ def _classify(info: zipfile.ZipInfo, member_index: int) -> ZipEntry:
 
 def _assert_no_collisions(entries: list[ZipEntry]) -> None:
     seen: dict[str, str] = {}
+    parents_with_children: set[str] = set()
     for entry in entries:
         if entry.path in seen:
             raise ScrollcaseConsumerError(
@@ -85,7 +86,8 @@ def _assert_no_collisions(entries: list[ZipEntry]) -> None:
             raise ScrollcaseConsumerError(
                 f"Archive entry collides with another entry: {entry.path}"
             )
-        if entry.kind == "file" and any(path.startswith(f"{entry.path}/") for path in seen):
+        parents_with_children.update(parents)
+        if entry.kind == "file" and entry.path in parents_with_children:
             raise ScrollcaseConsumerError(
                 f"Archive entry collides with another entry: {entry.path}"
             )

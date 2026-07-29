@@ -26,15 +26,34 @@ export function nativeTarget() {
 }
 
 export async function writeSignedRelease(fixture, release) {
-  const signed = await signDocument(release, {
+  const localDocument = await signDocument(release, {
     privatePath: fixture.privatePath,
     publicPath: fixture.publicPath,
   });
+  const signed = fixture.signer === 'external'
+    ? await signDocument(release, {
+      signerCommand: ['fixture-external-signer'],
+      publicPath: fixture.publicPath,
+      runResult: (_command, _args, options) => {
+        const expectedInput = Buffer.from(localDocument.payloadBase64, 'base64');
+        if (Buffer.compare(options.input, expectedInput) !== 0) {
+          throw new Error('External signer fixture received different payload bytes.');
+        }
+        return {
+          status: 0,
+          error: null,
+          stdout: Buffer.from(JSON.stringify(localDocument)),
+          stderr: Buffer.alloc(0),
+        };
+      },
+    })
+    : localDocument;
   await writeFile(fixture.releasePath, `${JSON.stringify(signed, null, 2)}\n`);
 }
 
 export async function createConsumerBoxFixture({
   target = nativeTarget(),
+  signer = 'local',
   execution = {
     kind: 'python-script',
     script: 'app/main.py',
@@ -115,11 +134,13 @@ export async function createConsumerBoxFixture({
   const releasePath = join(root, 'release.json');
   const fixture = {
     root,
+    payload,
     archivePath,
     privatePath,
     publicPath,
     releasePath,
     release,
+    signer,
   };
   await writeSignedRelease(fixture, release);
   return fixture;

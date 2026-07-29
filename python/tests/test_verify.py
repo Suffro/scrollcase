@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from scrollcase_consumer import (
+    PreparedBox,
     ScrollcaseConsumerError,
     verify_and_extract_box,
 )
@@ -21,7 +22,7 @@ class VerificationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.fixture.root, ignore_errors=True)
 
-    def prepare(self, name: str = "prepared"):
+    def prepare(self, name: str = "prepared") -> PreparedBox:
         return verify_and_extract_box(
             self.fixture.release_path,
             public_key_path=self.fixture.public_key_path,

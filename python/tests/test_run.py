@@ -13,6 +13,7 @@ from typing import Any
 
 from scrollcase_consumer import (
     BoxRunResult,
+    PreparedBox,
     ScrollcaseConsumerError,
     run_box,
     run_extracted_box,
@@ -29,7 +30,7 @@ class FakeProcess:
         *,
         signal_to_raise: signal.Signals | None = None,
     ) -> None:
-        self.returncode = returncode
+        self.returncode: int | None = returncode
         self.signal_to_raise = signal_to_raise
         self.sent_signals: list[int] = []
 
@@ -39,6 +40,7 @@ class FakeProcess:
             if callable(handler):
                 handler(self.signal_to_raise, None)
             self.returncode = -int(self.signal_to_raise)
+        assert self.returncode is not None
         return self.returncode
 
     def send_signal(self, signal_number: int) -> None:
@@ -59,14 +61,14 @@ class FakePopen:
         self.calls: list[tuple[list[str], dict[str, Any]]] = []
         self.children: list[FakeProcess] = []
 
-    def __call__(self, argv: list[str], **options: Any) -> FakeProcess:
+    def __call__(self, argv: Any, **options: Any) -> FakeProcess:
         if self.error is not None:
             raise self.error
         child = FakeProcess(
             self.returncode,
             signal_to_raise=self.signal_to_raise,
         )
-        self.calls.append((argv, options))
+        self.calls.append((list(argv), options))
         self.children.append(child)
         return child
 
@@ -84,7 +86,11 @@ class ExecutionTests(unittest.TestCase):
         self.fixtures.append(fixture)
         return fixture
 
-    def prepare(self, fixture: ConsumerFixture, name: str = "prepared"):
+    def prepare(
+        self,
+        fixture: ConsumerFixture,
+        name: str = "prepared",
+    ) -> PreparedBox:
         return verify_and_extract_box(
             fixture.release_path,
             public_key_path=fixture.public_key_path,
@@ -173,7 +179,7 @@ class ExecutionTests(unittest.TestCase):
 
     def test_verifies_materialized_on_demand_assets_before_spawn(self) -> None:
         data = b"trusted on-demand bytes"
-        asset = {
+        asset: dict[str, Any] = {
             "url": "https://assets.example.org/weights.bin",
             "relativePath": "model-cache/consumer-fixture/weights.bin",
             "sizeBytes": len(data),
@@ -184,7 +190,7 @@ class ExecutionTests(unittest.TestCase):
         fake = FakePopen()
         with self.assertRaisesRegex(ScrollcaseConsumerError, "asset is missing"):
             run_extracted_box(prepared, popen_factory=fake)
-        asset_path = Path(prepared.root) / asset["relativePath"]
+        asset_path = Path(prepared.root) / str(asset["relativePath"])
         asset_path.parent.mkdir(parents=True)
         asset_path.write_bytes(data[1:])
         with self.assertRaisesRegex(ScrollcaseConsumerError, "asset size mismatch"):
