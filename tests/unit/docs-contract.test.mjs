@@ -5,6 +5,7 @@ import { extname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import Ajv from 'ajv/dist/2020.js';
 import * as build from '../../src/build/index.mjs';
+import * as consumer from '../../src/consumer/index.mjs';
 import * as contract from '../../src/contract/index.mjs';
 import * as sign from '../../src/sign/index.mjs';
 
@@ -84,7 +85,12 @@ describe('public documentation routes', () => {
 
   it('documents every public runtime export', async () => {
     const reference = await readFile(join(root, 'docs', 'reference', 'api.md'), 'utf8');
-    for (const [subpath, exports] of Object.entries({ contract, build, sign })) {
+    for (const [subpath, exports] of Object.entries({
+      contract,
+      build,
+      consumer,
+      sign,
+    })) {
       for (const name of Object.keys(exports)) {
         expect(reference, `scrollcase/${subpath} export ${name}`).toContain(name);
       }

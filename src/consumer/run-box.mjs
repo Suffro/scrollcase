@@ -17,6 +17,8 @@ import { verifyAndExtractBox } from './verify-and-extract.mjs';
  *   publicPath: string,
  *   archive?: string | null,
  *   temporaryDirectory?: string,
+ *   onPrepared?: (prepared: Readonly<import('./verify-and-extract.mjs').PreparedBox>) =>
+ *     void | Promise<void>,
  * }} RunBoxOptions
  */
 
@@ -36,6 +38,7 @@ export async function runBox(releaseDocumentPath, options) {
       archive: options.archive,
       destination: join(temporaryRoot, 'box'),
     });
+    await options.onPrepared?.(prepared);
     return await runExtractedBox(prepared, options);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });

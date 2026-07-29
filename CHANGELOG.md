@@ -18,6 +18,10 @@ All notable changes to Scrollcase are documented here. The format follows
   assets, forwards termination signals, and guarantees one-shot temporary cleanup. Distribution,
   download, update, registry, channel, revocation, publication, runner, and application-lifecycle
   responsibilities remain out of scope.
+- Add `scrollcase run <release.json> [--archive <box.zip>] -- [application args]` as a thin
+  terminal wrapper over `runBox`. It displays signed box identity, preserves argument strings and
+  child exit status without a shell, forwards termination signals, and removes its temporary
+  extraction on every terminal path. It never downloads or persistently installs a box.
 - Improve human CLI readability with restrained, TTY-aware coloured status symbols across setup,
   diagnostics, locking, auditing, and building. Successful builds now end with one relative-path
   summary naming the box directory and channel document that must be distributed.

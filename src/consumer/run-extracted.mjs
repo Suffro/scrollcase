@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { collectFiles, safeRelativePath, sha256File } from '../build/filesystem.mjs';
 import { assertExecutionFiles } from '../build/execution.mjs';
 import { fail } from '../build/process.mjs';
-import { assertNativeHost, boxTargetAdapter } from '../contract/targets.mjs';
+import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
 import { preparedBoxState } from './verify-and-extract.mjs';
 
 /**
@@ -105,7 +105,14 @@ export async function runExtractedBox(prepared, options = {}) {
   if (!release.execution) fail('Box does not declare an execution entry point.');
   const callerArgs = stringArguments(options.args ?? []);
   const adapter = boxTargetAdapter(release.target);
-  assertNativeHost(adapter);
+  try {
+    assertNativeHost(adapter);
+  } catch {
+    fail(
+      `Box target ${boxTargetId(release.target)} cannot run on ${process.platform}/${process.arch}; `
+      + `requires ${adapter.host.platform}/${adapter.host.arch}.`,
+    );
+  }
 
   let rootMetadata;
   try {

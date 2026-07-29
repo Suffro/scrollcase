@@ -122,13 +122,18 @@ alive. The returned `{ exitCode, signal }` preserves the child's terminal result
 
 `runBox(releaseDocumentPath, options)` composes preparation and execution in a private temporary
 directory and guarantees cleanup after a normal exit, non-zero exit, spawn failure, or forwarded
-signal:
+signal. `temporaryDirectory` selects the parent for that private root; `onPrepared` is an optional
+callback invoked after verification and extraction but before execution, which lets a CLI display
+the signed identity without reimplementing or repeating the trust chain:
 
 ```js
 const result = await runBox('release.json', {
   publicPath: 'trusted-keys.json',
   archive: 'box.zip',
   args: ['--once'],
+  onPrepared: ({ boxId, version, targetId }) => {
+    console.log(`Running ${boxId} ${version} (${targetId})`);
+  },
 });
 process.exitCode = result.exitCode ?? 1;
 ```

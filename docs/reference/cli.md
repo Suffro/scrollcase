@@ -9,8 +9,8 @@ description: Every Scrollcase command, flag, environment variable, and exit conv
 scrollcase <command> [options]
 ```
 
-Eight verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`. `scrollcase help`
-(or no command) prints the full usage text.
+Nine verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`, `run`.
+`scrollcase help` (or no command) prints the full usage text.
 
 Human-facing status lines use a small set of symbols (`✓`, `→`, `·`, `⚠`, `✗`). Their symbols are
 coloured only in an interactive terminal; redirected output remains free of ANSI escapes, and
@@ -314,6 +314,38 @@ self-test, weights/assets, and provenance); and the declared interpreter. `--sel
 additionally requires a matching native host, extracts to a temporary directory, checks logical
 payload size, and runs the signed import check. It does not repeat scroll-only `pythonCode` or file
 assertions, which are builder-only checks.
+
+## `run`
+
+Verify and execute one caller-supplied local release through `scrollcase/consumer`:
+
+```sh
+scrollcase run <release.json> [--archive <box.zip>] [--public-key <path>] -- [application args]
+```
+
+The command performs the same signature, schema, archive, safe-entry, manifest-agreement, installed
+size, interpreter, and execution checks as the Node consumer. It then extracts into a private
+temporary directory, prints the signed box ID, version, target and execution kind, attaches terminal
+stdio, and runs the declared script or module with the box's own Python. Signed `defaultArgs` come
+first; every string after `--` follows unchanged, without a shell.
+
+The child exit code becomes the Scrollcase exit code. `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded
+to the child; after the child terminates, the temporary box is removed and the CLI terminates by the
+same signal. Temporary cleanup also runs after verification failure, spawn failure, normal exit, and
+non-zero exit.
+
+`run` is intentionally local:
+
+- it never selects a channel or downloads an archive;
+- `--archive` names bytes already present on disk, defaulting to the content hash beside the release;
+- `--public-key` uses the same trusted key file or bundle as `verify`;
+- it refuses library-only releases, non-native targets, and missing or mismatched on-demand assets;
+- it never installs persistently, updates an existing box, or owns application lifecycle policy.
+
+Because one-shot `run` does not download or provide an asset-materialization step, an on-demand box
+with required assets fails clearly. A caller that already owns those bytes uses
+`verifyAndExtractBox`, materializes each signed descriptor under the prepared root, and then calls
+`runExtractedBox`.
 
 ## Tool discovery {#tool-discovery}
 

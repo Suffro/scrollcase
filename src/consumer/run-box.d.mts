@@ -3,6 +3,8 @@
  *   publicPath: string,
  *   archive?: string | null,
  *   temporaryDirectory?: string,
+ *   onPrepared?: (prepared: Readonly<import('./verify-and-extract.mjs').PreparedBox>) =>
+ *     void | Promise<void>,
  * }} RunBoxOptions
  */
 /**
@@ -17,4 +19,5 @@ export type RunBoxOptions = import("./run-extracted.mjs").RunExtractedBoxOptions
     publicPath: string;
     archive?: string | null;
     temporaryDirectory?: string;
+    onPrepared?: (prepared: Readonly<import("./verify-and-extract.mjs").PreparedBox>) => void | Promise<void>;
 };

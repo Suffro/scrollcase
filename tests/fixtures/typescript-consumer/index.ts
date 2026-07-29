@@ -77,6 +77,10 @@ const temporaryResult: Promise<BoxRunResult> = runBox("release.json", {
   publicPath: "trusted-key.json",
   archive: "box.zip",
   args: ["--serve"],
+  onPrepared(receipt) {
+    const identity: string = `${receipt.boxId}/${receipt.targetId}`;
+    void identity;
+  },
 });
 
 // These calls are deliberately invalid: the declarations must reject them instead of widening the

@@ -29,6 +29,9 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 - **Verified.** `verify` mirrors what an installing client does: signature, archive size and
   hash, safe entry names, manifest agreement, and — with `--self-test` — a real extraction whose
   own interpreter imports the modules the scroll declares.
+- **Runnable locally.** `scrollcase run` verifies a caller-supplied local release and archive,
+  executes its declared script or module without a shell, forwards signals, preserves the child
+  result, and removes the temporary extraction. It does not download or install persistently.
 - **Audited.** `audit` derives a licence inventory per package straight from the lock, and a
   dependency without a declared licence fails the parse.
 - **Honest about provenance.** A box records the commit it was built from. Building outside a git

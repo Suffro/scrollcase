@@ -7,7 +7,8 @@
  * prepares the workspace, `new scroll` authors one input, `doctor` checks the machine, `lock`
  * resolves dependencies once so a human can review and commit the result, `audit` reports what
  * licences that pulls in, `build` installs only from the lock, `verify` re-runs a consumer's
- * install-time checks, and `keygen` produces the signing key that makes any of it trustworthy.
+ * install-time checks, `run` executes one caller-supplied local release through that consumer, and
+ * `keygen` produces the signing key that makes any of it trustworthy.
  *
  * Every command resolves its paths through the workspace, so the tool runs from anywhere against any
  * project that declares a scrollcase.config.json.
@@ -25,8 +26,10 @@ import { scrollCandidates, readScroll } from './build/scroll.mjs';
 import { verifyBox } from './build/verify.mjs';
 import { configureWorkspace, getWorkspace, workspaceOverridesFromFlags } from './build/workspace.mjs';
 import { collectNewScrollOptions } from './cli-authoring.mjs';
+import { parseArgs } from './cli-args.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
+import { runCliBox } from './cli-run.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseTarget } from './cli-targets.mjs';
 import { CHANNELS } from './contract/index.mjs';
@@ -36,26 +39,6 @@ const success = (message) => console.log(statusLine('success', message));
 const step = (message) => console.log(statusLine('step', message));
 const info = (message) => console.log(statusLine('info', message));
 const warning = (message) => console.log(statusLine('warning', message));
-
-/** Minimal flag parser supporting `--name=value`, `--name value`, and bare `--name` (true). */
-function parseArgs(values) {
-  const positional = [];
-  const flags = new Map();
-  for (let index = 0; index < values.length; index += 1) {
-    const value = values[index];
-    if (!value.startsWith('--')) {
-      positional.push(value);
-      continue;
-    }
-    const [name, inline] = value.slice(2).split('=', 2);
-    if (inline !== undefined) flags.set(name, inline);
-    else if (values[index + 1] && !values[index + 1].startsWith('--')) {
-      flags.set(name, values[index + 1]);
-      index += 1;
-    } else flags.set(name, true);
-  }
-  return { positional, flags };
-}
 
 const text = (flags, name) => (flags.has(name) ? String(flags.get(name)) : null);
 
@@ -260,6 +243,15 @@ async function verify(path, flags) {
   });
 }
 
+async function runRelease(path, flags, args) {
+  return runCliBox(path, {
+    publicPath: keyPaths(flags).publicPath,
+    archive: text(flags, 'archive'),
+    args,
+    log: step,
+  });
+}
+
 function usage() {
   console.log(`Usage: scrollcase <command> [options]
 
@@ -272,6 +264,7 @@ Commands:
   audit <scroll>             Dependency licence inventory, derived from the lock
   build <scroll>             Build, self-test, archive, and sign a box
   verify <release.json>      Verify signature, archive hash, and layout
+  run <release.json>         Verify, temporarily extract, and run a local box
 
 Init options:
   --pixi-version <version>   Install this pixi release when setup is approved
@@ -344,6 +337,12 @@ Verify options:
   --archive <path>           Archive to check, if not beside the release document
   --self-test                Extract and import with the box's own interpreter
 
+Run:
+  scrollcase run <release.json> [--archive <box.zip>] -- [application args]
+  --archive <path>           Local archive, if not beside the release document
+                             Uses --public-key from Signing below, attaches terminal stdio,
+                             forwards signals, and exits with the application result.
+
 Signing:
   --private-key <path>       Local signing key (default <keys>/signing-private.pem)
   --public-key <path>        Trusted key set (default <keys>/signing-public.json)
@@ -368,7 +367,7 @@ Workspace:
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
-  const { positional, flags } = parseArgs(rest);
+  const { positional, flags, passthrough } = parseArgs(rest);
   if (!command || command === 'help' || command === '--help') return usage();
   // Resolve the workspace before any command touches a path, so flags win over the project config.
   configureWorkspace({ overrides: workspaceOverridesFromFlags(flags) });
@@ -385,6 +384,10 @@ async function main() {
   if (command === 'lock') return lock(positional[0] || fail('lock requires a scroll name.'), flags);
   if (command === 'build') return build(positional[0] || fail('build requires a scroll name.'), flags);
   if (command === 'verify') return verify(positional[0] || fail('verify requires a signed release document.'), flags);
+  if (command === 'run') {
+    if (positional.length !== 1) fail('Usage: scrollcase run <release.json> [--archive <box.zip>] -- [application args]');
+    return runRelease(positional[0], flags, passthrough);
+  }
   fail(`Unknown command: ${command}`);
 }
 
