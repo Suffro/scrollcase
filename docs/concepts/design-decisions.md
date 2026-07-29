@@ -213,6 +213,11 @@ navigable menu. One target matching the current host may be the default; on macO
 explicit preference when CPU and Metal both match. A non-interactive process uses that same policy
 and fails on any remaining ambiguity instead of silently choosing CPU or CUDA.
 
+For the mutating `lock` and expensive `build` commands, omitting the scroll entirely opens a
+workspace-wide menu of complete references. This is interactive convenience, not a default:
+non-interactive callers must name the scroll, and even a single discovered candidate still requires
+terminal confirmation rather than being selected silently.
+
 **Rejected:** requiring `scrollId` to repeat the directory name. That check made the filesystem a
 second identity layer and encouraged product-plus-machine directory names even though the scroll
 already declares both facts.

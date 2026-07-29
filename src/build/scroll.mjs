@@ -90,10 +90,42 @@ async function readExactScroll(reference) {
  * Lists the scrolls named by a CLI/library reference.
  *
  * An exact `<boxId>/<targetId>` reference loads one scroll. A single box name expands to its
- * `scrolls/<boxId>/<targetId>/` children. Every child is validated before it is offered, so a
- * misleading directory never becomes a selectable target.
+ * `scrolls/<boxId>/<targetId>/` children. Omitting the name discovers every nested scroll in the
+ * workspace for CLI selection. Every child is validated before it is offered, so a misleading
+ * directory never becomes a selectable target.
  */
-export async function scrollCandidates(name) {
+export async function scrollCandidates(name = null) {
+  if (name === null || name === undefined) {
+    let boxes;
+    try {
+      boxes = await readdir(getWorkspace().scrollsDir, { withFileTypes: true });
+    } catch {
+      return fail('No scrolls found; run scrollcase init or scrollcase new scroll.');
+    }
+    const candidates = [];
+    for (const box of boxes.sort((left, right) => compareStableStrings(left.name, right.name))) {
+      if (!box.isDirectory()) continue;
+      let targets;
+      try {
+        targets = await readdir(scrollDirectory(box.name), { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const target of targets.sort((left, right) =>
+        compareStableStrings(left.name, right.name))) {
+        if (!target.isDirectory()) continue;
+        const nestedReference = `${box.name}/${target.name}`;
+        if (await fileExists(join(scrollDirectory(nestedReference), 'scroll.json'))) {
+          candidates.push(await readExactScroll(nestedReference));
+        }
+      }
+    }
+    if (candidates.length === 0) {
+      fail('No scrolls found; run scrollcase init or scrollcase new scroll.');
+    }
+    return candidates;
+  }
+
   const reference = safeRelativePath(name);
   if (reference.includes('/')) {
     if (reference.split('/').length !== 2

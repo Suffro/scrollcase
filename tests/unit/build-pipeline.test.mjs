@@ -210,6 +210,9 @@ describe('the build pipeline', () => {
 
     const candidates = await scrollCandidates(SCROLL.boxId);
     expect(candidates.map(({ reference }) => reference)).toEqual([`${SCROLL.boxId}/${targetId}`]);
+    const allCandidates = await scrollCandidates();
+    expect(allCandidates.map(({ reference }) => reference))
+      .toEqual([`${SCROLL.boxId}/${targetId}`]);
     const loaded = await readScroll(SCROLL.boxId);
     expect(loaded.reference).toBe(`${SCROLL.boxId}/${targetId}`);
     expect(loaded.scroll.scrollId).toBe(`${SCROLL.boxId}-${targetId}`);

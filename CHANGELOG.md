@@ -51,6 +51,9 @@ All notable changes to Scrollcase are documented here. The format follows
   and Metal is preferred on macOS; other non-terminal ambiguities fail with an explicit `--target`
   remedy. `new scroll` uses the target menu; the fixed init example deterministically selects Metal
   on Apple Silicon and CPU on Linux or Windows.
+- Let interactive `scrollcase lock` and `scrollcase build` calls omit the scroll argument and choose
+  from every valid `<boxId>/<targetId>` in the workspace. Non-interactive callers still fail unless
+  they name the scroll explicitly.
 - Publish one editor-oriented v2 execution schema and reference it from scroll, signed release, and
   `box.json`. Generated scrolls self-associate through `$schema`; the schema supplies closed
   script/module alternatives, target conditionals, defaults, examples, safe paths, and strict

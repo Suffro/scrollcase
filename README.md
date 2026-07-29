@@ -88,9 +88,9 @@ was built. See [examples/README.md](examples/README.md).
 | `new scroll` | Create one guided target-specific scroll |
 | `doctor` | Report whether this machine can build a box |
 | `keygen` | Create a local ed25519 signing key |
-| `lock <scroll>` | Resolve the scroll's pixi manifest into `pixi.lock` |
+| `lock [<scroll>]` | Resolve the scroll's pixi manifest into `pixi.lock`; omission opens a terminal menu |
 | `audit <scroll>` | Dependency licence inventory, derived from the lock |
-| `build <scroll>` | Build, self-test, archive, and sign a box |
+| `build [<scroll>]` | Build, self-test, archive, and sign a box; omission opens a terminal menu |
 | `verify <release.json>` | Verify signature, archive hash, and layout |
 | `run <release.json>` | Verify, temporarily extract, and run a local box |
 

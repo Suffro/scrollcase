@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chooseCliValue } from '../../src/cli-menu.mjs';
 import {
+  chooseScroll,
   chooseTarget,
   nativeExampleTarget,
   parseCliTarget,
@@ -100,6 +101,27 @@ describe('CLI target selection', () => {
       .rejects.toThrow(/not available.*macos-aarch64-cpu, macos-aarch64-metal/);
   });
 
+  it('selects an omitted scroll through the navigable terminal menu', async () => {
+    const menu = vi.fn().mockResolvedValue(1);
+    const selected = await chooseScroll([
+      { reference: 'alpha/linux-x86_64-cpu' },
+      { reference: 'beta/linux-x86_64-cpu' },
+    ], { terminal: true, menu });
+
+    expect(selected.reference).toBe('beta/linux-x86_64-cpu');
+    expect(menu).toHaveBeenCalledWith(
+      'scroll',
+      ['alpha/linux-x86_64-cpu', 'beta/linux-x86_64-cpu'],
+      { initialIndex: 0 },
+    );
+  });
+
+  it('requires an explicit scroll when no terminal can ask', async () => {
+    await expect(chooseScroll([
+      { reference: 'example-box/linux-x86_64-cpu' },
+    ], { terminal: false })).rejects.toThrow(/scroll.*interactive terminal/);
+  });
+
   it('parses complete canonical targets, including the CUDA ABI version', () => {
     expect(parseCliTarget('macos-aarch64-metal')).toEqual({
       platform: 'macos',
@@ -181,6 +203,29 @@ describe('CLI target selection', () => {
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain('Next: scrollcase new scroll');
   });
+
+  it.each(['lock', 'build'])(
+    'routes an omitted %s scroll to terminal selection',
+    async (command) => {
+      const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));
+      created.push(root);
+      const initialized = spawnSync(process.execPath, [
+        cli,
+        'init',
+        '--project-root', root,
+        '--no-install-toolchain',
+      ], { encoding: 'utf8' });
+      expect(initialized.status, initialized.stderr).toBe(0);
+
+      const result = spawnSync(process.execPath, [
+        cli,
+        command,
+        '--project-root', root,
+      ], { encoding: 'utf8' });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/scroll selection requires an interactive terminal/);
+    },
+  );
 
   it('creates the exact nested target supplied to non-terminal new scroll', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scrollcase-cli-target-'));

@@ -79,6 +79,43 @@ export function nativeExampleTarget(
   };
 }
 
+/**
+ * Selects one complete scroll reference when a CLI caller omitted the positional argument.
+ *
+ * Unlike target selection, this has no non-terminal default: locking or building an arbitrary
+ * first scroll would mutate or package the wrong input without consent.
+ *
+ * @template {{ reference: string }} T
+ * @param {T[]} candidates
+ * @returns {Promise<T>}
+ */
+export async function chooseScroll(candidates, {
+  terminal = Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  menu = selectCliMenu,
+} = {}) {
+  if (candidates.length === 0) fail('No scrolls are available.');
+  const choices = [...candidates]
+    .sort((left, right) => compareStableStrings(left.reference, right.reference));
+  if (new Set(choices.map(({ reference }) => reference)).size !== choices.length) {
+    fail('Scroll choices must have unique references.');
+  }
+  if (!terminal) {
+    fail(
+      'scroll selection requires an interactive terminal; '
+      + 'pass <boxId>/<targetId> explicitly.',
+    );
+  }
+  const selectedIndex = await menu(
+    'scroll',
+    choices.map(({ reference }) => reference),
+    { initialIndex: 0 },
+  );
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= choices.length) {
+    fail('scroll menu returned an invalid selection.');
+  }
+  return choices[selectedIndex];
+}
+
 /** Shows a raw-key target menu and resolves to the selected index. */
 export function selectTargetMenu(targetIds, {
   initialIndex = null,

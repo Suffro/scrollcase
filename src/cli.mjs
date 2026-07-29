@@ -40,7 +40,7 @@ import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { runCliBox } from './cli-run.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
-import { chooseTarget, nativeExampleTarget } from './cli-targets.mjs';
+import { chooseScroll, chooseTarget, nativeExampleTarget } from './cli-targets.mjs';
 import { CHANNELS } from './contract/index.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -107,6 +107,7 @@ async function confirm(question) {
 /** Resolves a box shorthand at the CLI edge, where an ambiguous target can be asked about. */
 async function selectScrollReference(name, flags) {
   const candidates = await scrollCandidates(name);
+  if (!name) return (await chooseScroll(candidates)).reference;
   return (await chooseTarget(candidates, { requested: text(flags, 'target') })).reference;
 }
 
@@ -291,9 +292,9 @@ Commands:
   new scroll                 Create one guided target-specific scroll
   doctor                     Report whether this machine can build a box
   keygen                     Create a local ed25519 signing key
-  lock <scroll>              Resolve the scroll's pixi manifest into pixi.lock
+  lock [<scroll>]            Resolve the scroll's pixi manifest into pixi.lock
   audit <scroll>             Dependency licence inventory, derived from the lock
-  build <scroll>             Build, self-test, archive, and sign a box
+  build [<scroll>]           Build, self-test, archive, and sign a box
   verify <release.json>      Verify signature, archive hash, and layout
   run <release.json>         Verify, temporarily extract, and run a local box
 
@@ -362,6 +363,8 @@ Build options:
 Scroll targets:
   lock, audit and build accept either <boxId>/<targetId> or a box ID plus
   --target <targetId>. With only a box ID, a terminal shows an arrow-key menu.
+  lock and build also let an interactive terminal choose from every workspace
+  scroll when the argument is omitted; non-interactive callers must name one.
   A sole target for this host is the default; Metal is preferred on macOS.
   Without a terminal, any other ambiguous target is an error.
 
@@ -413,8 +416,8 @@ async function main() {
   if (command === 'doctor') return doctor(flags);
   if (command === 'keygen') return keygen(flags);
   if (command === 'audit') return audit(positional[0] || fail('audit requires a scroll name.'), flags);
-  if (command === 'lock') return lock(positional[0] || fail('lock requires a scroll name.'), flags);
-  if (command === 'build') return build(positional[0] || fail('build requires a scroll name.'), flags);
+  if (command === 'lock') return lock(positional[0], flags);
+  if (command === 'build') return build(positional[0], flags);
   if (command === 'verify') return verify(positional[0] || fail('verify requires a signed release document.'), flags);
   if (command === 'run') {
     if (positional.length !== 1) fail('Usage: scrollcase run <release.json> [--archive <box.zip>] -- [application args]');

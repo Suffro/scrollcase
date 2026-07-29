@@ -205,11 +205,15 @@ Run by a human when dependencies change; the lock is committed and reviewed, and
 only installs from it. Requires pixi at the scroll's pinned version.
 
 ```sh
-scrollcase lock <scroll> [--target <targetId>] [--pixi <path>]
+scrollcase lock [<scroll>] [--target <targetId>] [--pixi <path>]
 ```
 
 The manifest itself pins the channels and the single target platform, so resolution does not
 depend on the machine doing it.
+
+When `<scroll>` is omitted in an interactive terminal, Scrollcase discovers every valid nested
+scroll in the workspace and presents their complete `<boxId>/<targetId>` references in a navigable
+menu. A non-interactive caller must provide the reference explicitly.
 
 ## `audit`
 
@@ -252,12 +256,15 @@ plus a channel pointer. The full pipeline is narrated in
 [Architecture](/concepts/architecture).
 
 ```sh
-scrollcase build <scroll> [--target <targetId>]
+scrollcase build [<scroll>] [--target <targetId>]
                  [--channel <name>] [--weights embed|on-demand]
                  [--asset-base-url <url>] [--namespace <ns>] [--allow-dirty]
                  [--pixi <path>] [--conda-pack <path>]
                  [--private-key <path>] [--public-key <path>] [--signer-command <cmd>]
 ```
+
+As with `lock`, omitting `<scroll>` in an interactive terminal opens the workspace-wide scroll
+menu. CI and other non-interactive callers must always provide it explicitly.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
