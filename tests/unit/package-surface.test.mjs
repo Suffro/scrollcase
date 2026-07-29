@@ -120,8 +120,10 @@ describe('the package surface', () => {
   it('includes the complete consumer runtime import closure in an npm pack dry run', async () => {
     const cache = await mkdtemp(join(tmpdir(), 'scrollcase-npm-pack-'));
     try {
-      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      const packed = JSON.parse(execFileSync(npm, [
+      const npmCli = process.env.npm_execpath;
+      if (!npmCli) throw new Error('npm_execpath is unavailable; run the suite through npm test.');
+      const packed = JSON.parse(execFileSync(process.execPath, [
+        npmCli,
         'pack',
         '--dry-run',
         '--json',

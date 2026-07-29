@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -41,8 +43,9 @@ describe('the v2-only contract boundary', () => {
 
 describe('canonical scroll workspace names', () => {
   it('uses scrolls and exposes no legacy compatibility field', () => {
-    const workspace = resolveWorkspace({ cwd: '/tmp/scrollcase-v2-workspace' });
-    expect(workspace.scrollsDir).toBe('/tmp/scrollcase-v2-workspace/scrolls');
+    const cwd = join(tmpdir(), 'scrollcase-v2-workspace');
+    const workspace = resolveWorkspace({ cwd });
+    expect(workspace.scrollsDir).toBe(join(cwd, 'scrolls'));
     const legacyField = ['re', 'cipesDir'].join('');
     expect(workspace).not.toHaveProperty(legacyField);
   });
