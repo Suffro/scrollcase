@@ -39,6 +39,21 @@ The suite (vitest) needs no network and no pixi/conda-pack toolchain: the enviro
 stubbed, and everything after the solve is the real implementation. CI runs it on macOS, Linux
 and Windows.
 
+The Python consumer has its own typed package and verification:
+
+```sh
+python -m pip install -e './python[test]'
+cd python
+python -m unittest discover -s tests -t .
+mypy src
+python scripts/sync_schemas.py --check
+python -m build
+python scripts/check_distribution.py dist/*
+```
+
+Its tests use only temporary local fixtures. The copied schemas must stay byte-identical to
+`src/contract/schema/`; regenerate them only through `python/scripts/sync_schemas.py`.
+
 Building for real additionally needs `pixi` at the version a scroll pins, plus `conda-pack` 0.9.2;
 `scrollcase doctor` reports what is missing.
 

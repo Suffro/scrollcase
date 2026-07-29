@@ -175,7 +175,7 @@ This list is not complete; read the files for more.
 
 ## Build / test / run
 
-The commands, in full — there are only five:
+The Node and documentation commands:
 
 | Purpose | Command |
 | --- | --- |
@@ -185,8 +185,18 @@ The commands, in full — there are only five:
 | Docs dev server | `cd docs && npm run dev` |
 | The CLI surface | `node src/cli.mjs help` |
 
-If one of these fails or no longer exists, read the `scripts` section of the relevant
-`package.json`, use what is there, and **update this file**.
+The Python consumer commands, run from `python/` after installing `.[test]`:
+
+| Purpose | Command |
+| --- | --- |
+| Python unit suite | `python -m unittest discover -s tests -t .` |
+| Python static types | `mypy src` |
+| Check bundled canonical schemas | `python scripts/sync_schemas.py --check` |
+| Build wheel and sdist | `python -m build` |
+| Inspect distribution contents | `python scripts/check_distribution.py dist/*` |
+
+If one of these fails or no longer exists, read the relevant `package.json` or `pyproject.toml`,
+use what is there, and **update this file**.
 
 Building a box for real additionally needs `pixi` at the version the scroll pins, plus `conda-pack`.
 `scrollcase doctor` reports what is missing; `scrollcase init` offers to install them and must never
@@ -200,7 +210,10 @@ Run, at every change that could affect them:
    generated types honest.
 4. **When `package.json` exports or `files` changed** — the package-surface test covers it, but
    confirm it can still fail by breaking one entry deliberately.
-5. **A real build, or a real toolchain install** — expensive and network-bound. Ask the user first.
+5. **When `python/` changed** — run the Python unit suite, static types, schema check, wheel/sdist
+   build, and distribution inspection. For package-surface changes, also clean-install the wheel.
+6. **A real box build, or a real toolchain install** — expensive and network-bound. Ask the user
+   first.
 
 ### Paths that break silently
 

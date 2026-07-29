@@ -148,3 +148,10 @@ vite.config.ts.timestamp-*
 
 # scrollcase build state
 .scrollcase/
+
+# Python development and packaging state
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.venv/
+*.egg-info/

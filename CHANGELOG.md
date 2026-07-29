@@ -18,6 +18,11 @@ All notable changes to Scrollcase are documented here. The format follows
   assets, forwards termination signals, and guarantees one-shot temporary cleanup. Distribution,
   download, update, registry, channel, revocation, publication, runner, and application-lifecycle
   responsibilities remain out of scope.
+- Add the typed Python consumer package imported as `scrollcase_consumer`, mirroring local
+  verification, collision-free safe ZIP extraction, immutable prepared receipts, script/module
+  execution, on-demand asset checks, signal forwarding, child terminal results, and one-shot
+  cleanup without a Node runtime dependency. The distribution bundles generated, drift-checked
+  copies of the canonical schemas and uses maintained `cryptography` Ed25519 verification.
 - Add `scrollcase run <release.json> [--archive <box.zip>] -- [application args]` as a thin
   terminal wrapper over `runBox`. It displays signed box identity, preserves argument strings and
   child exit status without a shell, forwards termination signals, and removes its temporary

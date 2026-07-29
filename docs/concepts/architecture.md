@@ -217,6 +217,10 @@ src/
 │   └── run-box.mjs             one-shot temporary execution and cleanup
 ├── sign/              key generation, local signing, external dispatch, verification
 └── cli.mjs            argument parsing and dispatch — thin, logic lives in the modules
+python/
+├── src/scrollcase_consumer/  typed Python verification, extraction, and execution
+├── scripts/                  schema sync and distribution inspection
+└── tests/                    local signed-box and hostile-archive regressions
 ```
 
 `src/contract/` is the source of truth for the format. Other languages **mirror** it and prove

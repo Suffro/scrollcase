@@ -1,11 +1,11 @@
 ---
-title: Node API
-description: The importable surface — contract, local consumer, build primitives, and signing.
+title: Library APIs
+description: The Node and Python surfaces for contracts, local consumers, build primitives, and signing.
 ---
 
-# Node API
+# Library APIs
 
-The CLI is the supported way to run the build pipeline. The package additionally exports five
+The CLI is the supported way to run the build pipeline. The Node package additionally exports five
 modules for clients that need to understand, prepare, or execute local boxes: validate a document,
 derive a target ID, check a signature, resolve a workspace, or run a verified application.
 
@@ -137,6 +137,42 @@ const result = await runBox('release.json', {
 });
 process.exitCode = result.exitCode ?? 1;
 ```
+
+## `scrollcase_consumer`
+
+The typed Python package mirrors the local Node consumer without depending on Node or its CLI:
+
+```python
+from scrollcase_consumer import (
+    run_box,
+    run_extracted_box,
+    verify_and_extract_box,
+)
+
+prepared = verify_and_extract_box(
+    "release.json",
+    public_key_path="trusted-keys.json",
+    archive="box.zip",
+    destination="/srv/boxes/example-1.0.0",
+)
+
+result = run_extracted_box(
+    prepared,
+    args=("--port", "8080"),
+    env={"APPLICATION_MODE": "local"},
+)
+```
+
+The receipt fields use idiomatic snake case (`box_id`, `target_id`, `required_assets`,
+`archive_sha256`). `run_box` performs the same one-shot prepare/run/cleanup composition. Stream
+arguments accept Python file objects or `subprocess` constants; the default inherits the parent's
+streams. On the main Python thread, `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded and then the
+previous handlers are restored.
+
+The distribution is not a downloader: callers still supply local release, archive, trust-key,
+destination, and on-demand asset paths. It verifies Ed25519 signatures with `cryptography` and
+validates bundled, generated copies of the canonical schemas. Publication to PyPI remains outside
+the current repository phase.
 
 ## `scrollcase/contract`
 

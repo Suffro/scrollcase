@@ -1,0 +1,5 @@
+include README.md
+prune scripts
+prune tests
+recursive-include src/scrollcase_consumer/schemas *.json
+include src/scrollcase_consumer/py.typed

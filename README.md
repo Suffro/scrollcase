@@ -151,6 +151,18 @@ npm test        # vitest; no network, no toolchain required
 The pipeline tests stub the environment solve, so the suite runs anywhere; everything after the
 solve is the real implementation.
 
+The Python consumer lives under `python/`. Its focused verification is:
+
+```sh
+python -m pip install -e './python[test]'
+cd python
+python -m unittest discover -s tests -t .
+mypy src
+python scripts/sync_schemas.py --check
+python -m build
+python scripts/check_distribution.py dist/*
+```
+
 ## License
 
 [Apache-2.0](LICENSE). The licence covers scrollcase's own source code — the contents of the
