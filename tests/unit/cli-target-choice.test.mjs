@@ -206,15 +206,8 @@ describe('CLI target selection', () => {
     expect(pythonConsumer).toContain(
       'npm install scrollcase does not install this Python package',
     );
-    const pyproject = await readFile(
-      fileURLToPath(new URL('../../python/pyproject.toml', import.meta.url)),
-      'utf8',
-    );
-    const pythonPackageVersion = pyproject.match(/^version = "([^"]+)"$/m)?.[1];
-    expect(pythonPackageVersion).toBeTruthy();
-    expect(pythonConsumer).toContain(
-      `pip install scrollcase-consumer==${pythonPackageVersion}`,
-    );
+    expect(pythonConsumer).toContain('python -m pip install scrollcase-consumer');
+    expect(pythonConsumer).not.toContain('scrollcase-consumer==');
     expect(pythonConsumer).toContain('python consumer-templates/run_box.py');
     expect(pythonConsumer).not.toContain('.scrollcase/python-consumer');
     expect(await readdir(root)).not.toContain('consumer-examples');

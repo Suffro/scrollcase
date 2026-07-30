@@ -49,9 +49,8 @@ All notable changes to Scrollcase are documented here. The format follows
   the Python template and workspace guide explain the separate PyPI installation explicitly.
   When those templates are generated, interactive initialization separately offers to install
   their Node/TypeScript dependencies or the Python consumer from PyPI or conda-forge. It collects
-  every answer before starting any installer and visually separates each question. Python
-  dependencies live in the conventional project-root `.venv`, avoiding PEP 668 system-interpreter
-  failures; npm runs beside `scrollcase.config.json`.
+  every answer before starting any installer and visually separates each question. A PEP 668
+  managed Python falls back to a user-scoped pip installation, leaving the managed prefix intact.
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under

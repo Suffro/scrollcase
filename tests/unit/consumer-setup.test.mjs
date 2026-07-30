@@ -45,10 +45,12 @@ describe('consumer template dependency setup', () => {
     ]);
   });
 
-  it('creates a project-local virtual environment before installing with pip', () => {
+  it('installs the Python consumer with the selected interpreter', () => {
     const run = vi.fn();
-    const runResult = vi.fn((command) => ({
-      status: command === 'python3' ? 0 : 1,
+    const runResult = vi.fn((command, args) => ({
+      status: command === 'python3' || args[0] === '--version' ? (
+        command === 'python3' ? 0 : 1
+      ) : 0,
       stdout: '',
       stderr: '',
     }));
@@ -58,29 +60,56 @@ describe('consumer template dependency setup', () => {
       source: 'pypi',
       run,
       runResult,
-      exists: () => false,
     });
 
-    expect(installed).toEqual({
-      source: 'pypi',
-      command: '/work/project/.venv/bin/python',
-      environmentDir: '/work/project/.venv',
-    });
+    expect(installed).toEqual({ source: 'pypi', command: 'python3' });
     expect(runResult.mock.calls).toEqual([
       ['python', ['--version'], { capture: true, cwd: '/work/project' }],
       ['python3', ['--version'], { capture: true, cwd: '/work/project' }],
-    ]);
-    expect(run.mock.calls).toEqual([
-      ['python3', ['-m', 'venv', '.venv'], { cwd: '/work/project' }],
       [
-        '/work/project/.venv/bin/python',
+        'python3',
         ['-m', 'pip', 'install', 'scrollcase-consumer'],
-        { cwd: '/work/project' },
+        { capture: true, cwd: '/work/project' },
       ],
     ]);
+    expect(run).not.toHaveBeenCalled();
   });
 
-  it('creates a project-local conda environment from conda-forge', () => {
+  it('falls back to a user install for a PEP 668 managed interpreter', () => {
+    const run = vi.fn();
+    const runResult = vi.fn((_command, args) => (
+      args[0] === '--version'
+        ? { status: 0, stdout: '', stderr: '' }
+        : {
+            status: 1,
+            stdout: '',
+            stderr: 'error: externally-managed-environment',
+          }
+    ));
+
+    const installed = installPythonConsumerDependency({
+      root: '/work/project',
+      source: 'pypi',
+      run,
+      runResult,
+    });
+
+    expect(installed).toEqual({ source: 'pypi', command: 'python' });
+    expect(run).toHaveBeenCalledWith(
+      'python',
+      [
+        '-m',
+        'pip',
+        'install',
+        '--user',
+        '--break-system-packages',
+        'scrollcase-consumer',
+      ],
+      { cwd: '/work/project' },
+    );
+  });
+
+  it('installs the Python consumer with conda in the active environment', () => {
     const run = vi.fn();
     const runResult = vi.fn();
 
@@ -89,86 +118,14 @@ describe('consumer template dependency setup', () => {
       source: 'conda-forge',
       run,
       runResult,
-      exists: () => false,
     });
 
-    expect(installed).toEqual({
-      source: 'conda-forge',
-      command: '/work/project/.venv/bin/python',
-      environmentDir: '/work/project/.venv',
-    });
+    expect(installed).toEqual({ source: 'conda-forge', command: 'python' });
     expect(runResult).not.toHaveBeenCalled();
     expect(run).toHaveBeenCalledWith(
       'conda',
-      [
-        'create',
-        '--yes',
-        '--prefix',
-        '/work/project/.venv',
-        '--channel',
-        'conda-forge',
-        'scrollcase-consumer',
-      ],
+      ['install', '--yes', '--channel', 'conda-forge', 'scrollcase-consumer'],
       { cwd: '/work/project' },
-    );
-  });
-
-  it('uses the Windows interpreter layout for a project-local environment', () => {
-    const run = vi.fn();
-    const runResult = vi.fn(() => ({ status: 0, stdout: '', stderr: '' }));
-
-    const installed = installPythonConsumerDependency({
-      root: 'D:\\work\\project',
-      source: 'pypi',
-      platform: 'win32',
-      run,
-      runResult,
-      exists: () => false,
-    });
-
-    expect(installed.command).toBe('D:\\work\\project\\.venv\\Scripts\\python.exe');
-    expect(run.mock.calls.at(-1)).toEqual([
-      'D:\\work\\project\\.venv\\Scripts\\python.exe',
-      ['-m', 'pip', 'install', 'scrollcase-consumer'],
-      { cwd: 'D:\\work\\project' },
-    ]);
-  });
-
-  it('uses the conda prefix interpreter layout on Windows', () => {
-    const run = vi.fn();
-
-    const installed = installPythonConsumerDependency({
-      root: 'D:\\work\\project',
-      source: 'conda-forge',
-      platform: 'win32',
-      run,
-      exists: () => false,
-    });
-
-    expect(installed.command).toBe('D:\\work\\project\\.venv\\python.exe');
-  });
-
-  it('reuses an existing conda environment when pip is selected later', () => {
-    const run = vi.fn();
-    const runResult = vi.fn();
-
-    const installed = installPythonConsumerDependency({
-      root: 'D:\\work\\project',
-      source: 'pypi',
-      platform: 'win32',
-      run,
-      runResult,
-      exists: (path) => (
-        path.endsWith('\\conda-meta') || path.endsWith('\\.venv\\python.exe')
-      ),
-    });
-
-    expect(installed.command).toBe('D:\\work\\project\\.venv\\python.exe');
-    expect(runResult).not.toHaveBeenCalled();
-    expect(run).toHaveBeenCalledWith(
-      'D:\\work\\project\\.venv\\python.exe',
-      ['-m', 'pip', 'install', 'scrollcase-consumer'],
-      { cwd: 'D:\\work\\project' },
     );
   });
 

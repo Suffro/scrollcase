@@ -51,7 +51,6 @@ describe('setting a project up', () => {
     expect(await fileExists(join(root, 'scrolls'))).toBe(true);
     expect(await fileExists(join(root, 'scrolls', 'example-box'))).toBe(false);
     expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.scrollcase/');
-    expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.venv/');
     const guide = await readFile(join(root, 'SCROLLCASE.md'), 'utf8');
     const lines = guide.trim().split('\n');
     expect(lines.length).toBeLessThan(40);
@@ -80,7 +79,6 @@ describe('setting a project up', () => {
     const gitignore = await readFile(join(root, '.gitignore'), 'utf8');
     expect(gitignore).toContain('node_modules/');
     expect(gitignore).toContain('.scrollcase/');
-    expect(gitignore).toContain('.venv/');
     expect(await readFile(join(root, 'SCROLLCASE.md'), 'utf8')).toBe('# Customized guide\n');
   });
 

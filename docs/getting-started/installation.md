@@ -43,12 +43,8 @@ A Python application that only verifies and runs caller-supplied local boxes doe
 Scrollcase CLI or a Node.js runtime:
 
 ```sh
-python -m venv .venv
-source .venv/bin/activate
 python -m pip install scrollcase-consumer
 ```
-
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
 
 The import name uses an underscore:
 
@@ -60,18 +56,16 @@ This package does not build or download boxes. The publishing project builds the
 application supplies the local release document, archive, and trusted public key.
 
 When `scrollcase init` creates the consumer templates, it can perform this installation for you.
-It asks separately from the build toolchain and, if approved, creates a conventional `.venv`
-beside `scrollcase.config.json` before running pip with that environment's interpreter. This avoids
-modifying Homebrew, distribution-managed, or other PEP 668 protected Python installations. You may
-instead choose conda-forge, which creates the same project-local prefix:
+It asks separately from the build toolchain and can use either PyPI with pip or conda-forge:
 
 ```sh
-conda create --yes --prefix .venv --channel conda-forge scrollcase-consumer
+conda install --yes --channel conda-forge scrollcase-consumer
 ```
 
 The TypeScript template has its own optional prompt. If approved, `init` runs npm from the same
 project root to install `scrollcase`, `typescript`, and `tsx`. `init` collects every answer before
-starting any of these installations.
+starting any installation. If pip reports a PEP 668 externally managed interpreter, `init`
+automatically retries as a user install, keeping package files outside the managed Python prefix.
 
 ## Let Scrollcase install the toolchain
 

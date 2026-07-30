@@ -74,23 +74,17 @@ const CONSUMER_PACKAGE_JSON = `${JSON.stringify({
   type: 'module',
 }, null, 2)}\n`;
 
-const PYTHON_CONSUMER_VERSION = '0.1.0';
-
 const PYTHON_CONSUMER_TEMPLATE = `"""
 Runs a local box through the typed Python consumer.
 
 The Python consumer is published separately on PyPI.
 npm install scrollcase does not install this Python package.
-scrollcase init can install it into the project's .venv after asking.
 
-MANUAL SETUP (once, if init did not install it):
+SETUP (once):
 
-    python -m venv .venv
-    source .venv/bin/activate
-    # Windows PowerShell: .venv\\Scripts\\Activate.ps1
-    python -m pip install scrollcase-consumer==${PYTHON_CONSUMER_VERSION}
+    python -m pip install scrollcase-consumer
 
-RUN (from the project root with .venv activated):
+RUN (from the project root):
 
     python consumer-templates/run_box.py
 

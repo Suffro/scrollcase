@@ -62,9 +62,7 @@ When it generated the consumer templates, `init` separately asks whether to inst
 Node/TypeScript dependencies and whether to install the Python consumer from PyPI with pip or
 conda-forge with conda. It also offers to install `pixi` and `conda-pack` if they are missing. Each
 question is separated by a blank line, and every answer is collected before the first installer
-runs. Node dependencies use the project root beside `scrollcase.config.json`; Python dependencies
-use its conventional `.venv`, avoiding externally managed system interpreters. Without a terminal
-every answer defaults to no.
+runs. Without a terminal every answer defaults to no.
 
 ```sh
 scrollcase init [--pixi-version <version>]
@@ -110,9 +108,9 @@ because [tool discovery](#tool-discovery) looks in the toolchain directory. Dele
 
 The consumer prompts are independent of this managed build toolchain. Accepting the TypeScript
 prompt runs npm in the project root to install `scrollcase`, `typescript`, and `tsx`. Accepting the
-Python prompt creates or reuses the project-root `.venv`, then installs `scrollcase-consumer` into
-it with either pip or conda-forge. The system Python is used only to create a pip-backed `.venv`;
-packages are never installed into that externally managed interpreter.
+Python prompt installs `scrollcase-consumer` with either pip or conda-forge. For a PEP 668
+externally managed interpreter, `init` retries as a user-scoped installation and keeps package
+files outside the managed prefix.
 
 The example follows Scrollcase's supported box target matrix. On another host, initialize with
 `--no-example`. Toolchain-only setup can still use any host for which pixi publishes a build.

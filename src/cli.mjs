@@ -170,7 +170,7 @@ async function init(flags) {
       `Install scrollcase, TypeScript, and tsx in ${workspace.root}?`,
     ),
     confirmPython: () => confirm(
-      `Install scrollcase-consumer for Python in ${join(workspace.root, '.venv')}?`,
+      'Install scrollcase-consumer for Python?',
     ),
     choosePythonSource: async () => {
       console.log();
@@ -219,9 +219,8 @@ async function init(flags) {
   if (setup.python) {
     const installed = setup.python;
     success(
-      `Installed scrollcase-consumer from ${installed.source} in ${installed.environmentDir}`,
+      `Installed scrollcase-consumer from ${installed.source} using ${installed.command}`,
     );
-    info(`Run it with ${installed.command} consumer-templates/run_box.py`);
   }
 
   success('Workspace initialized');
@@ -351,7 +350,7 @@ Init options:
                              installs into <toolchain> after a verified checksum check.
                              When the example is present, init separately offers to install
                              its TypeScript and Python consumer dependencies in the project
-                             root; Python uses the project-root .venv.
+                             root.
 
 New scroll options:
   --target <targetId>        Complete target, including the CUDA ABI when applicable

@@ -74,9 +74,8 @@ anything you did not agree to, which is what makes it safe to re-run.
 Because the example includes consumer templates, `init` asks separately whether to install
 `scrollcase`, `typescript`, and `tsx`, and whether to install the Python `scrollcase-consumer`
 package. For Python you choose PyPI with pip or conda-forge with conda. It collects all answers
-before starting any installation, with a blank line separating each question. Node dependencies
-land in the project root—the directory containing `scrollcase.config.json`—and Python dependencies
-in its `.venv`. Without a terminal these optional installs default to no.
+before starting any installation, with a blank line separating each question. Without a terminal
+these optional installs default to no.
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script. Pass
 `--no-example` when an explicitly empty workspace is preferable.
@@ -147,14 +146,11 @@ For Python, npm does not install `scrollcase_consumer`. The generated template i
 setup; the equivalent commands are:
 
 ```sh
-python -m venv .venv
-source .venv/bin/activate
 python -m pip install scrollcase-consumer
 python consumer-templates/run_box.py
 ```
 
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. A Python consumer-only
-application does not need the Scrollcase CLI or Node.js.
+A Python consumer-only application does not need the Scrollcase CLI or Node.js.
 
 ## 7. `keygen` — create a signing key
 

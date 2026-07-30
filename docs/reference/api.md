@@ -143,12 +143,8 @@ process.exitCode = result.exitCode ?? 1;
 The typed Python package mirrors the local Node consumer without depending on Node or its CLI:
 
 ```sh
-python -m venv .venv
-source .venv/bin/activate
 python -m pip install scrollcase-consumer
 ```
-
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
 
 ```python
 from scrollcase_consumer import (

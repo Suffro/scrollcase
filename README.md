@@ -57,13 +57,10 @@ npm install -g scrollcase
 Python applications that only consume existing local boxes do not need the npm package or Node.js:
 
 ```sh
-python -m venv .venv
-source .venv/bin/activate
 python -m pip install scrollcase-consumer
 ```
 
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. The package is imported as
-`scrollcase_consumer`. It does not build or download boxes.
+The package is imported as `scrollcase_consumer`. It does not build or download boxes.
 
 Otherwise from a checkout:
 
@@ -99,9 +96,8 @@ separately at `box-entrypoints/<boxId>/<targetId>/entrypoint.py`.
 If the project has no `package.json`, `init` creates a private one with `"type": "module"` for the
 TypeScript consumer; an existing file is never changed.
 Interactive initialization separately offers to install the templates' Node/TypeScript
-dependencies and the Python consumer from PyPI or conda-forge. It collects every answer first,
-then installs Node dependencies beside `scrollcase.config.json` and Python dependencies in the
-project-root `.venv`.
+dependencies and the Python consumer from PyPI or conda-forge. It collects every answer first and
+then performs the approved installations.
 
 ## Commands
 

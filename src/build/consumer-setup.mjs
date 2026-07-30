@@ -3,13 +3,12 @@
  *
  * These installations belong to the initialized project, not Scrollcase's managed build
  * toolchain. Every command therefore runs from the workspace root, beside
- * `scrollcase.config.json`. Python uses the conventional project-local `.venv`, avoiding any
- * externally managed system interpreter; Node uses the root package and `node_modules`. Consent
- * and the Python package source are chosen at the CLI edge and passed in explicitly.
+ * `scrollcase.config.json`. Node uses the root package and `node_modules`; Python uses the
+ * interpreter selected from the caller's environment. Consent and the Python package source are
+ * chosen at the CLI edge and passed in explicitly.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { posix, win32 } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
 
 const packageJson = JSON.parse(readFileSync(
@@ -50,56 +49,51 @@ function findPython({ root, runResult }) {
 export function installPythonConsumerDependency({
   root,
   source,
-  platform = process.platform,
   run = defaultRun,
   runResult = defaultRunResult,
-  exists = existsSync,
 }) {
   if (!['pypi', 'conda-forge'].includes(source)) {
     fail(`Unsupported Python consumer source ${source}.`);
   }
 
-  const paths = platform === 'win32' ? win32 : posix;
-  const environmentDir = paths.join(root, '.venv');
-  const venvPython = platform === 'win32'
-    ? paths.join(environmentDir, 'Scripts', 'python.exe')
-    : paths.join(environmentDir, 'bin', 'python');
-  const condaMetadata = paths.join(environmentDir, 'conda-meta');
-  const condaPython = platform === 'win32'
-    ? paths.join(environmentDir, 'python.exe')
-    : paths.join(environmentDir, 'bin', 'python');
-
   if (source === 'pypi') {
-    let environmentPython = venvPython;
-    if (exists(condaMetadata)) environmentPython = condaPython;
-    else if (!exists(venvPython)) {
-      const command = findPython({ root, runResult });
-      run(command, ['-m', 'venv', '.venv'], { cwd: root });
+    const command = findPython({ root, runResult });
+    const args = ['-m', 'pip', 'install', 'scrollcase-consumer'];
+    const result = runResult(command, args, { capture: true, cwd: root });
+    if (result.error) fail(`${command} failed to start: ${result.error.message}`);
+    if (result.status === 0) return { source, command };
+
+    const detail = `${result.stderr || ''}\n${result.stdout || ''}`;
+    if (/externally-managed-environment/i.test(detail)) {
+      // PEP 668 blocks even user installs unless pip receives the override. Pairing it with
+      // --user keeps package files out of Homebrew's or the distribution's managed prefix.
+      run(
+        command,
+        [
+          '-m',
+          'pip',
+          'install',
+          '--user',
+          '--break-system-packages',
+          'scrollcase-consumer',
+        ],
+        { cwd: root },
+      );
+      return { source, command };
     }
-    run(
-      environmentPython,
-      ['-m', 'pip', 'install', 'scrollcase-consumer'],
-      { cwd: root },
-    );
-    return { source, command: environmentPython, environmentDir };
+    fail(`${command} exited with status ${result.status}\n${detail.trim()}`);
   }
 
-  if (exists(venvPython) && !exists(condaMetadata)) {
-    fail(`${environmentDir} already exists and is not a conda environment.`);
-  }
-  const action = exists(condaMetadata) ? 'install' : 'create';
   run(
     'conda',
     [
-      action,
+      'install',
       '--yes',
-      '--prefix',
-      environmentDir,
       '--channel',
       'conda-forge',
       'scrollcase-consumer',
     ],
     { cwd: root },
   );
-  return { source, command: condaPython, environmentDir };
+  return { source, command: 'python' };
 }

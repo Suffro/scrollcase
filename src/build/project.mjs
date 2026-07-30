@@ -60,7 +60,7 @@ npx tsx consumer-templates/run-box.ts
 
 ## Python consumer
 
-npm does not install the Python consumer. \`init\` can create \`.venv\`; activate it, then:
+npm does not install the Python consumer. A Python-only application does not need the Node CLI:
 
 \`\`\`sh
 python -m pip install scrollcase-consumer
@@ -102,19 +102,13 @@ export async function initProject({
     written.push(scrollsDir);
   }
 
-  // Build state and an optional project-local Python environment must never be committed; the lock
-  // and the scroll must be. Appending rather than rewriting leaves existing rules alone.
+  // Build state is regenerated on every build and must never be committed; the lock and the scroll
+  // must be. Appending rather than rewriting leaves an existing .gitignore alone.
   const gitignorePath = join(root, '.gitignore');
   const existing = await fileExists(gitignorePath) ? await readFile(gitignorePath, 'utf8') : '';
-  const existingRules = new Set(existing.split(/\r?\n/));
-  const additions = [];
   if (!existing.includes(GITIGNORE_MARKER)) {
-    additions.push(GITIGNORE_MARKER, '.scrollcase/');
-  }
-  if (!existingRules.has('.venv/')) additions.push('.venv/');
-  if (additions.length > 0) {
-    const separator = existing.endsWith('\n') || existing === '' ? '' : '\n';
-    await writeFile(gitignorePath, `${existing}${separator}${additions.join('\n')}\n`);
+    const rules = `${existing.endsWith('\n') || existing === '' ? '' : '\n'}${GITIGNORE_MARKER}\n.scrollcase/\n`;
+    await writeFile(gitignorePath, `${existing}${rules}`);
     written.push(gitignorePath);
   } else {
     skipped.push(gitignorePath);
