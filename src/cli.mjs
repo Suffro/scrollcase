@@ -198,7 +198,8 @@ async function init(flags) {
       confirm: async (missing) => {
         if (never) return false;
         if (always) return true;
-        return confirm(`\nThis project needs ${missing.join(' and ')} to build a box.\nInstall ${missing.length > 1 ? 'them' : 'it'} into ${workspace.toolchainDir}?`);
+        console.log();
+        return confirm(`This project needs ${missing.join(' and ')} to build a box.\nInstall ${missing.length > 1 ? 'them' : 'it'} into ${workspace.toolchainDir}?`);
       },
     }),
     installTypeScript: () => installTypeScriptConsumerDependencies({ root: workspace.root }),
