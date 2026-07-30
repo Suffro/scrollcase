@@ -43,12 +43,15 @@ All notable changes to Scrollcase are documented here. The format follows
 - Keep real authoring separate while restoring a useful first-run example. `scrollcase init` now
   creates a disposable runnable `example-box` for the native host by default, without overwriting
   existing files, a concise linked `SCROLLCASE.md`, and TypeScript/Python examples under
-  `consumer-templates/` that run a caller-supplied local release through the public APIs;
+  `consumer-templates/` that run a caller-supplied local release through the public APIs. When the
+  project has none, it also creates a private `package.json` with `"type": "module"` so the
+  TypeScript consumer runs with ESM semantics;
   the Python template and workspace guide explain the separate PyPI installation explicitly.
   When those templates are generated, interactive initialization separately offers to install
-  their Node/TypeScript dependencies or the Python consumer from PyPI or conda-forge. Every
-  accepted consumer install runs from the project root beside `scrollcase.config.json`; Scrollcase
-  creates no hidden consumer environment.
+  their Node/TypeScript dependencies or the Python consumer from PyPI or conda-forge. It collects
+  every answer before starting any installer and visually separates each question. Python
+  dependencies live in the conventional project-root `.venv`, avoiding PEP 668 system-interpreter
+  failures; npm runs beside `scrollcase.config.json`.
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under

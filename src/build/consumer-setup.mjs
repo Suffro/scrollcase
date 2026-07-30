@@ -3,11 +3,13 @@
  *
  * These installations belong to the initialized project, not Scrollcase's managed build
  * toolchain. Every command therefore runs from the workspace root, beside
- * `scrollcase.config.json`; this module never creates a hidden Python or Node environment.
- * Consent and the Python package source are chosen at the CLI edge and passed in explicitly.
+ * `scrollcase.config.json`. Python uses the conventional project-local `.venv`, avoiding any
+ * externally managed system interpreter; Node uses the root package and `node_modules`. Consent
+ * and the Python package source are chosen at the CLI edge and passed in explicitly.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { posix, win32 } from 'node:path';
 import { fail, run as defaultRun, runResult as defaultRunResult } from './process.mjs';
 
 const packageJson = JSON.parse(readFileSync(
@@ -48,21 +50,56 @@ function findPython({ root, runResult }) {
 export function installPythonConsumerDependency({
   root,
   source,
+  platform = process.platform,
   run = defaultRun,
   runResult = defaultRunResult,
+  exists = existsSync,
 }) {
-  if (source === 'pypi') {
-    const command = findPython({ root, runResult });
-    run(command, ['-m', 'pip', 'install', 'scrollcase-consumer'], { cwd: root });
-    return { source, command };
+  if (!['pypi', 'conda-forge'].includes(source)) {
+    fail(`Unsupported Python consumer source ${source}.`);
   }
-  if (source === 'conda-forge') {
+
+  const paths = platform === 'win32' ? win32 : posix;
+  const environmentDir = paths.join(root, '.venv');
+  const venvPython = platform === 'win32'
+    ? paths.join(environmentDir, 'Scripts', 'python.exe')
+    : paths.join(environmentDir, 'bin', 'python');
+  const condaMetadata = paths.join(environmentDir, 'conda-meta');
+  const condaPython = platform === 'win32'
+    ? paths.join(environmentDir, 'python.exe')
+    : paths.join(environmentDir, 'bin', 'python');
+
+  if (source === 'pypi') {
+    let environmentPython = venvPython;
+    if (exists(condaMetadata)) environmentPython = condaPython;
+    else if (!exists(venvPython)) {
+      const command = findPython({ root, runResult });
+      run(command, ['-m', 'venv', '.venv'], { cwd: root });
+    }
     run(
-      'conda',
-      ['install', '--yes', '--channel', 'conda-forge', 'scrollcase-consumer'],
+      environmentPython,
+      ['-m', 'pip', 'install', 'scrollcase-consumer'],
       { cwd: root },
     );
-    return { source, command: 'conda' };
+    return { source, command: environmentPython, environmentDir };
   }
-  fail(`Unsupported Python consumer source ${source}.`);
+
+  if (exists(venvPython) && !exists(condaMetadata)) {
+    fail(`${environmentDir} already exists and is not a conda environment.`);
+  }
+  const action = exists(condaMetadata) ? 'install' : 'create';
+  run(
+    'conda',
+    [
+      action,
+      '--yes',
+      '--prefix',
+      environmentDir,
+      '--channel',
+      'conda-forge',
+      'scrollcase-consumer',
+    ],
+    { cwd: root },
+  );
+  return { source, command: condaPython, environmentDir };
 }

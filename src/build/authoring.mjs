@@ -69,6 +69,11 @@ runBox(releaseToRun, {
 });
 `;
 
+const CONSUMER_PACKAGE_JSON = `${JSON.stringify({
+  private: true,
+  type: 'module',
+}, null, 2)}\n`;
+
 const PYTHON_CONSUMER_VERSION = '0.1.0';
 
 const PYTHON_CONSUMER_TEMPLATE = `"""
@@ -76,12 +81,16 @@ Runs a local box through the typed Python consumer.
 
 The Python consumer is published separately on PyPI.
 npm install scrollcase does not install this Python package.
+scrollcase init can install it into the project's .venv after asking.
 
-SETUP (once):
+MANUAL SETUP (once, if init did not install it):
 
+    python -m venv .venv
+    source .venv/bin/activate
+    # Windows PowerShell: .venv\\Scripts\\Activate.ps1
     python -m pip install scrollcase-consumer==${PYTHON_CONSUMER_VERSION}
 
-RUN (from the project root):
+RUN (from the project root with .venv activated):
 
     python consumer-templates/run_box.py
 
@@ -387,13 +396,14 @@ export async function ensureExampleScroll({
     };
   }
 
-  const consumerTemplates = [
+  const consumerFiles = [
+    [join(workspace.root, 'package.json'), CONSUMER_PACKAGE_JSON],
     [join(workspace.root, 'consumer-templates', 'run-box.ts'), TYPESCRIPT_CONSUMER_TEMPLATE],
     [join(workspace.root, 'consumer-templates', 'run_box.py'), PYTHON_CONSUMER_TEMPLATE],
   ];
-  const templateWritten = [];
-  for (const [path, contents] of consumerTemplates) {
-    if (await ensureTextFile(path, contents)) templateWritten.push(path);
+  const consumerFilesWritten = [];
+  for (const [path, contents] of consumerFiles) {
+    if (await ensureTextFile(path, contents)) consumerFilesWritten.push(path);
   }
-  return { ...result, written: [...result.written, ...templateWritten] };
+  return { ...result, written: [...result.written, ...consumerFilesWritten] };
 }

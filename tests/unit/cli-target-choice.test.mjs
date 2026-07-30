@@ -193,6 +193,10 @@ describe('CLI target selection', () => {
     );
     expect(typescriptConsumer).toContain('runBox(releaseToRun');
     expect(typescriptConsumer).toContain('npm install --save-dev tsx typescript');
+    expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))).toEqual({
+      private: true,
+      type: 'module',
+    });
     const pythonConsumer = await readFile(
       join(root, 'consumer-templates', 'run_box.py'),
       'utf8',
@@ -232,6 +236,7 @@ describe('CLI target selection', () => {
     ], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
     expect(await readdir(join(root, 'scrolls'))).toEqual([]);
+    expect(await readdir(root)).not.toContain('package.json');
     expect(result.stdout).toContain('Workspace initialized');
     expect(result.stdout).toContain('Next: scrollcase new scroll');
   });

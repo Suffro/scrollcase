@@ -53,6 +53,8 @@ already exists:
   that box and target.
 - `consumer-templates/run-box.ts` — a typed Node consumer using `scrollcase/consumer`.
 - `consumer-templates/run_box.py` — the equivalent Python consumer using `scrollcase_consumer`.
+- `package.json` — when absent, a private Node package with `"type": "module"` for the TypeScript
+  consumer; an existing package file is never overwritten.
 - `SCROLLCASE.md` — a short project-local workflow guide linked to the full documentation.
 - `.gitignore` rules for `.scrollcase/`, the regenerated build state that must never be
   committed.
@@ -69,11 +71,12 @@ conda-pack pinned to 0.9.2. Answer no and nothing is downloaded — install them
 described in [Installation](/getting-started/installation). Either way `init` never downloads
 anything you did not agree to, which is what makes it safe to re-run.
 
-Because the example includes consumer templates, `init` then asks separately whether to install
+Because the example includes consumer templates, `init` asks separately whether to install
 `scrollcase`, `typescript`, and `tsx`, and whether to install the Python `scrollcase-consumer`
-package. For Python you choose PyPI with pip or conda-forge with conda. Accepted commands run from
-the project root—the directory containing `scrollcase.config.json`—and create no hidden consumer
-environment. Without a terminal these optional installs default to no.
+package. For Python you choose PyPI with pip or conda-forge with conda. It collects all answers
+before starting any installation, with a blank line separating each question. Node dependencies
+land in the project root—the directory containing `scrollcase.config.json`—and Python dependencies
+in its `.venv`. Without a terminal these optional installs default to no.
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script. Pass
 `--no-example` when an explicitly empty workspace is preferable.
@@ -144,11 +147,14 @@ For Python, npm does not install `scrollcase_consumer`. The generated template i
 setup; the equivalent commands are:
 
 ```sh
+python -m venv .venv
+source .venv/bin/activate
 python -m pip install scrollcase-consumer
 python consumer-templates/run_box.py
 ```
 
-A Python consumer-only application does not need the Scrollcase CLI or Node.js.
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. A Python consumer-only
+application does not need the Scrollcase CLI or Node.js.
 
 ## 7. `keygen` — create a signing key
 

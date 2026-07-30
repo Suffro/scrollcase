@@ -40,6 +40,7 @@ import {
 } from './build/workspace.mjs';
 import { collectNewScrollOptions } from './cli-authoring.mjs';
 import { parseArgs } from './cli-args.mjs';
+import { runInitDependencySetup } from './cli-init.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { runCliBox } from './cli-run.mjs';
@@ -100,6 +101,7 @@ async function lock(name, flags) {
  */
 async function confirm(question) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  console.log();
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
     return /^y(es)?$/i.test((await readline.question(`${question} [y/N] `)).trim());
@@ -162,16 +164,39 @@ async function init(flags) {
 
   const always = Boolean(flags.get('install-toolchain'));
   const never = Boolean(flags.get('no-install-toolchain'));
-  const toolchain = await ensureToolchain({
-    workspace,
-    pixiVersion,
-    confirm: async (missing) => {
-      if (never) return false;
-      if (always) return true;
-      console.log(`\nThis project needs ${missing.join(' and ')} to build a box.`);
-      return confirm(`Install ${missing.length > 1 ? 'them' : 'it'} into ${workspace.toolchainDir}?`);
+  const setup = await runInitDependencySetup({
+    hasExample: Boolean(example),
+    confirmTypeScript: () => confirm(
+      `Install scrollcase, TypeScript, and tsx in ${workspace.root}?`,
+    ),
+    confirmPython: () => confirm(
+      `Install scrollcase-consumer for Python in ${join(workspace.root, '.venv')}?`,
+    ),
+    choosePythonSource: async () => {
+      console.log();
+      const selectedSource = await chooseCliValue(
+        'Python consumer package source',
+        ['PyPI with pip', 'conda-forge with conda'],
+      );
+      return selectedSource.startsWith('PyPI') ? 'pypi' : 'conda-forge';
     },
+    installToolchain: () => ensureToolchain({
+      workspace,
+      pixiVersion,
+      confirm: async (missing) => {
+        if (never) return false;
+        if (always) return true;
+        console.log(`This project needs ${missing.join(' and ')} to build a box.`);
+        return confirm(`Install ${missing.length > 1 ? 'them' : 'it'} into ${workspace.toolchainDir}?`);
+      },
+    }),
+    installTypeScript: () => installTypeScriptConsumerDependencies({ root: workspace.root }),
+    installPython: (source) => installPythonConsumerDependency({
+      root: workspace.root,
+      source,
+    }),
   });
+  const { toolchain } = setup;
 
   if (toolchain.installed.length > 0) {
     success(`Installed ${toolchain.installed.join(' and ')} into ${workspace.toolchainDir}`);
@@ -184,27 +209,19 @@ async function init(flags) {
     info('Install them yourself, or re-run with --install-toolchain. `scrollcase doctor` reports what is missing.');
   }
 
-  if (example && await confirm(
-    `Install scrollcase, TypeScript, and tsx in ${workspace.root}?`,
-  )) {
-    const installed = installTypeScriptConsumerDependencies({ root: workspace.root });
+  if (setup.typescript) {
+    const installed = setup.typescript;
     success(
       `Installed scrollcase ${installed.scrollcaseVersion}, TypeScript, and tsx in ${workspace.root}`,
     );
   }
 
-  if (example && await confirm(
-    `Install scrollcase-consumer for Python in ${workspace.root}?`,
-  )) {
-    const selectedSource = await chooseCliValue(
-      'Python consumer package source',
-      ['PyPI with pip', 'conda-forge with conda'],
-    );
-    const source = selectedSource.startsWith('PyPI') ? 'pypi' : 'conda-forge';
-    const installed = installPythonConsumerDependency({ root: workspace.root, source });
+  if (setup.python) {
+    const installed = setup.python;
     success(
-      `Installed scrollcase-consumer from ${installed.source} using ${installed.command}`,
+      `Installed scrollcase-consumer from ${installed.source} in ${installed.environmentDir}`,
     );
+    info(`Run it with ${installed.command} consumer-templates/run_box.py`);
   }
 
   success('Workspace initialized');
@@ -334,7 +351,7 @@ Init options:
                              installs into <toolchain> after a verified checksum check.
                              When the example is present, init separately offers to install
                              its TypeScript and Python consumer dependencies in the project
-                             root, beside scrollcase.config.json.
+                             root; Python uses the project-root .venv.
 
 New scroll options:
   --target <targetId>        Complete target, including the CUDA ABI when applicable
