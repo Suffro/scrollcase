@@ -24,12 +24,13 @@ describe('consumer template dependency setup', () => {
     })).toBe(false);
   });
 
-  it('installs Node dependencies from the workspace root', () => {
+  it('installs Node dependencies from the workspace root on POSIX', () => {
     const run = vi.fn();
 
     installTypeScriptConsumerDependencies({
       root: '/work/project',
       scrollcaseVersion: '0.4.6',
+      platform: 'linux',
       run,
     });
 
