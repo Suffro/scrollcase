@@ -34,7 +34,7 @@ npm install -g scrollcase
 Check the install:
 
 ```sh
-scrollcase help
+scrollcase --version
 ```
 
 ## Install the Python consumer
@@ -66,6 +66,8 @@ The TypeScript template has its own optional prompt. If approved, `init` runs np
 project root to install `scrollcase`, `typescript`, and `tsx`. `init` collects every answer before
 starting any installation. If pip reports a PEP 668 externally managed interpreter, `init`
 automatically retries as a user install, keeping package files outside the managed Python prefix.
+If you select conda-forge but the `conda` command is unavailable, it asks whether to continue with
+PyPI instead.
 
 ## Let Scrollcase install the toolchain
 

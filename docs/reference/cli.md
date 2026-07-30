@@ -7,10 +7,13 @@ description: Every Scrollcase command, flag, environment variable, and exit conv
 
 ```text
 scrollcase <command> [options]
+scrollcase -v | --version
 ```
 
 Nine verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify`, `run`.
 `scrollcase help` (or no command) prints the full usage text.
+`scrollcase -v` and `scrollcase --version` print only the installed package version and do not
+require a workspace.
 
 Human-facing status lines use a small set of symbols (`✓`, `→`, `·`, `⚠`, `✗`). Their symbols are
 coloured only in an interactive terminal; redirected output remains free of ANSI escapes, and
@@ -62,7 +65,8 @@ When it generated the consumer templates, `init` separately asks whether to inst
 Node/TypeScript dependencies and whether to install the Python consumer from PyPI with pip or
 conda-forge with conda. It also offers to install `pixi` and `conda-pack` if they are missing. Each
 question is separated by a blank line, and every answer is collected before the first installer
-runs. Without a terminal every answer defaults to no.
+runs. If conda-forge is selected but `conda` cannot start, another question offers PyPI instead.
+Without a terminal every answer defaults to no.
 
 ```sh
 scrollcase init [--pixi-version <version>]
@@ -110,7 +114,8 @@ The consumer prompts are independent of this managed build toolchain. Accepting 
 prompt runs npm in the project root to install `scrollcase`, `typescript`, and `tsx`. Accepting the
 Python prompt installs `scrollcase-consumer` with either pip or conda-forge. For a PEP 668
 externally managed interpreter, `init` retries as a user-scoped installation and keeps package
-files outside the managed prefix.
+files outside the managed prefix. The conda-forge path checks Conda before installation and offers
+the PyPI fallback when it is missing.
 
 The example follows Scrollcase's supported box target matrix. On another host, initialize with
 `--no-example`. Toolchain-only setup can still use any host for which pixi publishes a build.

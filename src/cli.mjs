@@ -24,8 +24,10 @@ import {
 } from './build/authoring.mjs';
 import { buildBox } from './build/box.mjs';
 import {
+  isCondaAvailable,
   installPythonConsumerDependency,
   installTypeScriptConsumerDependencies,
+  SCROLLCASE_NPM_VERSION,
 } from './build/consumer-setup.mjs';
 import { findPixi, pixiLockArguments } from './build/pixi.mjs';
 import { fail, run } from './build/process.mjs';
@@ -40,7 +42,10 @@ import {
 } from './build/workspace.mjs';
 import { collectNewScrollOptions } from './cli-authoring.mjs';
 import { parseArgs } from './cli-args.mjs';
-import { runInitDependencySetup } from './cli-init.mjs';
+import {
+  resolvePythonConsumerSource,
+  runInitDependencySetup,
+} from './cli-init.mjs';
 import { chooseCliValue } from './cli-menu.mjs';
 import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { runCliBox } from './cli-run.mjs';
@@ -178,7 +183,14 @@ async function init(flags) {
         'Python consumer package source',
         ['PyPI with pip', 'conda-forge with conda'],
       );
-      return selectedSource.startsWith('PyPI') ? 'pypi' : 'conda-forge';
+      const source = selectedSource.startsWith('PyPI') ? 'pypi' : 'conda-forge';
+      return resolvePythonConsumerSource({
+        selectedSource: source,
+        condaAvailable: source === 'pypi' || isCondaAvailable({ root: workspace.root }),
+        confirmPyPIFallback: () => confirm(
+          'Conda is not installed. Install scrollcase-consumer from PyPI with pip instead?',
+        ),
+      });
     },
     installToolchain: () => ensureToolchain({
       workspace,
@@ -329,6 +341,7 @@ async function runRelease(path, flags, args) {
 
 function usage() {
   console.log(`Usage: scrollcase <command> [options]
+       scrollcase -v | --version
 
 Commands:
   init                       Initialize a workspace with a runnable example
@@ -350,7 +363,7 @@ Init options:
                              installs into <toolchain> after a verified checksum check.
                              When the example is present, init separately offers to install
                              its TypeScript and Python consumer dependencies in the project
-                             root.
+                             root. Missing Conda offers a PyPI fallback.
 
 New scroll options:
   --target <targetId>        Complete target, including the CUDA ABI when applicable
@@ -448,6 +461,10 @@ Workspace:
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
+  if (command === '-v' || command === '--version') {
+    console.log(SCROLLCASE_NPM_VERSION);
+    return;
+  }
   const { positional, flags, passthrough } = parseArgs(rest);
   if (!command || command === 'help' || command === '--help') return usage();
   // Resolve the workspace before any command touches a path, so flags win over the project config.

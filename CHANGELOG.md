@@ -35,6 +35,8 @@ All notable changes to Scrollcase are documented here. The format follows
 - Improve human CLI readability with restrained, TTY-aware coloured status symbols across setup,
   diagnostics, locking, auditing, and building. Successful builds now end with one relative-path
   summary naming the box directory and channel document that must be distributed.
+- Add workspace-independent `scrollcase -v` and `scrollcase --version` flags that print the
+  installed package version.
 - Check signing readiness before `build` starts expensive work. Missing local keys fail immediately
   with an explicit `scrollcase keygen` remedy; `build` never generates identity material itself.
   Incomplete pairs and missing external-signer trust keys also fail without overwriting anything.
@@ -51,6 +53,7 @@ All notable changes to Scrollcase are documented here. The format follows
   their Node/TypeScript dependencies or the Python consumer from PyPI or conda-forge. It collects
   every answer before starting any installer and visually separates each question. A PEP 668
   managed Python falls back to a user-scoped pip installation, leaving the managed prefix intact.
+  If conda-forge is selected without Conda installed, `init` asks whether to use PyPI instead.
   `--no-example` omits the box and consumer examples while retaining the workspace guide.
   `scrollcase new scroll` still gathers complete project metadata interactively or from explicit
   non-terminal flags. Generated application starters are grouped under

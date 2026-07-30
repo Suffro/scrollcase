@@ -30,7 +30,7 @@ npm install -g scrollcase
 Check the install:
 
 ```sh
-scrollcase help
+scrollcase --version
 ```
 
 For more details check the [installation page](/getting-started/installation).
@@ -75,7 +75,8 @@ Because the example includes consumer templates, `init` asks separately whether 
 `scrollcase`, `typescript`, and `tsx`, and whether to install the Python `scrollcase-consumer`
 package. For Python you choose PyPI with pip or conda-forge with conda. It collects all answers
 before starting any installation, with a blank line separating each question. Without a terminal
-these optional installs default to no.
+these optional installs default to no. If Conda is unavailable after selecting conda-forge, a
+separate question offers to continue with PyPI.
 
 Use `--install-toolchain` or `--no-install-toolchain` to answer up front in a script. Pass
 `--no-example` when an explicitly empty workspace is preferable.

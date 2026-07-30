@@ -46,6 +46,14 @@ function findPython({ root, runResult }) {
   fail('Python was not found. Install Python 3.10 or newer, then re-run scrollcase init.');
 }
 
+export function isCondaAvailable({
+  root,
+  runResult = defaultRunResult,
+}) {
+  const result = runResult('conda', ['--version'], { capture: true, cwd: root });
+  return !result.error && result.status === 0;
+}
+
 export function installPythonConsumerDependency({
   root,
   source,
@@ -84,6 +92,9 @@ export function installPythonConsumerDependency({
     fail(`${command} exited with status ${result.status}\n${detail.trim()}`);
   }
 
+  if (!isCondaAvailable({ root, runResult })) {
+    fail('Conda is not installed. Re-run scrollcase init and choose PyPI with pip.');
+  }
   run(
     'conda',
     [

@@ -6,6 +6,15 @@
  * questions and leaving the user's choices only half collected.
  */
 
+export async function resolvePythonConsumerSource({
+  selectedSource,
+  condaAvailable,
+  confirmPyPIFallback,
+}) {
+  if (selectedSource !== 'conda-forge' || condaAvailable) return selectedSource;
+  return await confirmPyPIFallback() ? 'pypi' : null;
+}
+
 export async function runInitDependencySetup({
   hasExample,
   confirmTypeScript,

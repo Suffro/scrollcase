@@ -1,7 +1,29 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runInitDependencySetup } from '../../src/cli-init.mjs';
+import {
+  resolvePythonConsumerSource,
+  runInitDependencySetup,
+} from '../../src/cli-init.mjs';
 
 describe('init dependency setup', () => {
+  it('offers PyPI when conda-forge was selected but Conda is unavailable', async () => {
+    const confirmPyPIFallback = vi.fn(async () => true);
+
+    await expect(resolvePythonConsumerSource({
+      selectedSource: 'conda-forge',
+      condaAvailable: false,
+      confirmPyPIFallback,
+    })).resolves.toBe('pypi');
+    expect(confirmPyPIFallback).toHaveBeenCalledOnce();
+  });
+
+  it('skips Python installation when the PyPI fallback is declined', async () => {
+    await expect(resolvePythonConsumerSource({
+      selectedSource: 'conda-forge',
+      condaAvailable: false,
+      confirmPyPIFallback: async () => false,
+    })).resolves.toBeNull();
+  });
+
   it('collects every answer before starting any installation', async () => {
     const events = [];
 

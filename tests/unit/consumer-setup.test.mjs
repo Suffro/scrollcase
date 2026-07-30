@@ -1,10 +1,29 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  isCondaAvailable,
   installPythonConsumerDependency,
   installTypeScriptConsumerDependencies,
 } from '../../src/build/consumer-setup.mjs';
 
 describe('consumer template dependency setup', () => {
+  it('detects whether Conda can start from the workspace root', () => {
+    const runResult = vi.fn(() => ({ status: 0, stdout: 'conda 25', stderr: '' }));
+
+    expect(isCondaAvailable({ root: '/work/project', runResult })).toBe(true);
+    expect(runResult).toHaveBeenCalledWith(
+      'conda',
+      ['--version'],
+      { capture: true, cwd: '/work/project' },
+    );
+  });
+
+  it('reports Conda as unavailable when the executable cannot start', () => {
+    expect(isCondaAvailable({
+      root: '/work/project',
+      runResult: () => ({ status: null, error: new Error('spawnSync conda ENOENT') }),
+    })).toBe(false);
+  });
+
   it('installs Node dependencies from the workspace root', () => {
     const run = vi.fn();
 
@@ -111,7 +130,7 @@ describe('consumer template dependency setup', () => {
 
   it('installs the Python consumer with conda in the active environment', () => {
     const run = vi.fn();
-    const runResult = vi.fn();
+    const runResult = vi.fn(() => ({ status: 0, stdout: '', stderr: '' }));
 
     const installed = installPythonConsumerDependency({
       root: '/work/project',
@@ -121,12 +140,27 @@ describe('consumer template dependency setup', () => {
     });
 
     expect(installed).toEqual({ source: 'conda-forge', command: 'python' });
-    expect(runResult).not.toHaveBeenCalled();
+    expect(runResult).toHaveBeenCalledWith(
+      'conda',
+      ['--version'],
+      { capture: true, cwd: '/work/project' },
+    );
     expect(run).toHaveBeenCalledWith(
       'conda',
       ['install', '--yes', '--channel', 'conda-forge', 'scrollcase-consumer'],
       { cwd: '/work/project' },
     );
+  });
+
+  it('reports a clear error if Conda disappears after source selection', () => {
+    expect(() => installPythonConsumerDependency({
+      root: '/work/project',
+      source: 'conda-forge',
+      runResult: () => ({
+        status: null,
+        error: new Error('spawnSync conda ENOENT'),
+      }),
+    })).toThrow('Conda is not installed. Re-run scrollcase init and choose PyPI with pip.');
   });
 
   it('rejects an unknown Python package source before running anything', () => {

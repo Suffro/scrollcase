@@ -52,6 +52,7 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 
 ```sh
 npm install -g scrollcase
+scrollcase --version
 ```
 
 Python applications that only consume existing local boxes do not need the npm package or Node.js:
@@ -97,7 +98,8 @@ If the project has no `package.json`, `init` creates a private one with `"type":
 TypeScript consumer; an existing file is never changed.
 Interactive initialization separately offers to install the templates' Node/TypeScript
 dependencies and the Python consumer from PyPI or conda-forge. It collects every answer first and
-then performs the approved installations.
+then performs the approved installations. If conda-forge is selected but Conda is unavailable,
+`init` asks whether to continue with PyPI instead.
 
 ## Commands
 
@@ -114,6 +116,8 @@ then performs the approved installations.
 | `run <release.json>` | Verify, temporarily extract, and run a local box |
 
 `scrollcase help` documents every option.
+`scrollcase -v` and `scrollcase --version` print the installed version without requiring a
+workspace.
 
 Projects that consume the box contract directly can import the full Node surface from
 `scrollcase/contract`, or its target/document-shape helpers with no Node built-ins from
