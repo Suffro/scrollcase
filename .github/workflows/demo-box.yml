@@ -129,8 +129,10 @@ jobs:
           pattern: demo-box-*
           merge-multiple: true
 
-      # Names are content-addressed, so the three targets cannot collide and a re-publish of an
-      # unchanged box overwrites itself with identical bytes.
+      # Names are content-addressed, which is what makes an archive verifiable — and also means a
+      # rebuilt box never overwrites the one it replaces. Uploading alone would leave the previous
+      # boxes sitting beside the new ones, downloadable and stale, so anything not in this build is
+      # removed once the new set is safely up.
       - name: Publish the release
         shell: bash
         env:
@@ -149,3 +151,11 @@ jobs:
               ${{ inputs.draft && '--draft' || '' }}
           fi
           gh release upload "${{ inputs.tag }}" staged/* --clobber
+          # Deleted only after the upload succeeded: a failed upload must leave the previous boxes
+          # in place rather than empty the release.
+          for asset in $(gh release view "${{ inputs.tag }}" --json assets -q '.assets[].name'); do
+            if [ ! -e "staged/$asset" ]; then
+              echo "Removing superseded asset: $asset"
+              gh release delete-asset "${{ inputs.tag }}" "$asset" --yes
+            fi
+          done
