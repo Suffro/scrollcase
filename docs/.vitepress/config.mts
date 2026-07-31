@@ -63,6 +63,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Overview', link: '/getting-started/overview' },
+          { text: 'Why Scrollcase?', link: '/getting-started/why-scrollcase' },
           { text: 'Quickstart', link: '/getting-started/quickstart' },
           { text: 'Installation', link: '/getting-started/installation' },
           { text: 'TL;DR', link: '/getting-started/tl-dr' }
@@ -101,7 +102,8 @@ export default defineConfig({
           { text: 'Architecture', link: '/concepts/architecture' },
           { text: 'Security & Trust', link: '/concepts/security-and-trust' },
           { text: 'Why Pixi & Conda-Forge', link: '/concepts/why-pixi' },
-          { text: 'Design Decisions', link: '/concepts/design-decisions' }
+          { text: 'Design Decisions', link: '/concepts/design-decisions' },
+          { text: 'Tool Comparison', link: '/concepts/tool-comparison' }
         ]
       }
     ],
@@ -111,7 +113,7 @@ export default defineConfig({
     ],
 
     outline: {
-      level: [2, 3]
+      level: [2, 2]
     },
 
     footer: {

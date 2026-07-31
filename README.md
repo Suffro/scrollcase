@@ -14,7 +14,17 @@ relocates the resulting prefix, and the tree ships inside the box as `venv/`.
 
 > You can find the official documentation [here](https://scrollcase.dev/getting-started/overview).
 
+## Why Scrollcase?
+
+Scrollcase is for projects that need more than a reproducible Python environment: a target-specific,
+self-contained runtime that can be published, signed, independently verified, and consumed without
+resolving dependencies or requiring a container runtime.
+
+See [Why Scrollcase?](https://scrollcase.dev/getting-started/why-scrollcase) for a practical
+comparison with Docker, Pixi, conda-pack, PEX, and PyInstaller.
+
 ## What you get
+
 
 - **Locked.** The environment is a pure function of a committed `pixi.lock`; `build` installs,
   it never resolves.
