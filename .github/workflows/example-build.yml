@@ -1,0 +1,130 @@
+# Builds the hello-box example for real, on each supported operating system.
+#
+# The unit suite stubs the environment solve, so it proves everything after the solve and nothing
+# about the solve itself: whether pixi and conda-pack are usable on this OS, whether the packed tree
+# relocates, whether the interpreter inside the box runs at all. That gap is where the "paths that
+# break silently" in AGENTS.md live, and this is the only job that closes it.
+#
+# Deliberately a separate workflow rather than a job in ci.yml: GitHub applies `paths` filters per
+# workflow, not per job, and ci.yml holds the docs job that must keep running on docs-only changes.
+# Splitting the file is what keeps this expensive job out of documentation and Python pushes.
+name: example build
+
+permissions:
+  contents: read
+
+# Only what can change what a box contains triggers a rebuild. Documentation, the Python consumer
+# and the unit tests cannot, and together they are roughly a third of this repository's commits.
+#
+# There is no `pull_request` trigger: this project pushes straight to main, so it would never fire.
+# Add one, with this same paths list, if that ever changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/example-build.yml'
+  # The failures here rarely come from a commit. They come from conda-forge and pixi moving
+  # underneath a committed lock, which no push would ever catch.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# Three pushes in a row should cost one build, not three.
+concurrency:
+  group: example-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    # Network-bound and new. Advisory until it has proven itself stable; promote it by deleting
+    # this line. Should this ever become a required check, note that the `paths` filter above would
+    # leave a pull request that touches none of those paths waiting forever for a job that never
+    # starts — a required check and a path filter do not combine.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64-cpu
+          - os: macos-latest
+            target: macos-aarch64-metal
+          - os: windows-latest
+            target: windows-x86_64-cpu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # Uses Scrollcase's own checksum-verifying installer instead of a third-party action, which
+      # also exercises the project-toolchain half of discovery. `init` scaffolds a workspace as a
+      # side effect; those files are untracked, so `git clean -fd` removes them while leaving the
+      # ignored `.scrollcase/` toolchain in place. The tree must be clean again before `build`,
+      # because refusing a dirty tree is one of the guarantees under test here.
+      - name: Install the pinned toolchain
+        run: node src/cli.mjs init --install-toolchain --no-example
+
+      - name: Restore a clean tree
+        shell: bash
+        run: |
+          git clean -fd
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Tree is still dirty after cleaning up init's scaffolding:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+
+      - name: Report what this machine can do
+        run: node src/cli.mjs doctor --scroll hello-box --target ${{ matrix.target }} --scrolls-dir examples
+
+      # Ephemeral: generated in the runner, used for this run only, never exported. The example is
+      # signed to prove the signing path works, not to produce anything anyone should trust.
+      - name: Create an ephemeral signing key
+        run: node src/cli.mjs keygen
+
+      - name: Build
+        run: node src/cli.mjs build hello-box/${{ matrix.target }} --scrolls-dir examples --weights embed
+
+      # The check that matters: extract the box and import with the interpreter inside it.
+      - name: Verify with self-test
+        shell: bash
+        run: |
+          release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
+          node src/cli.mjs verify "$release" --self-test
+
+      - name: Run the box entry point
+        shell: bash
+        run: |
+          release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
+          node src/cli.mjs run "$release"
+
+      # Determinism is a promise the repository makes that nothing else verifies end to end. The
+      # archive is named by its own SHA-256, so a rebuild that differs lands beside the first rather
+      # than replacing it — the file count is the assertion.
+      - name: Rebuild and compare
+        shell: bash
+        run: |
+          dist=".scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}"
+          before=$(ls "$dist"/*.zip | wc -l)
+          if [ "$before" -ne 1 ]; then
+            echo "Expected exactly one archive after the first build, found $before" >&2
+            exit 1
+          fi
+          node src/cli.mjs build hello-box/${{ matrix.target }} --scrolls-dir examples --weights embed
+          after=$(ls "$dist"/*.zip | wc -l)
+          if [ "$after" -ne 1 ]; then
+            echo "Rebuild was not byte-identical: $after distinct archives" >&2
+            ls -l "$dist" >&2
+            exit 1
+          fi
+          echo "Rebuild produced a byte-identical archive."

@@ -6,6 +6,21 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Ship the `hello-box` example for all three supported operating systems —
+  `linux-x86_64-cpu` and `windows-x86_64-cpu` alongside the existing
+  `macos-aarch64-metal` — each with its own solved `pixi.lock` and lock-derived licence
+  inventory. Previously only a macOS ARM target could be built from a checkout.
+- Give every `hello-box` example a `python-script` entry point, carried into the payload
+  through `localFiles` with its declared hash, so `scrollcase run` is exercised by the shipped
+  example rather than only documented. The script prints `sys.prefix`, which is where a reader
+  can see that the answering interpreter is the one inside the box.
+- Build the example for real on Linux, macOS and Windows in CI, then self-test it, run its
+  entry point, and rebuild it to confirm the archive is byte-identical. The unit suite stubs
+  the environment solve, so this is the only check covering the solve, relocation and the
+  per-platform interpreter layouts.
+
 ### Changed
 
 - **Breaking (next major):** adopt the v2-only contract and canonical **scroll** authoring model.

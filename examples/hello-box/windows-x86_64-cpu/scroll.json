@@ -6,18 +6,18 @@
   "runtimeId": "hello-box-runtime",
   "version": "1.0.0",
   "sourceRevision": "example-hello-v1",
-  "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
-  "compatibility": { "minHostAppVersion": "1.0.0", "minMacosVersion": "13.0", "minRamGb": 1 },
+  "target": { "platform": "windows", "arch": "x86_64", "accelerator": "cpu" },
+  "compatibility": { "minHostAppVersion": "1.0.0", "minRamGb": 1 },
   "pythonVersion": "3.11",
   "pixiVersion": "0.73.0",
-  "condaDependencyLicenseAudit": "examples/hello-box/macos-aarch64-metal/conda-licenses.json",
-  "pythonEntryPoint": "venv/bin/python",
+  "condaDependencyLicenseAudit": "examples/hello-box/windows-x86_64-cpu/conda-licenses.json",
+  "pythonEntryPoint": "venv/python.exe",
   "modelCacheSubdir": "model-cache/hello",
   "assetBaseUrl": "https://assets.example.org/boxes",
   "assets": [],
   "localFiles": [
     {
-      "sourcePath": "examples/hello-box/macos-aarch64-metal/entrypoint.py",
+      "sourcePath": "examples/hello-box/windows-x86_64-cpu/entrypoint.py",
       "relativePath": "entrypoint.py",
       "sha256": "3dea550d406449ea5f425133a9d20cdd17a4977b2b9bdd6ae5454c7107177f9c"
     }
