@@ -54,6 +54,22 @@ python scripts/check_distribution.py dist/*
 Its tests use only temporary local fixtures. The copied schemas must stay byte-identical to
 `src/contract/schema/`; regenerate them only through `python/scripts/sync_schemas.py`.
 
+## npm releases
+
+`npm version <version>` writes the version, commits it, and creates the tag `v<version>` — but
+**locally only**. `git push origin main` does not carry tags, so the tag must be pushed explicitly:
+
+```sh
+git push origin --tags
+```
+
+Treat that as part of releasing. The tag is the only link between a version published on npm and
+the commit it was built from; without it nobody can check out a released version from the public
+repository or diff two of them. Every tag from `v0.1.3` to `v0.5.0` was missing from GitHub for
+this reason before being backfilled.
+
+Publishing to npm itself is the maintainer's call and is never automated from here.
+
 ## Python releases
 
 The Python consumer has an independent version and tag namespace. To prepare a release:
