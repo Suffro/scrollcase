@@ -49,11 +49,12 @@ jobs:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    # Network-bound and new. Advisory until it has proven itself stable; promote it by deleting
-    # this line. Should this ever become a required check, note that the `paths` filter above would
-    # leave a pull request that touches none of those paths waiting forever for a job that never
-    # starts — a required check and a path filter do not combine.
-    continue-on-error: true
+    # No `continue-on-error`: it was here while the job was unproven, and it made the first run
+    # report success while all three targets failed. A monitor that cannot go red monitors nothing.
+    #
+    # Should this ever become a required check, note that the `paths` filter above would leave a
+    # pull request touching none of those paths waiting forever for a job that never starts — a
+    # required check and a path filter do not combine.
     strategy:
       fail-fast: false
       matrix:
