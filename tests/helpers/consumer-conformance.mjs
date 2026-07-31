@@ -151,7 +151,8 @@ async function mutateFixture(fixture, mutation, destination) {
   const hostile = {
     'add-traversal-entry': { path: 'safe', replacement: '../x' },
     'add-absolute-entry': { path: 'safe', replacement: '/abs' },
-    'add-link-entry': { path: 'link', options: { mode: 0o120777 } },
+    // A link whose target climbs out of the payload: the escape the rule exists to stop.
+    'add-link-entry': { path: 'link', contents: '../../../../etc/passwd', options: { mode: 0o120777 } },
     'add-special-entry': { path: 'fifo', options: { mode: 0o010644 } },
     'duplicate-entry': { path: 'box.json', contents: '{}' },
     'file-directory-collision': { path: 'venv', contents: 'collision' },

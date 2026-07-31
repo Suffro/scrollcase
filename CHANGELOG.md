@@ -8,6 +8,23 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Added
 
+- Carry a symbolic link in a box payload when it provably resolves, inside that payload, to a
+  regular file. A conda prefix stores every large shared library two or three times through the
+  soname convention, and materialising all of it made most of an extracted Linux box duplicates of
+  its own bytes: the example box drops from 191 MB to 90 MB archived and 483 MB to 228 MB
+  extracted, and on macOS from 48 MB to 36 MB and 126 MB to 94 MB. Windows targets stay link-free,
+  because creating a link there needs elevation.
+
+  Directory links are refused outright. They are the only way an entry could be written *through* a
+  link and land somewhere its own name does not describe, and refusing them costs one duplicated
+  standard library while removing that class of escape entirely. The rule — relative targets only,
+  resolved inside the payload, ending at a file, no cycles — lives in `src/contract/links.mjs` with
+  a Python mirror, and is applied by the builder, by the archive writer, and again by each consumer
+  against the archive as received. No consumer trusts the builder.
+
+  `schemaVersion` is unchanged: the signed document is identical, and a consumer that predates this
+  rejects a link entry with a clear error rather than misreading it.
+
 - Publish a signed demo box for Linux, macOS and Windows from a manually triggered workflow, so a
   newcomer can verify and run a real box with nothing installed but the CLI. Building needs a
   toolchain; consuming never did, and until now nothing made that visible. The boxes are signed by

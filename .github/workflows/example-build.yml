@@ -117,6 +117,21 @@ jobs:
           release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
           node src/cli.mjs run "$release"
 
+      # What a box costs its user is worth seeing on every run, not reconstructed from a download
+      # when someone happens to wonder. The two numbers differ per platform for real reasons.
+      - name: Report the box size
+        shell: bash
+        run: |
+          release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
+          node -e '
+            const fs = require("fs");
+            const signed = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const payload = JSON.parse(Buffer.from(signed.payloadBase64, "base64").toString("utf8"));
+            const mb = (bytes) => (bytes / 1024 / 1024).toFixed(1) + " MB";
+            console.log(`archive   ${mb(payload.archive.sizeBytes)}`);
+            console.log(`extracted ${mb(payload.installedSizeBytes)}`);
+          ' "$release"
+
       # Determinism is a promise the repository makes that nothing else verifies end to end. The
       # archive is named by its own SHA-256, so a rebuild that differs lands beside the first rather
       # than replacing it — the file count is the assertion.

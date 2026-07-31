@@ -11,15 +11,17 @@
  * to have — an archive behaves the same on every machine that opens it.
  */
 import { constants, createWriteStream } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, stat, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import * as tar from 'tar';
 import yauzl from 'yauzl';
 import yazl from 'yazl';
+import { findEntryThroughLink, findUnresolvableLink } from '../contract/links.mjs';
 import {
   FIXED_ARCHIVE_TIME,
+  collectEntries,
   collectFiles,
   fileExists,
   safeRelativePath,
@@ -50,16 +52,29 @@ function archiveFileMode(adapter, relativePath) {
  * @returns {Promise<void>}
  */
 export async function createDeterministicZip(payloadDir, archivePath, adapter) {
+  const entries = await collectEntries(payloadDir);
+  assertPayloadLinksAreCarryable(entries);
   await rm(archivePath, { force: true });
   await mkdir(dirname(archivePath), { recursive: true });
   const zip = new yazl.ZipFile();
   const output = pipeline(zip.outputStream, createWriteStream(archivePath, { flags: 'wx' }));
-  for (const file of await collectFiles(payloadDir)) {
-    zip.addFile(join(payloadDir, ...file.split('/')), file, {
+  for (const entry of entries) {
+    if (entry.kind === 'link') {
+      // A link is its target string, stored under a mode whose type bits say what it is — the same
+      // two facts every ZIP implementation reads it back from.
+      zip.addBuffer(Buffer.from(entry.linkTarget, 'utf8'), entry.path, {
+        compress: false,
+        mtime: FIXED_ARCHIVE_TIME,
+        mode: ZIP_SYMBOLIC_LINK | 0o777,
+        forceDosTimestamp: true,
+      });
+      continue;
+    }
+    zip.addFile(join(payloadDir, ...entry.path.split('/')), entry.path, {
       compress: true,
       compressionLevel: 6,
       mtime: FIXED_ARCHIVE_TIME,
-      mode: archiveFileMode(adapter, file),
+      mode: archiveFileMode(adapter, entry.path),
       forceDosTimestamp: true,
     });
   }
@@ -67,12 +82,40 @@ export async function createDeterministicZip(payloadDir, archivePath, adapter) {
   await output;
 }
 
-/** Classifies a ZIP entry and rejects links, special entries, and encrypted files. */
+/**
+ * Refuses to archive a payload whose links do not satisfy the contract rule.
+ *
+ * The builder settles links against the real filesystem; this asks the same question of the entry
+ * set that will actually be written, which is what a consumer will later be handed. A failure here
+ * is a bug in this repository rather than bad input — but shipping a box a consumer must reject is
+ * worse than not building one.
+ *
+ * @param {Array<{ path: string, kind: string, linkTarget?: string }>} entries
+ */
+function assertPayloadLinksAreCarryable(entries) {
+  const unresolvable = findUnresolvableLink(entries);
+  if (unresolvable) fail(`Box link does not resolve to a file inside the payload: ${unresolvable}`);
+  const throughLink = findEntryThroughLink(entries);
+  if (throughLink) fail(`Box entry would be written through a link: ${throughLink}`);
+}
+
+/**
+ * The longest link target a payload may carry. A real one is a file name; anything approaching a
+ * path limit is either corrupt or an attempt to make reading the archive expensive.
+ */
+const MAX_LINK_TARGET_BYTES = 1024;
+
+/** Classifies a ZIP entry and rejects special entries and encrypted files. */
 function classifyZipEntry(entry) {
   if ((entry.generalPurposeBitFlag & 0x1) !== 0) fail(`Encrypted ZIP entries are not allowed: ${entry.fileName}`);
   const path = safeRelativePath(entry.fileName.endsWith('/') ? entry.fileName.slice(0, -1) : entry.fileName);
   const unixType = (entry.externalFileAttributes >>> 16) & ZIP_FILE_TYPE_MASK;
-  if (unixType === ZIP_SYMBOLIC_LINK) fail(`Archive links and special entries are not allowed: ${path}`);
+  if (unixType === ZIP_SYMBOLIC_LINK) {
+    if (entry.uncompressedSize > MAX_LINK_TARGET_BYTES) fail(`Archive link target is too long: ${path}`);
+    // The target itself is the entry's content, so it is not known yet; listZipEntries reads it
+    // before anything is validated, and nothing may be extracted until it has.
+    return { path, kind: 'link', size: entry.uncompressedSize, mode: 0o777, linkTarget: null };
+  }
   const directory = entry.fileName.endsWith('/') || unixType === ZIP_DIRECTORY;
   if (!directory && unixType !== 0 && unixType !== ZIP_REGULAR_FILE) {
     fail(`Archive special entries are not allowed: ${path}`);
@@ -132,11 +175,26 @@ export async function listZipEntries(archivePath) {
   const zip = await openZip(archivePath);
   const entries = [];
   try {
-    for await (const entry of zip.eachEntry()) entries.push(classifyZipEntry(entry));
+    for await (const entry of zip.eachEntry()) {
+      const classified = classifyZipEntry(entry);
+      if (classified.kind === 'link') {
+        const chunks = [];
+        const stream = await zip.openReadStreamPromise(entry);
+        for await (const chunk of stream) chunks.push(chunk);
+        classified.linkTarget = Buffer.concat(chunks).toString('utf8');
+      }
+      entries.push(classified);
+    }
   } finally {
     await zip.close();
   }
   assertNoZipEntryCollisions(entries);
+  // Every link is judged by the same rule the builder applied, against the archive as received
+  // rather than as intended. A box assembled by hand gets no benefit of the doubt here.
+  const unresolvable = findUnresolvableLink(entries);
+  if (unresolvable) fail(`Archive link does not resolve to a file inside the payload: ${unresolvable}`);
+  const throughLink = findEntryThroughLink(entries);
+  if (throughLink) fail(`Archive entry would be written through a link: ${throughLink}`);
   return entries;
 }
 
@@ -180,7 +238,13 @@ export async function readZipEntry(archivePath, wantedPath, maximumBytes = 1024 
  * @returns {Promise<void>}
  */
 export async function extractZipArchive(archivePath, destination) {
-  await listZipEntries(archivePath);
+  // Validated in full first, and the targets it returns are the only ones written below: reading
+  // the link target twice would let a concurrently rewritten archive pass the check with one value
+  // and extract with another.
+  const validated = await listZipEntries(archivePath);
+  const linkTargets = new Map(validated
+    .filter((entry) => entry.kind === 'link')
+    .map((entry) => [entry.path, entry.linkTarget]));
   await mkdir(destination, { recursive: true });
   const zip = await openZip(archivePath);
   try {
@@ -192,6 +256,12 @@ export async function extractZipArchive(archivePath, destination) {
         continue;
       }
       await mkdir(dirname(outputPath), { recursive: true });
+      if (classified.kind === 'link') {
+        // Written as the relative string it was validated as, never as a resolved absolute path:
+        // the link must mean the same thing wherever the box is extracted.
+        await symlink(linkTargets.get(classified.path), outputPath);
+        continue;
+      }
       const stream = await zip.openReadStreamPromise(entry);
       await pipeline(stream, createWriteStream(outputPath, {
         flags: 'wx',
@@ -201,7 +271,7 @@ export async function extractZipArchive(archivePath, destination) {
   } finally {
     await zip.close();
   }
-  await validateExtractedTree(destination);
+  await validateExtractedTree(destination, { allowLinks: true });
 }
 
 /** Lists TAR assets and rejects paths, links, and special entries before extraction. */

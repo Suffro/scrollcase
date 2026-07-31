@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { access, readdir, stat, utimes } from 'node:fs/promises';
+import { access, lstat, lutimes, readdir, readlink } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { fail } from './process.mjs';
 
@@ -65,27 +65,70 @@ export function safeRelativePath(value) {
 }
 
 /**
- * Lists payload files in the stable order used by hashing and archive creation.
+ * Lists payload entries in the stable order used by hashing and archive creation.
+ *
+ * A payload may hold regular files and the narrow class of symbolic links `src/contract/links.mjs`
+ * permits; anything else — a socket, a device, a fifo — is still refused, because nothing that is
+ * not one of those two things can be archived, hashed or relocated meaningfully.
  *
  * @param {string} root
  * @param {string} [current]
- * @returns {Promise<string[]>}
+ * @returns {Promise<Array<{ path: string, kind: 'file' | 'link', linkTarget?: string }>>}
  */
-export async function collectFiles(root, current = root) {
+export async function collectEntries(root, current = root) {
   const entries = await readdir(current, { withFileTypes: true });
-  const files = [];
+  const collected = [];
   for (const entry of entries.sort((a, b) => compareStableStrings(a.name, b.name))) {
     if (entry.name === '__pycache__' || entry.name === '.DS_Store' || entry.name.endsWith('.pyc')) continue;
     const fullPath = join(current, entry.name);
-    if (entry.isDirectory()) files.push(...await collectFiles(root, fullPath));
-    else if (entry.isFile()) files.push(relative(root, fullPath).split(sep).join('/'));
-    else fail(`box links and special entries are not allowed: ${relative(root, fullPath)}`);
+    const path = relative(root, fullPath).split(sep).join('/');
+    // Order matters: a symlink to a directory reports isDirectory() as false but would be walked
+    // into by isDirectory() checks that stat rather than lstat, so links are classified first.
+    if (entry.isSymbolicLink()) {
+      collected.push({ path, kind: 'link', linkTarget: (await readlink(fullPath)).split(sep).join('/') });
+    } else if (entry.isDirectory()) {
+      collected.push(...await collectEntries(root, fullPath));
+    } else if (entry.isFile()) {
+      collected.push({ path, kind: 'file' });
+    } else {
+      fail(`box special entries are not allowed: ${path}`);
+    }
   }
-  return files;
+  return collected;
 }
 
 /**
- * Sums the logical size of the exact regular files in a box tree.
+ * Lists every payload path — files and links alike — in the stable archive order.
+ *
+ * Callers asking "is this path in the box" want a link to count, because a linked path is a path
+ * that resolves. Callers that must read or rewrite bytes want `collectRegularFiles` instead.
+ *
+ * @param {string} root
+ * @returns {Promise<string[]>}
+ */
+export async function collectFiles(root) {
+  return (await collectEntries(root)).map((entry) => entry.path);
+}
+
+/**
+ * Lists only the payload paths backed by their own bytes.
+ *
+ * Anything that rewrites file contents belongs here rather than on `collectFiles`: writing through
+ * a link would edit the target a second time, once under its own name and once under the link's.
+ *
+ * @param {string} root
+ * @returns {Promise<string[]>}
+ */
+export async function collectRegularFiles(root) {
+  return (await collectEntries(root)).filter((entry) => entry.kind === 'file').map((entry) => entry.path);
+}
+
+/**
+ * Sums what a box actually occupies once extracted.
+ *
+ * `lstat`, not `stat`: a link costs its own few bytes, not the size of what it points at. Counting
+ * the target would restore on paper exactly the duplication that preserving links removes from
+ * disk, and this number is what a consumer checks free space against.
  *
  * @param {string} root
  * @returns {Promise<number>}
@@ -93,7 +136,7 @@ export async function collectFiles(root, current = root) {
 export async function payloadSize(root) {
   let total = 0;
   for (const file of await collectFiles(root)) {
-    total += (await stat(join(root, ...file.split('/')))).size;
+    total += (await lstat(join(root, ...file.split('/')))).size;
     if (!Number.isSafeInteger(total)) fail('box installed size exceeds the safe integer range.');
   }
   return total;
@@ -102,30 +145,43 @@ export async function payloadSize(root) {
 /**
  * Rejects links and special nodes before an extracted tree is copied.
  *
+ * This guards a *scroll-declared asset archive* — a third-party tar or zip a project points at —
+ * whose contents are then copied into the payload. A link here is not the narrow, checked kind a
+ * box may carry: it arrives from outside, and the copy that follows would write through it. The
+ * links a payload does carry come from the packed conda prefix, which is a different path with its
+ * own contract check, so this stays as strict as it has always been.
+ *
+ * A box archive is the one caller that passes `allowLinks`, because its links were each checked
+ * against the contract rule before extraction wrote them. Every other caller keeps the default.
+ *
  * @param {string} root
- * @param {string} [current]
+ * @param {{ allowLinks?: boolean, current?: string }} [options]
  * @returns {Promise<void>}
  */
-export async function validateExtractedTree(root, current = root) {
+export async function validateExtractedTree(root, { allowLinks = false, current = root } = {}) {
   for (const entry of await readdir(current, { withFileTypes: true })) {
     const fullPath = join(current, entry.name);
     if (entry.isSymbolicLink()) {
+      if (allowLinks) continue;
       fail(`Archive links and special entries are not allowed: ${relative(root, fullPath)}`);
     }
-    if (entry.isDirectory()) await validateExtractedTree(root, fullPath);
+    if (entry.isDirectory()) await validateExtractedTree(root, { allowLinks, current: fullPath });
     else if (!entry.isFile()) fail(`Archive special entries are not allowed: ${relative(root, fullPath)}`);
   }
 }
 
 /**
- * Applies the archive timestamp to every payload file.
+ * Applies the archive timestamp to every payload entry.
+ *
+ * `lutimes` stamps the link itself rather than following it to its target, which would otherwise be
+ * stamped once under its own name and again through every link that points at it.
  *
  * @param {string} root
  * @returns {Promise<void>}
  */
 export async function normalizeTree(root) {
   for (const file of await collectFiles(root)) {
-    await utimes(join(root, ...file.split('/')), FIXED_ARCHIVE_TIME, FIXED_ARCHIVE_TIME);
+    await lutimes(join(root, ...file.split('/')), FIXED_ARCHIVE_TIME, FIXED_ARCHIVE_TIME);
   }
 }
 

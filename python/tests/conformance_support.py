@@ -176,9 +176,10 @@ def _mutate_fixture(
     hostile: dict[str, ArchiveEntry] = {
         "add-traversal-entry": ArchiveEntry("../x", b"hostile"),
         "add-absolute-entry": ArchiveEntry("/abs", b"hostile"),
+        # A link whose target climbs out of the payload: the escape the rule exists to stop.
         "add-link-entry": ArchiveEntry(
             "link",
-            b"box.json",
+            b"../../../../etc/passwd",
             file_type=stat.S_IFLNK,
         ),
         "add-special-entry": ArchiveEntry(
