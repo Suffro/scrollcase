@@ -526,28 +526,62 @@ describe('the build pipeline', () => {
       .rejects.toThrow(`Archive not found: ${built.archivePath}`);
   });
 
-  it('keeps a prefix symlink to a file, materialises one to a directory, and drops one that leaves the tree', async () => {
+  it('handles in-tree and escaping symlinks according to the host platform', async () => {
     const { keys, payloadDir } = await makeProject();
-    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const built = await buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir),
+      log: () => {},
+    });
 
     const icu = join(payloadDir, 'venv', 'lib', 'icu');
-    // `pkgdata.inc -> current/pkgdata.inc` ends at a file, so it stays a link and stops the box
-    // carrying those bytes twice. Reading through it still yields the content.
-    if(HOST_ADAPTER.platform === 'windows') expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(false);
-    else expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(true);
-    expect(await readFile(join(icu, 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
-    // `current -> 78.3` ends at a directory, and a directory link is the only way an entry could be
-    // written somewhere its own name does not describe. Materialised, every time.
+    const isWindows = HOST_ADAPTER.platform === 'windows';
+
+    const pkgdataPath = join(icu, 'pkgdata.inc');
+    const pkgdataStat = await lstat(pkgdataPath);
+
+    // Windows dereferences every symlink. Unix platforms preserve file symlinks.
+    if (isWindows) {
+      expect(pkgdataStat.isFile()).toBe(true);
+      expect(pkgdataStat.isSymbolicLink()).toBe(false);
+    } else {
+      expect(pkgdataStat.isSymbolicLink()).toBe(true);
+    }
+
+    // The content must be readable in either case.
+    expect(await readFile(pkgdataPath, 'utf8')).toBe('PKGDATA\n');
+
+    // Directory symlinks are materialised on every platform.
     expect((await lstat(join(icu, 'current'))).isDirectory()).toBe(true);
     expect(await readFile(join(icu, 'current', 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
 
-    // The escaping link is dropped, and the host file it pointed at neither moves nor ships.
+    // Escaping links are always dropped.
     expect(await fileExists(join(icu, 'escaped.inc'))).toBe(false);
+
     const entries = await listZipEntries(built.archivePath);
-    expect(entries.some((entry) => entry.path.endsWith('outside-the-box.txt'))).toBe(false);
-    // The link reaches the archive as a link, carrying its target rather than the target's bytes.
-    expect(entries.find((entry) => entry.path === 'venv/lib/icu/pkgdata.inc'))
-      .toMatchObject({ kind: 'link', linkTarget: 'current/pkgdata.inc' });
+
+    expect(
+      entries.some((entry) => entry.path.endsWith('outside-the-box.txt')),
+    ).toBe(false);
+
+    const pkgdataEntry = entries.find(
+      (entry) => entry.path === 'venv/lib/icu/pkgdata.inc',
+    );
+
+    expect(pkgdataEntry).toBeDefined();
+
+    if (isWindows) {
+      // The dereferenced target reaches the archive as a regular file.
+      expect(pkgdataEntry).toMatchObject({
+        kind: 'file',
+      });
+    } else {
+      // Unix platforms preserve the link and store its target.
+      expect(pkgdataEntry).toMatchObject({
+        kind: 'link',
+        linkTarget: 'current/pkgdata.inc',
+      });
+    }
   });
 
   it('ships conda records reduced to identity, and nothing an install or a machine varies', async () => {
