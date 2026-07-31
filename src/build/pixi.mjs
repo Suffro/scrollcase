@@ -14,9 +14,10 @@
  */
 
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, cp, mkdir, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, readFile, readdir, readlink, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import * as tar from 'tar';
+import { resolvePayloadLinkTarget, targetCarriesLinks } from '../contract/links.mjs';
 import { compareStableStrings, safeRelativePath } from './filesystem.mjs';
 import { fail, runResult as defaultRunResult } from './process.mjs';
 import { repairPosixLaunchers } from './launchers.mjs';
@@ -217,17 +218,32 @@ async function canonicalizeCondaRecords(venvDir) {
 }
 
 /**
- * Replaces every symbolic link under `root` with the real content it points to, so the payload
- * contains only regular files and directories.
+ * Settles every symbolic link under `root`: kept when the payload may carry it, materialized into
+ * real content when it may not, dropped when it points nowhere useful.
  *
- * The box archive layer rejects links outright (collectFiles/normalizeTree/the ZIP writer). A conda
- * prefix is dense with symlinks (versioned dylibs, `bin` aliases), so they are materialized here
- * before the launcher repair walks the tree. Links that dangle or resolve outside the prefix are
- * dropped rather than pulling host files into the box.
+ * A conda prefix is dense with links, and materializing all of them was expensive in a way nobody
+ * had measured: on Linux the soname convention alone (`libfoo.so` → `.so.N` → `.so.N.M`) meant
+ * roughly 60% of an extracted box was duplicates of its own bytes. What may be kept is decided by
+ * `src/contract/links.mjs`, not here — this function only supplies the filesystem facts that rule
+ * needs and applies its answer.
+ *
+ * Two conditions are checked against the disk rather than the path string, because only the disk
+ * knows them: that the link resolves inside the prefix even after passing through other links, and
+ * that what it ends at is a regular file. A link to a directory is materialized, which is what
+ * keeps anything from ever being written *through* a link.
+ *
+ * @param {string} root
+ * @param {boolean} keepLinks whether this target can extract links at all
+ * @param {string} [current]
+ * @returns {Promise<void>}
  */
-async function dereferenceSymlinksInPlace(root, current = root) {
+async function settleSymlinksInPlace(root, keepLinks, current = root) {
   const canonicalRoot = await realpath(root);
-  for (const entry of await readdir(current, { withFileTypes: true })) {
+  // Sorted, because whether a link is kept can depend on what an earlier entry became, and
+  // readdir order is the filesystem's business. Two builds must settle the tree identically.
+  const children = (await readdir(current, { withFileTypes: true }))
+    .sort((left, right) => compareStableStrings(left.name, right.name));
+  for (const entry of children) {
     const path = join(current, entry.name);
     if (entry.isSymbolicLink()) {
       let target;
@@ -251,18 +267,49 @@ async function dereferenceSymlinksInPlace(root, current = root) {
         await rm(path, { force: true });
         continue;
       }
+      if (keepLinks && !info.isDirectory() && await keepsAsLink(root, path, canonicalRoot)) continue;
       await rm(path, { force: true });
       if (info.isDirectory()) {
         await cp(target, path, { recursive: true, dereference: true });
-        await dereferenceSymlinksInPlace(root, path);
+        await settleSymlinksInPlace(root, keepLinks, path);
       } else {
         await copyFile(target, path);
         await chmod(path, info.mode & 0o777);
       }
     } else if (entry.isDirectory()) {
-      await dereferenceSymlinksInPlace(root, path);
+      await settleSymlinksInPlace(root, keepLinks, path);
     }
   }
+}
+
+/**
+ * Whether one link satisfies the payload rule, judged against the tree it actually sits in.
+ *
+ * The raw target is what gets archived, so it is what must be checked: an absolute target names the
+ * build machine and is exactly what relocation exists to erase, and a relative one has to land
+ * inside the prefix both lexically and after the filesystem has followed it.
+ *
+ * @param {string} root
+ * @param {string} linkPath
+ * @param {string} canonicalRoot
+ * @returns {Promise<boolean>}
+ */
+async function keepsAsLink(root, linkPath, canonicalRoot) {
+  const rawTarget = (await readlink(linkPath)).split(sep).join('/');
+  const relativeLink = relative(root, linkPath).split(sep).join('/');
+  const resolved = resolvePayloadLinkTarget(relativeLink, rawTarget);
+  if (resolved === null) return false;
+  // The lexical answer and the filesystem's answer must agree. They can differ when the target is
+  // reached through another link, which is precisely the case a purely lexical check cannot see.
+  const lexicalPath = join(root, ...resolved.split('/'));
+  let lexicalReal;
+  try {
+    lexicalReal = await realpath(lexicalPath);
+  } catch {
+    return false;
+  }
+  if (lexicalReal !== canonicalRoot && !lexicalReal.startsWith(`${canonicalRoot}${sep}`)) return false;
+  return (await stat(lexicalPath)).isFile();
 }
 
 /**
@@ -376,9 +423,9 @@ export async function installAndPackPixiEnvironment({
   }
   // The rest of conda-meta carries the same two problems in a less obvious form; see above.
   await canonicalizeCondaRecords(venvDir);
-  // Order matters: dereference first, because the launcher repair walks the tree with collectFiles,
-  // which rejects symbolic links outright (venv/bin ships aliases such as `2to3`).
-  await dereferenceSymlinksInPlace(venvDir);
+  // Order matters: settle the links first, so the launcher repair that follows walks a tree whose
+  // shape is final and rewrites each script's bytes exactly once, under its own name.
+  await settleSymlinksInPlace(venvDir, targetCarriesLinks(adapter.platform));
   // conda console scripts (tqdm, isympy, …) embed the absolute build interpreter in a shell
   // trampoline shebang. Rewrite them to resolve Python next to themselves, so no build path
   // ships inside the box.
