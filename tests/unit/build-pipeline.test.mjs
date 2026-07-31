@@ -533,7 +533,8 @@ describe('the build pipeline', () => {
     const icu = join(payloadDir, 'venv', 'lib', 'icu');
     // `pkgdata.inc -> current/pkgdata.inc` ends at a file, so it stays a link and stops the box
     // carrying those bytes twice. Reading through it still yields the content.
-    expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(true);
+    if(HOST_ADAPTER.platform === 'windows') expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(false);
+    else expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(true);
     expect(await readFile(join(icu, 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
     // `current -> 78.3` ends at a directory, and a directory link is the only way an entry could be
     // written somewhere its own name does not describe. Materialised, every time.
