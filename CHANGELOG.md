@@ -6,6 +6,8 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-31
+
 ### Added
 
 - Ship the `hello-box` example for all three supported operating systems —
@@ -108,6 +110,11 @@ All notable changes to Scrollcase are documented here. The format follows
   which cannot cross a volume boundary — so on Windows, where `TEMP` is on `C:` and a checkout
   commonly is not, `init --install-toolchain` failed with `EXDEV` and installed nothing. It now
   falls back to a copy on that path.
+
+> **Gap in this record.** Versions 0.2.0 through 0.4.11 were published without changelog entries.
+> What they contained is recoverable from the commit history between the `v0.1.3` and `v0.5.0`
+> tags; nothing has been reconstructed here, because a plausible guess in a changelog is worse
+> than an acknowledged hole.
 
 ## [0.1.3] — 2026-07-27
 
