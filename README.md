@@ -85,7 +85,7 @@ scrollcase verify .scrollcase/dist/boxes/<box>/<version>/<target>/<sha256>.relea
 
 The repository ships a working example, `examples/hello-box/macos-aarch64-metal`: a stdlib-only
 Python 3.11 environment that exercises the whole pipeline in about a minute and produces a ~48 MB
-archive. Its final `verify --self-test` extracts the box and imports `json` and `sqlite3` with the
+archive (191 MB on Linux — see [examples/README.md](examples/README.md)). Its final `verify --self-test` extracts the box and imports `json` and `sqlite3` with the
 interpreter *inside* it — the check that proves the environment runs somewhere other than where it
 was built. See [examples/README.md](examples/README.md).
 

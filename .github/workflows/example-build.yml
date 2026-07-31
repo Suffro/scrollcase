@@ -24,6 +24,8 @@ on:
     paths:
       - 'src/**'
       - 'examples/**'
+      # Later patterns win, so prose under examples/ does not pay for a build it cannot change.
+      - '!examples/**/*.md'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/example-build.yml'

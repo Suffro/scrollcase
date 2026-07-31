@@ -16,8 +16,17 @@ machine anyway, since conda-pack packs the host's own environment.
 
 The smallest thing Scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
 packed into a relocatable box. No model weights, no assets, nothing to download beyond the
-interpreter itself — so it exercises the whole pipeline in about a minute and produces a ~48 MB
-archive you can inspect by hand.
+interpreter itself — so it exercises the whole pipeline in about a minute and produces an archive
+small enough to inspect by hand.
+
+Size varies more by platform than the identical scrolls suggest, which is worth seeing before you
+size a real box:
+
+| Target | Archive | Extracted |
+| --- | --- | --- |
+| `macos-aarch64-metal` | 48 MB | 126 MB |
+| `windows-x86_64-cpu` | 43 MB | 120 MB |
+| `linux-x86_64-cpu` | 191 MB | 483 MB |
 
 The same box is declared for three targets, one per supported operating system. Build the one that
 matches the machine you are on; the other two are what the CI builds elsewhere.
