@@ -1,0 +1,11 @@
+# A scroll declares the SHA-256 of every file it copies into a payload, and the build checks the
+# bytes on disk against it. Git's line-ending conversion rewrites those bytes on checkout — on
+# Windows by default — which turns a correct checkout into a hash mismatch and fails the build.
+#
+# So: no conversion for anything a scroll can name. The example entry points are the files in this
+# repository that a scroll actually names; keep this list in step with `localFiles` if that changes.
+examples/**/entrypoint.py -text
+
+# Committed locks and licence inventories are compared byte for byte across platforms in CI.
+examples/**/pixi.lock -text
+examples/**/conda-licenses.json -text

@@ -231,6 +231,16 @@ a licence notice or runtime shim cannot drift from what was reviewed.
 ]
 ```
 
+The hash covers the file's bytes, so anything that rewrites them between commit and build breaks
+it. The usual culprit is Git's line-ending conversion: on Windows a text file is checked out with
+CRLF by default and no longer matches the hash the scroll declares, and the build stops on a
+checkout that looks clean. Mark the paths a scroll names in `.gitattributes` so they are never
+converted:
+
+```text
+runtime/entrypoint.py -text
+```
+
 ### `prunePaths`
 
 Payload paths deleted before packing, to keep the box to what it actually needs at run time — a

@@ -40,3 +40,9 @@ cannot run on the machine the box is for.
 `entrypoint.py` reaches the payload through `localFiles`, which carries its SHA-256: editing the
 script without updating that hash fails the build rather than silently shipping something nobody
 reviewed.
+
+That hash is taken over the file's bytes, which is worth knowing on Windows. Git converts line
+endings on checkout by default, and a file rewritten to CRLF no longer matches the hash the scroll
+declares — the build stops with a mismatch on a checkout that looks perfectly clean. This repository
+marks the affected paths in [`.gitattributes`](../.gitattributes); a project declaring its own
+`localFiles` needs the same for the files it names.

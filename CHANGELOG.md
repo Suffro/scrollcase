@@ -99,6 +99,10 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Fixed
 
+- Stop Git's line-ending conversion from breaking a `localFiles` hash. The declared SHA-256 covers
+  a file's bytes, so a Windows checkout that rewrote a text file to CRLF failed the build on a
+  clean tree. The example entry points are marked in `.gitattributes`, and `scroll.md` tells
+  projects to do the same for the files their own scrolls name.
 - Install the pixi binary when the staging directory and the project's toolchain directory sit on
   different filesystems. The download is staged in the OS temp location and moved with `rename`,
   which cannot cross a volume boundary — so on Windows, where `TEMP` is on `C:` and a checkout
