@@ -276,3 +276,106 @@ def validate_schema(value: object, schema_name: str, label: str) -> None:
     if location == "/":
         location = "document"
     raise ScrollcaseConsumerError(f"Invalid {label}: {location} {error.message}.")
+
+
+# The rule deciding which symbolic links a box payload may carry, mirroring
+# ``src/contract/links.mjs``. A conda prefix stores every large shared library two or three times
+# through the soname convention, and materialising all of it made most of an extracted Linux box
+# duplicates of its own bytes. Preserving those links costs nothing to store and everything to get
+# wrong, because a link is the classic way an archive writes outside the directory it was extracted
+# into — so the rule is narrow, lexical, and re-checked here rather than trusted from the builder.
+MAX_PAYLOAD_LINK_DEPTH = 8
+
+
+def is_relative_link_target(target: object) -> bool:
+    """Whether a raw link target is shaped like one a payload may carry."""
+
+    if not isinstance(target, str) or target == "":
+        return False
+    if "\0" in target or "\\" in target:
+        return False
+    if target.startswith("/"):
+        return False
+    return re.match(r"^[A-Za-z]:", target) is None
+
+
+def resolve_payload_link_target(link_path: str, target: object) -> str | None:
+    """Resolve a link target against the link's own directory, staying inside the payload."""
+
+    if not is_relative_link_target(target):
+        return None
+    segments = link_path.split("/")
+    if not segments or segments[-1] == "":
+        return None
+    stack = segments[:-1]
+    for part in cast(str, target).split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            # Underflow means the target climbed past the payload root: the escape this exists to
+            # stop, which is why it is checked per segment rather than on the result.
+            if not stack:
+                return None
+            stack.pop()
+            continue
+        stack.append(part)
+    if not stack:
+        return None
+    resolved = "/".join(stack)
+    return None if resolved == link_path else resolved
+
+
+def find_entry_through_link(entries: Collection[Any]) -> str | None:
+    """Return the first entry whose path passes through a link, or None."""
+
+    links = {entry.path for entry in entries if entry.kind == "link"}
+    if not links:
+        return None
+    for entry in entries:
+        parts = entry.path.split("/")
+        for index in range(1, len(parts)):
+            if "/".join(parts[:index]) in links:
+                return cast(str, entry.path)
+    return None
+
+
+def find_unresolvable_link(entries: Collection[Any]) -> str | None:
+    """Return the first link that does not end at a regular file in the payload, or None."""
+
+    by_path = {entry.path: entry for entry in entries}
+    directories: set[str] = set()
+    for entry in entries:
+        if entry.kind == "directory":
+            directories.add(entry.path)
+        parts = entry.path.split("/")
+        for index in range(1, len(parts)):
+            directories.add("/".join(parts[:index]))
+    for entry in entries:
+        if entry.kind != "link":
+            continue
+        seen = {entry.path}
+        current = entry
+        depth = 0
+        while True:
+            if depth >= MAX_PAYLOAD_LINK_DEPTH:
+                return cast(str, entry.path)
+            resolved = resolve_payload_link_target(
+                current.path, getattr(current, "link_target", None) or ""
+            )
+            if resolved is None:
+                return cast(str, entry.path)
+            # A directory may exist implicitly through its children, so this is asked before the
+            # path is looked up as an entry of its own.
+            if resolved in directories:
+                return cast(str, entry.path)
+            following = by_path.get(resolved)
+            if following is None:
+                return cast(str, entry.path)
+            if following.kind == "file":
+                break
+            if following.kind != "link" or following.path in seen:
+                return cast(str, entry.path)
+            seen.add(following.path)
+            current = following
+            depth += 1
+    return None

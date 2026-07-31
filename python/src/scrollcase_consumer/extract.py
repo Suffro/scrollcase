@@ -11,13 +11,21 @@ import hashlib
 import os
 import stat
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
-from ._contract import path_under, safe_relative_path
+from ._contract import (
+    find_entry_through_link,
+    find_unresolvable_link,
+    path_under,
+    safe_relative_path,
+)
 from .errors import ScrollcaseConsumerError
 
 _METADATA_LIMIT = 1024 * 1024
+# A real link target is a file name. Anything approaching a path limit is corrupt, or an
+# attempt to make reading the archive expensive.
+_LINK_TARGET_LIMIT = 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +37,7 @@ class ZipEntry:
     kind: str
     size: int
     mode: int
+    link_target: str | None = None
 
 
 def sha256_file(path: Path) -> str:
@@ -52,8 +61,18 @@ def _classify(info: zipfile.ZipInfo, member_index: int) -> ZipEntry:
     unix_mode = info.external_attr >> 16
     file_type = stat.S_IFMT(unix_mode)
     if file_type == stat.S_IFLNK:
-        raise ScrollcaseConsumerError(
-            f"Archive links and special entries are not allowed: {path}"
+        if info.file_size > _LINK_TARGET_LIMIT:
+            raise ScrollcaseConsumerError(
+                f"Archive link target is too long: {path}"
+            )
+        # The target is the entry's own content, so it is not known here; list_zip_entries reads
+        # it before anything is validated, and nothing is extracted until it has.
+        return ZipEntry(
+            member_index=member_index,
+            path=path,
+            kind="link",
+            size=info.file_size,
+            mode=0o777,
         )
     is_directory = info.is_dir() or file_type == stat.S_IFDIR
     if not is_directory and file_type not in (0, stat.S_IFREG):
@@ -99,13 +118,34 @@ def list_zip_entries(archive_path: Path) -> list[ZipEntry]:
 
     try:
         with zipfile.ZipFile(archive_path, "r") as archive:
+            infos = archive.infolist()
+            entries = [_classify(info, index) for index, info in enumerate(infos)]
             entries = [
-                _classify(info, index)
-                for index, info in enumerate(archive.infolist())
+                entry
+                if entry.kind != "link"
+                else replace(
+                    entry,
+                    link_target=archive.read(infos[entry.member_index]).decode(
+                        "utf-8", "replace"
+                    ),
+                )
+                for entry in entries
             ]
     except (zipfile.BadZipFile, OSError) as error:
         raise ScrollcaseConsumerError(f"Invalid ZIP archive: {error}") from error
     _assert_no_collisions(entries)
+    # Every link is judged by the rule the builder applied, against the archive as received rather
+    # than as intended. A box assembled by hand gets no benefit of the doubt.
+    unresolvable = find_unresolvable_link(entries)
+    if unresolvable is not None:
+        raise ScrollcaseConsumerError(
+            f"Archive link does not resolve to a file inside the payload: {unresolvable}"
+        )
+    through_link = find_entry_through_link(entries)
+    if through_link is not None:
+        raise ScrollcaseConsumerError(
+            f"Archive entry would be written through a link: {through_link}"
+        )
     return entries
 
 
@@ -163,6 +203,11 @@ def extract_zip_archive(archive_path: Path, destination: Path) -> None:
                     output.mkdir(parents=True, exist_ok=False)
                     continue
                 output.parent.mkdir(parents=True, exist_ok=True)
+                if entry.kind == "link":
+                    # Written as the relative string it was validated as, never resolved: the link
+                    # must mean the same thing wherever the box is extracted.
+                    os.symlink(entry.link_target or "", output)
+                    continue
                 written = 0
                 with archive.open(infos[entry.member_index], "r") as source:
                     with output.open("xb") as target:
@@ -202,28 +247,33 @@ def collect_files(root: Path, current: Path | None = None) -> list[str]:
         path = Path(entry.path)
         if entry.is_dir(follow_symlinks=False):
             files.extend(collect_files(root, path))
-        elif entry.is_file(follow_symlinks=False):
+        elif entry.is_file(follow_symlinks=False) or entry.is_symlink():
             files.append(path.relative_to(root).as_posix())
         else:
             relative = path.relative_to(root).as_posix()
             raise ScrollcaseConsumerError(
-                f"box links and special entries are not allowed: {relative}"
+                f"box special entries are not allowed: {relative}"
             )
     return files
 
 
 def validate_extracted_tree(root: Path) -> None:
-    """Reject links and special nodes after extraction."""
+    """Reject special nodes after extraction."""
 
     collect_files(root)
 
 
 def payload_size(root: Path) -> int:
-    """Return the logical size of regular files in an extracted payload."""
+    """Return what an extracted payload actually occupies.
+
+    ``lstat``, not ``stat``: a link costs its own few bytes, not the size of what it points at.
+    Counting the target would restore on paper the duplication that carrying links removes from
+    disk, and this number is what free space is checked against.
+    """
 
     total = 0
     for relative_path in collect_files(root):
-        total += path_under(root, relative_path).stat().st_size
+        total += path_under(root, relative_path).lstat().st_size
         if total > (2**53 - 1):
             raise ScrollcaseConsumerError(
                 "box installed size exceeds the safe integer range."
