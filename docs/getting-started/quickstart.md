@@ -11,6 +11,34 @@ hand while exercising the complete packaging and signing pipeline.
 
 Prerequisites: the CLI and toolchain from [Installation](/getting-started/installation).
 
+## Before that: see a box run, without installing a toolchain
+
+Building needs pixi and conda-pack. **Consuming does not.** If you only want to see what a box is,
+take the published demo instead — it is the same `hello-box` this repository ships, built and signed
+by CI for each operating system.
+
+From the [demo box release](https://github.com/suffro/scrollcase/releases/tag/demo-box-v1),
+download the `.zip` and `.release.json` pair matching your machine into one directory, plus
+[`example-signing-public.json`](https://github.com/suffro/scrollcase/blob/main/examples/keys/example-signing-public.json):
+
+```sh
+npm install -g scrollcase
+scrollcase verify <sha>.release.json --public-key example-signing-public.json
+scrollcase run    <sha>.release.json --public-key example-signing-public.json
+```
+
+`verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
+and works on any machine. `run` extracts the box to a temporary directory and executes its entry
+point with the interpreter *inside* it — so it needs a machine matching the box's target. What it
+prints is `sys.prefix`, which is the point: the interpreter answering is the one from the box.
+
+::: warning The demo key is a demo key
+Those boxes are signed with a key that exists only for the example. It signs nothing else and no
+trust chain depends on it. A signature from it means the example is intact — nothing more.
+:::
+
+The rest of this page builds a box of your own, which does need the toolchain.
+
 ## 1. Create a project
 
 A box records the commit it was built from, so a Scrollcase project **must be a git checkout** —

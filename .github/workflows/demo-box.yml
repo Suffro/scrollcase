@@ -1,0 +1,151 @@
+# Builds, signs and publishes the public demo box for all three operating systems.
+#
+# It exists so a newcomer can prove Scrollcase works without installing a toolchain: `verify` and
+# `run` need nothing but the CLI, so a signed box on a GitHub Release turns the first contact with
+# the project into two commands instead of a pixi install and a multi-minute build.
+#
+# Manual only. This publishes public artefacts, and it is worth roughly once a year — whenever the
+# example itself changes. Nothing here runs on a push.
+#
+# On signing: a Linux or Windows box cannot be built on a maintainer's Mac at all, because
+# conda-pack packs the host's own environment. Since CI has to do the building, it does the signing
+# too, with a key that exists for this one purpose. That key signs nothing but an example box and no
+# trust chain depends on it — it must never be reused for a real release.
+name: demo box
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish the demo box under'
+        default: 'demo-box-v1'
+        required: true
+      draft:
+        description: 'Publish as a draft for review before it goes public'
+        type: boolean
+        default: true
+
+env:
+  PIXI_VERSION: '0.73.0'
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64-cpu
+          - os: macos-latest
+            target: macos-aarch64-metal
+          - os: windows-latest
+            target: windows-x86_64-cpu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Install the pinned toolchain
+        run: node src/cli.mjs init --install-toolchain --no-example --pixi-version ${{ env.PIXI_VERSION }}
+
+      # `init` scaffolds a workspace; `build` refuses a dirty tree, and that refusal is worth
+      # keeping rather than working around with --allow-dirty.
+      - name: Restore a clean tree
+        shell: bash
+        run: |
+          git clean -fd
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Tree is still dirty after cleaning up init's scaffolding:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+
+      # Written under RUNNER_TEMP rather than into the checkout, which would both dirty the tree and
+      # risk committing a private key. Never echoed: the value reaches the file through stdin.
+      - name: Materialize the demo signing key
+        shell: bash
+        env:
+          DEMO_SIGNING_KEY: ${{ secrets.SCROLLCASE_DEMO_SIGNING_KEY }}
+        run: |
+          if [ -z "$DEMO_SIGNING_KEY" ]; then
+            echo "SCROLLCASE_DEMO_SIGNING_KEY is not set on this repository." >&2
+            exit 1
+          fi
+          printf '%s' "$DEMO_SIGNING_KEY" > "$RUNNER_TEMP/demo-signing-private.pem"
+          chmod 600 "$RUNNER_TEMP/demo-signing-private.pem"
+
+      - name: Build and sign
+        shell: bash
+        run: |
+          node src/cli.mjs build hello-box/${{ matrix.target }} \
+            --scrolls-dir examples \
+            --weights embed \
+            --private-key "$RUNNER_TEMP/demo-signing-private.pem" \
+            --public-key examples/keys/example-signing-public.json
+
+      # Verified against the public key committed in the repository — the same file a newcomer will
+      # pass to `verify`. If these disagree, the published box would fail for everyone who tried it.
+      - name: Verify exactly as a newcomer will
+        shell: bash
+        run: |
+          release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
+          node src/cli.mjs verify "$release" --self-test \
+            --public-key examples/keys/example-signing-public.json
+          node src/cli.mjs run "$release" --public-key examples/keys/example-signing-public.json
+
+      - name: Discard the key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/demo-signing-private.pem"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-box-${{ matrix.target }}
+          path: .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: staged
+          pattern: demo-box-*
+          merge-multiple: true
+
+      # Names are content-addressed, so the three targets cannot collide and a re-publish of an
+      # unchanged box overwrites itself with identical bytes.
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l staged
+          count=$(ls staged/*.zip | wc -l)
+          if [ "$count" -ne 3 ]; then
+            echo "Expected three archives, one per target, found $count" >&2
+            exit 1
+          fi
+          if ! gh release view "${{ inputs.tag }}" >/dev/null 2>&1; then
+            gh release create "${{ inputs.tag }}" \
+              --title "Demo box" \
+              --notes-file .github/demo-box-release-notes.md \
+              ${{ inputs.draft && '--draft' || '' }}
+          fi
+          gh release upload "${{ inputs.tag }}" staged/* --clobber

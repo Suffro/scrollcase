@@ -6,6 +6,14 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Publish a signed demo box for Linux, macOS and Windows from a manually triggered workflow, so a
+  newcomer can verify and run a real box with nothing installed but the CLI. Building needs a
+  toolchain; consuming never did, and until now nothing made that visible. The boxes are signed by
+  CI with a key scoped to the example alone — a Linux or Windows box cannot be built on a macOS
+  machine, since conda-pack packs the host's own environment.
+
 ## [0.5.0] — 2026-07-31
 
 ### Added

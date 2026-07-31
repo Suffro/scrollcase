@@ -1,0 +1,6 @@
+{
+  "algorithm": "ed25519",
+  "keyId": "hello-box-demo",
+  "publicKeyBase64": "bw4t8R+svEhmRoHRdYBO2jliTCdVUJP5J/WrvviKGyU=",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAbw4t8R+svEhmRoHRdYBO2jliTCdVUJP5J/WrvviKGyU=\n-----END PUBLIC KEY-----\n"
+}

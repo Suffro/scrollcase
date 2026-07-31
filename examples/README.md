@@ -1,5 +1,17 @@
 # Examples
 
+## The published demo box
+
+The same `hello-box` below is built and signed by CI for all three operating systems and attached to
+the [`demo-box-v1` release](https://github.com/suffro/scrollcase/releases/tag/demo-box-v1), so it can
+be verified and run without a toolchain. `keys/example-signing-public.json` is the public half of the
+key those boxes are signed with.
+
+That key exists **only for the demo**. It signs nothing else, no trust chain depends on it, and it is
+not the key for any Scrollcase release. Its private half lives in a repository secret and is used by
+`.github/workflows/demo-box.yml` alone — a Linux or Windows box cannot be built on a maintainer's
+machine anyway, since conda-pack packs the host's own environment.
+
 ## `hello-box`
 
 The smallest thing Scrollcase can build: a stdlib-only Python 3.11 environment from conda-forge,
