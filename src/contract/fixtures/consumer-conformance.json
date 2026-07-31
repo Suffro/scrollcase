@@ -12,7 +12,7 @@
     "missing-script": "Execution script is missing",
     "missing-module": "Execution module is not discoverable",
     "unsafe-path": "Unsafe relative path|invalid relative path|absolute path",
-    "link-entry": "links and special entries",
+    "link-entry": "link does not resolve to a file inside the payload|would be written through a link|link target is too long",
     "special-entry": "special entries",
     "encrypted-entry": "Encrypted ZIP entries",
     "entry-collision": "Archive entry collides with another entry",
@@ -26,7 +26,9 @@
     {
       "id": "valid-local-signer",
       "action": "prepare",
-      "fixture": { "signer": "local" },
+      "fixture": {
+        "signer": "local"
+      },
       "expected": {
         "outcome": "prepared",
         "receipt": {
@@ -42,7 +44,9 @@
     {
       "id": "valid-external-signer",
       "action": "prepare",
-      "fixture": { "signer": "external" },
+      "fixture": {
+        "signer": "external"
+      },
       "expected": {
         "outcome": "prepared",
         "receipt": {
@@ -59,109 +63,181 @@
       "id": "altered-signature",
       "action": "prepare",
       "mutation": "alter-signature",
-      "expected": { "outcome": "rejected", "error": "invalid-signature", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "invalid-signature",
+        "destinationExists": false
+      }
     },
     {
       "id": "altered-payload",
       "action": "prepare",
       "mutation": "alter-payload",
-      "expected": { "outcome": "rejected", "error": "altered-payload", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "altered-payload",
+        "destinationExists": false
+      }
     },
     {
       "id": "altered-archive-hash",
       "action": "prepare",
       "mutation": "alter-archive-bytes",
-      "expected": { "outcome": "rejected", "error": "archive-hash", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "archive-hash",
+        "destinationExists": false
+      }
     },
     {
       "id": "altered-archive-size",
       "action": "prepare",
       "mutation": "alter-archive-size",
-      "expected": { "outcome": "rejected", "error": "archive-size", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "archive-size",
+        "destinationExists": false
+      }
     },
     {
       "id": "release-box-disagreement",
       "action": "prepare",
       "mutation": "alter-release-model",
-      "expected": { "outcome": "rejected", "error": "manifest-disagreement", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "manifest-disagreement",
+        "destinationExists": false
+      }
     },
     {
       "id": "altered-execution-metadata",
       "action": "prepare",
       "mutation": "alter-release-execution",
-      "expected": { "outcome": "rejected", "error": "execution-disagreement", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "execution-disagreement",
+        "destinationExists": false
+      }
     },
     {
       "id": "missing-interpreter",
       "action": "prepare",
       "mutation": "remove-interpreter",
-      "expected": { "outcome": "rejected", "error": "missing-interpreter", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-interpreter",
+        "destinationExists": false
+      }
     },
     {
       "id": "missing-script",
       "action": "prepare",
       "mutation": "remove-script",
-      "expected": { "outcome": "rejected", "error": "missing-script", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-script",
+        "destinationExists": false
+      }
     },
     {
       "id": "missing-module",
       "action": "prepare",
-      "fixture": { "execution": "module" },
+      "fixture": {
+        "execution": "module"
+      },
       "mutation": "remove-module",
-      "expected": { "outcome": "rejected", "error": "missing-module", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-module",
+        "destinationExists": false
+      }
     },
     {
       "id": "traversal-entry",
       "action": "prepare",
       "mutation": "add-traversal-entry",
-      "expected": { "outcome": "rejected", "error": "unsafe-path", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "unsafe-path",
+        "destinationExists": false
+      }
     },
     {
       "id": "absolute-entry",
       "action": "prepare",
       "mutation": "add-absolute-entry",
-      "expected": { "outcome": "rejected", "error": "unsafe-path", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "unsafe-path",
+        "destinationExists": false
+      }
     },
     {
       "id": "link-entry",
       "action": "prepare",
       "mutation": "add-link-entry",
-      "expected": { "outcome": "rejected", "error": "link-entry", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "link-entry",
+        "destinationExists": false
+      }
     },
     {
       "id": "special-entry",
       "action": "prepare",
       "mutation": "add-special-entry",
-      "expected": { "outcome": "rejected", "error": "special-entry", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "special-entry",
+        "destinationExists": false
+      }
     },
     {
       "id": "encrypted-entry",
       "action": "prepare",
       "mutation": "encrypt-entry",
-      "expected": { "outcome": "rejected", "error": "encrypted-entry", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "encrypted-entry",
+        "destinationExists": false
+      }
     },
     {
       "id": "extraction-collision",
       "action": "prepare",
       "mutation": "duplicate-entry",
-      "expected": { "outcome": "rejected", "error": "entry-collision", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "entry-collision",
+        "destinationExists": false
+      }
     },
     {
       "id": "file-directory-collision",
       "action": "prepare",
       "mutation": "file-directory-collision",
-      "expected": { "outcome": "rejected", "error": "entry-collision", "destinationExists": false }
+      "expected": {
+        "outcome": "rejected",
+        "error": "entry-collision",
+        "destinationExists": false
+      }
     },
     {
       "id": "existing-destination",
       "action": "prepare",
       "mutation": "create-destination",
-      "expected": { "outcome": "rejected", "error": "existing-destination", "destinationExists": true }
+      "expected": {
+        "outcome": "rejected",
+        "error": "existing-destination",
+        "destinationExists": true
+      }
     },
     {
       "id": "macos-entry-point",
       "action": "prepare",
-      "fixture": { "target": "macos-aarch64-cpu" },
+      "fixture": {
+        "target": "macos-aarch64-cpu"
+      },
       "expected": {
         "outcome": "prepared",
         "receipt": {
@@ -177,7 +253,9 @@
     {
       "id": "linux-entry-point",
       "action": "prepare",
-      "fixture": { "target": "linux-x86_64-cpu" },
+      "fixture": {
+        "target": "linux-x86_64-cpu"
+      },
       "expected": {
         "outcome": "prepared",
         "receipt": {
@@ -193,7 +271,9 @@
     {
       "id": "windows-entry-point",
       "action": "prepare",
-      "fixture": { "target": "windows-x86_64-cpu" },
+      "fixture": {
+        "target": "windows-x86_64-cpu"
+      },
       "expected": {
         "outcome": "prepared",
         "receipt": {
@@ -209,10 +289,15 @@
     {
       "id": "persistent-prepared-execution",
       "action": "run-prepared",
-      "runtime": { "exitCode": 0 },
+      "runtime": {
+        "exitCode": 0
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 0, "signal": null },
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
         "persistentRootExists": true,
         "spawned": true
       }
@@ -220,10 +305,20 @@
     {
       "id": "default-user-argument-ordering",
       "action": "run-prepared",
-      "runtime": { "args": ["--caller", "caller value"], "exitCode": 0, "inspectInvocation": true },
+      "runtime": {
+        "args": [
+          "--caller",
+          "caller value"
+        ],
+        "exitCode": 0,
+        "inspectInvocation": true
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 0, "signal": null },
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
         "argv": [
           "$BOX/$NATIVE_PYTHON",
           "$BOX/app/main.py",
@@ -239,10 +334,21 @@
     {
       "id": "shell-metacharacter-preservation",
       "action": "run-prepared",
-      "runtime": { "args": ["$(touch never)", "semi;colon", "quote'\"value"], "exitCode": 0, "inspectInvocation": true },
+      "runtime": {
+        "args": [
+          "$(touch never)",
+          "semi;colon",
+          "quote'\"value"
+        ],
+        "exitCode": 0,
+        "inspectInvocation": true
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 0, "signal": null },
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
         "argv": [
           "$BOX/$NATIVE_PYTHON",
           "$BOX/app/main.py",
@@ -259,47 +365,70 @@
     {
       "id": "standard-stream-forwarding",
       "action": "run-prepared",
-      "runtime": { "exitCode": 0, "streams": true },
+      "runtime": {
+        "exitCode": 0,
+        "streams": true
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 0, "signal": null },
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
         "streamsPreserved": true
       }
     },
     {
       "id": "child-non-zero-exit",
       "action": "run-prepared",
-      "runtime": { "exitCode": 23 },
+      "runtime": {
+        "exitCode": 23
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 23, "signal": null },
+        "result": {
+          "exitCode": 23,
+          "signal": null
+        },
         "spawned": true
       }
     },
     {
       "id": "signal-forwarding",
       "action": "run-prepared",
-      "runtime": { "signal": "SIGTERM" },
+      "runtime": {
+        "signal": "SIGTERM"
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": null, "signal": "SIGTERM" },
+        "result": {
+          "exitCode": null,
+          "signal": "SIGTERM"
+        },
         "forwardedSignal": "SIGTERM"
       }
     },
     {
       "id": "temporary-cleanup-success",
       "action": "run-box",
-      "runtime": { "exitCode": 0 },
+      "runtime": {
+        "exitCode": 0
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": 0, "signal": null },
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
         "temporaryDirectoryEmpty": true
       }
     },
     {
       "id": "temporary-cleanup-failure",
       "action": "run-box",
-      "runtime": { "spawnError": true },
+      "runtime": {
+        "spawnError": true
+      },
       "expected": {
         "outcome": "rejected",
         "error": "spawn-failure",
@@ -309,33 +438,62 @@
     {
       "id": "temporary-cleanup-signal",
       "action": "run-box",
-      "runtime": { "signal": "SIGTERM" },
+      "runtime": {
+        "signal": "SIGTERM"
+      },
       "expected": {
         "outcome": "completed",
-        "result": { "exitCode": null, "signal": "SIGTERM" },
+        "result": {
+          "exitCode": null,
+          "signal": "SIGTERM"
+        },
         "temporaryDirectoryEmpty": true
       }
     },
     {
       "id": "on-demand-asset-missing",
       "action": "run-prepared",
-      "fixture": { "requiredAsset": true },
-      "runtime": { "assetState": "missing" },
-      "expected": { "outcome": "rejected", "error": "asset-missing", "spawned": false }
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "missing"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-missing",
+        "spawned": false
+      }
     },
     {
       "id": "on-demand-asset-size-mismatch",
       "action": "run-prepared",
-      "fixture": { "requiredAsset": true },
-      "runtime": { "assetState": "wrong-size" },
-      "expected": { "outcome": "rejected", "error": "asset-size", "spawned": false }
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "wrong-size"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-size",
+        "spawned": false
+      }
     },
     {
       "id": "on-demand-asset-hash-mismatch",
       "action": "run-prepared",
-      "fixture": { "requiredAsset": true },
-      "runtime": { "assetState": "wrong-hash" },
-      "expected": { "outcome": "rejected", "error": "asset-hash", "spawned": false }
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "wrong-hash"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-hash",
+        "spawned": false
+      }
     }
   ]
 }

@@ -115,7 +115,13 @@ export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
   }
 
   const entries = await listZipEntries(archivePath);
+  // Two questions, deliberately not the same set. `box.json` is read out of the archive, so it must
+  // be an entry with its own bytes. Everything else asks only whether a path resolves — and a link
+  // does resolve, to a file inside this same payload, because nothing else was allowed in.
   const files = new Set(entries.filter((entry) => entry.kind === 'file').map((entry) => entry.path));
+  const resolvablePaths = new Set(entries
+    .filter((entry) => entry.kind === 'file' || entry.kind === 'link')
+    .map((entry) => entry.path));
   if (!files.has('box.json')) fail('Archive is missing box.json.');
   const box = JSON.parse(await readZipEntry(archivePath, 'box.json'));
   const boxError = schemaValidationError(
@@ -125,12 +131,12 @@ export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
   );
   if (boxError) fail(`Invalid box.json: ${boxError}.`);
   assertBoxManifestAgreement(box, release);
-  if (!files.has(release.pythonEntryPoint)) fail(`Archive is missing ${release.pythonEntryPoint}.`);
+  if (!resolvablePaths.has(release.pythonEntryPoint)) fail(`Archive is missing ${release.pythonEntryPoint}.`);
   assertExecutionFiles({
     execution: release.execution,
     adapter,
     pythonVersion: release.provenance.pythonVersion,
-    files,
+    files: resolvablePaths,
   });
 
   return {

@@ -69,15 +69,51 @@ describe('archive boundaries', () => {
     expect(await fileExists(destination)).toBe(false);
   });
 
-  it('rejects ZIP symbolic links instead of materialising them', async () => {
+  it('carries a ZIP symbolic link that resolves to a file beside it', async () => {
     const root = await scratch();
     const archive = join(root, 'link.zip');
+    await writeZip(archive, [
+      { path: 'lib/libicudata.so.78', contents: 'real bytes' },
+      { path: 'lib/libicudata.so', contents: 'libicudata.so.78', options: { mode: 0o120777 } },
+    ]);
+    const entries = await listZipEntries(archive);
+    expect(entries.find((entry) => entry.path === 'lib/libicudata.so'))
+      .toMatchObject({ kind: 'link', linkTarget: 'libicudata.so.78' });
+  });
+
+  it('refuses a ZIP symbolic link that reaches outside the payload', async () => {
+    const root = await scratch();
+    const archive = join(root, 'escape.zip');
+    // The attack this exists to stop: extract the box, and the link hands the extractor a path on
+    // the installing machine to write to.
     await writeZip(archive, [{
-      path: 'link',
-      contents: 'target',
+      path: 'lib/passwd',
+      contents: '../../../../etc/passwd',
       options: { mode: 0o120777 },
     }]);
-    await expect(listZipEntries(archive)).rejects.toThrow(/links and special entries/);
+    await expect(listZipEntries(archive)).rejects.toThrow(/does not resolve to a file inside the payload/);
+  });
+
+  it('refuses to write anything through a ZIP symbolic link', async () => {
+    const root = await scratch();
+    const archive = join(root, 'through.zip');
+    await writeZip(archive, [
+      { path: 'lib/real/os.py', contents: 'bytes' },
+      { path: 'lib/alias', contents: 'real', options: { mode: 0o120777 } },
+      { path: 'lib/alias/evil.py', contents: 'payload' },
+    ]);
+    await expect(listZipEntries(archive)).rejects.toThrow(/does not resolve to a file|written through a link/);
+  });
+
+  it('refuses a ZIP symbolic link target long enough to be an attack on the reader', async () => {
+    const root = await scratch();
+    const archive = join(root, 'long.zip');
+    await writeZip(archive, [{
+      path: 'lib/long',
+      contents: 'a'.repeat(2048),
+      options: { mode: 0o120777 },
+    }]);
+    await expect(listZipEntries(archive)).rejects.toThrow(/link target is too long/);
   });
 
   it('rejects links in scroll tarballs before copying any extracted asset', async () => {

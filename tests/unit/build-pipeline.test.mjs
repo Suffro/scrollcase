@@ -526,23 +526,27 @@ describe('the build pipeline', () => {
       .rejects.toThrow(`Archive not found: ${built.archivePath}`);
   });
 
-  it('materialises a chained prefix symlink, and still refuses one that leaves the tree', async () => {
+  it('keeps a prefix symlink to a file, materialises one to a directory, and drops one that leaves the tree', async () => {
     const { keys, payloadDir } = await makeProject();
     const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
 
-    // `pkgdata.inc -> current/pkgdata.inc -> 78.3/pkgdata.inc`: both hops resolved, real content.
     const icu = join(payloadDir, 'venv', 'lib', 'icu');
+    // `pkgdata.inc -> current/pkgdata.inc` ends at a file, so it stays a link and stops the box
+    // carrying those bytes twice. Reading through it still yields the content.
+    expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(true);
     expect(await readFile(join(icu, 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
-    expect(await readFile(join(icu, 'current', 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
-    // Nothing that is still a link may reach the archive, which rejects them outright.
-    expect((await lstat(join(icu, 'pkgdata.inc'))).isSymbolicLink()).toBe(false);
+    // `current -> 78.3` ends at a directory, and a directory link is the only way an entry could be
+    // written somewhere its own name does not describe. Materialised, every time.
     expect((await lstat(join(icu, 'current'))).isDirectory()).toBe(true);
+    expect(await readFile(join(icu, 'current', 'pkgdata.inc'), 'utf8')).toBe('PKGDATA\n');
 
     // The escaping link is dropped, and the host file it pointed at neither moves nor ships.
     expect(await fileExists(join(icu, 'escaped.inc'))).toBe(false);
     const entries = await listZipEntries(built.archivePath);
     expect(entries.some((entry) => entry.path.endsWith('outside-the-box.txt'))).toBe(false);
-    expect(entries.some((entry) => entry.path === 'venv/lib/icu/pkgdata.inc')).toBe(true);
+    // The link reaches the archive as a link, carrying its target rather than the target's bytes.
+    expect(entries.find((entry) => entry.path === 'venv/lib/icu/pkgdata.inc'))
+      .toMatchObject({ kind: 'link', linkTarget: 'current/pkgdata.inc' });
   });
 
   it('ships conda records reduced to identity, and nothing an install or a machine varies', async () => {
