@@ -97,6 +97,14 @@ All notable changes to Scrollcase are documented here. The format follows
   now distinguishes caller-owned retrieval from consumer verification, uses content-addressed
   output names, and a tracked-tree guard prevents the retired product terminology from returning.
 
+### Fixed
+
+- Install the pixi binary when the staging directory and the project's toolchain directory sit on
+  different filesystems. The download is staged in the OS temp location and moved with `rename`,
+  which cannot cross a volume boundary — so on Windows, where `TEMP` is on `C:` and a checkout
+  commonly is not, `init --install-toolchain` failed with `EXDEV` and installed nothing. It now
+  falls back to a copy on that path.
+
 ## [0.1.3] — 2026-07-27
 
 ### Fixed

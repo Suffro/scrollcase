@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as tar from 'tar';
 import { fileExists } from '../../src/build/filesystem.mjs';
 import { ensureToolchain, initProject } from '../../src/build/project.mjs';
@@ -17,6 +17,22 @@ import {
   toolchainPaths,
 } from '../../src/build/toolchain.mjs';
 import { resetWorkspace } from '../../src/build/workspace.mjs';
+
+// A staged download and the project's toolchain directory land on different volumes often enough
+// that it is the default on a Windows runner, and no test host here has a second filesystem to
+// reproduce it with. Renames pass straight through unless a test asks for the cross-device failure.
+const crossDevice = { next: false };
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    rename: async (source, destination) => {
+      if (!crossDevice.next) return actual.rename(source, destination);
+      crossDevice.next = false;
+      throw Object.assign(new Error('EXDEV: cross-device link not permitted'), { code: 'EXDEV' });
+    },
+  };
+});
 
 const HOST = { platform: 'darwin', arch: 'arm64' };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -113,6 +129,26 @@ describe('installing pixi', () => {
     if (process.platform !== 'win32') {
       expect((await stat(result.path)).mode & 0o111).toBeGreaterThan(0);
     }
+  });
+
+  it('installs the binary when staging and the toolchain are on different filesystems', async () => {
+    const toolchainDir = await scratch('scrollcase-toolchain-');
+    const { bytes } = await fakePixiRelease();
+    crossDevice.next = true;
+
+    const result = await installPixi({
+      version: '0.73.0',
+      toolchainDir,
+      host: HOST,
+      fetchImpl: servedBy({ bytes, digest: sha256(bytes) }),
+      log: () => {},
+    });
+
+    // Reaching this point at all is the assertion: an unguarded rename throws EXDEV here, which is
+    // what a Windows user gets whenever TEMP and the checkout sit on different drives.
+    expect(await fileExists(result.path)).toBe(true);
+    expect(await readFile(result.path, 'utf8')).toContain('pixi 9.9.9');
+    expect(crossDevice.next).toBe(false);
   });
 
   it('refuses a download whose checksum does not match, and installs nothing', async () => {

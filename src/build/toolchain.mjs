@@ -17,7 +17,7 @@
  */
 
 import { createWriteStream } from 'node:fs';
-import { chmod, mkdir, mkdtemp, rm, rename } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, rm, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -135,6 +135,30 @@ async function fetchToFile(url, destination, fetchImpl) {
 }
 
 /**
+ * Moves a staged file onto its final path, falling back to a copy across filesystems.
+ *
+ * Staging happens in the OS temp directory while the toolchain lives inside the project, and those
+ * are routinely on different volumes: on Windows temp sits on `C:` while a checkout commonly sits
+ * on another drive, which is the default on a GitHub runner and ordinary on a developer's machine.
+ * `rename` cannot cross a volume boundary and fails with `EXDEV`, so a plain rename left the
+ * toolchain uninstalled for those users. Copying is slower and only needed on that path, which is
+ * why it is the fallback rather than the rule.
+ *
+ * @param {string} source
+ * @param {string} destination
+ * @returns {Promise<void>}
+ */
+async function moveInto(source, destination) {
+  try {
+    await rename(source, destination);
+  } catch (error) {
+    if (error?.code !== 'EXDEV') throw error;
+    // The staging directory is removed by the caller's `finally`, so the copy needs no cleanup.
+    await copyFile(source, destination);
+  }
+}
+
+/**
  * Downloads one pixi release and installs its binary into the project's toolchain directory.
  *
  * `expectedSha256` is the digest the project has already reviewed, when it has one; without it the
@@ -186,7 +210,7 @@ export async function installPixi({
     const { binDir, pixi } = toolchainPaths(toolchainDir);
     await mkdir(binDir, { recursive: true });
     await rm(pixi, { force: true });
-    await rename(join(unpacked, ...entry.split('/')), pixi);
+    await moveInto(join(unpacked, ...entry.split('/')), pixi);
     if (process.platform !== 'win32') await chmod(pixi, 0o755);
     return { path: pixi, version, sha256: expected, asset: release.asset };
   } finally {

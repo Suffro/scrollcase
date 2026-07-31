@@ -38,6 +38,12 @@ concurrency:
   group: example-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Must equal `pixiVersion` in the example scrolls, or `doctor` refuses the mismatch before the
+  # build starts — which is the check working, not a nuisance. Pinning also keeps `init` away from
+  # the GitHub releases API, whose unauthenticated rate limit answers 403 on a runner.
+  PIXI_VERSION: '0.73.0'
+
 jobs:
   build:
     name: ${{ matrix.target }}
@@ -72,7 +78,7 @@ jobs:
       # ignored `.scrollcase/` toolchain in place. The tree must be clean again before `build`,
       # because refusing a dirty tree is one of the guarantees under test here.
       - name: Install the pinned toolchain
-        run: node src/cli.mjs init --install-toolchain --no-example
+        run: node src/cli.mjs init --install-toolchain --no-example --pixi-version ${{ env.PIXI_VERSION }}
 
       - name: Restore a clean tree
         shell: bash
