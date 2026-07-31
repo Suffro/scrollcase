@@ -75,7 +75,7 @@ machine's absolute paths into dozens of files that then ship to users — measur
 environment, zero files carried the build prefix before running it and thirty-six after — leaking
 a developer's directory layout while still being wrong at the user's install location.
 
-Instead the few service files that do carry the prefix are removed, symlinks are dereferenced,
+Instead the few service files that do carry the prefix are removed, symlinks are settled,
 and generated console scripts are rewritten to resolve Python next to themselves. The result runs
 from any location with no activation, no environment variables, and no fixer. Details in
 [Architecture](/concepts/architecture#relocation).

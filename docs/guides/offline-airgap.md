@@ -100,7 +100,7 @@ Three properties of the format make extraction sufficient:
    developer's directory layout while still being wrong at the user's install location. Instead
    the few service files that carry the prefix are removed at build time.
 3. **Launchers resolve Python next to themselves.** Generated console scripts are rewritten so
-   they find the interpreter relative to their own location, and every symlink is dereferenced,
+   they find the interpreter relative to their own location, symlinks point only inside the box,
    so the extracted tree does not depend on where it landed.
 
 The result: the same archive works at `/opt/boxes/…`, in a user's home directory, or on a

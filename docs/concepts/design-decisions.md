@@ -71,12 +71,45 @@ The embedded `conda-unpack` fixer is deliberately **not** run: it would stamp th
 absolute paths into dozens of files that then ship to users — measured on a probe environment, zero
 files carried the build prefix before running it and thirty-six after — leaking a developer's
 directory layout while still being wrong at the user's install location. Instead the few service
-files that do carry the prefix are removed, symlinks are dereferenced, and generated console scripts
-are rewritten to resolve Python next to themselves.
+files that do carry the prefix are removed, symlinks are settled against a rule that keeps only the
+ones provably resolving inside the payload, and generated console scripts are rewritten to resolve
+Python next to themselves.
 
 **Rejected:** `pixi-pack`, which ships packages rather than a tree and needs a per-user install plus a
 bundled unpacker at the other end. The slow step (compression) is better paid once by whoever builds
 than on every install.
+
+## A payload carries the symlinks it can prove safe
+
+A conda prefix is dense with symbolic links. The shared-library soname convention alone stores every
+large library under two or three names — `libfoo.so` → `libfoo.so.N` → `libfoo.so.N.M` — and `bin`
+carries interpreter aliases. Scrollcase used to materialise all of them, which was simple and
+correct and, once measured, expensive: roughly 60% of an extracted Linux box was duplicates of its
+own bytes. The example box weighed 191 MB archived and 483 MB extracted, against 48 MB and 126 MB
+for the identical scroll on macOS, where dylibs use far fewer such chains.
+
+A link is now kept when it **provably** resolves, inside the payload, to a regular file: the target
+must be relative, must stay inside after `..` is applied segment by segment, and must end at a file
+rather than a directory. Everything else is materialised exactly as before. That took the example
+box to 90 MB archived and 228 MB extracted.
+
+The narrowness is the point. A symbolic link is the classic way an archive writes outside the
+directory it was extracted into, so the rule is purely lexical — the same inputs give the same
+answer on every host — and it is applied three times: by the builder against the real filesystem, by
+the archive writer against the entry set it is about to write, and again by each consumer against
+the archive **as received**. No consumer trusts the builder, and a box assembled by hand gets no
+benefit of the doubt.
+
+**Rejected:** carrying directory links too. They are legitimate in a prefix — `lib/python3.1` →
+`python3.11` is real — and worth about one duplicated standard library. But a directory link is the
+only way an entry can be written *through* a link and land somewhere its own name does not describe,
+which turns a size optimisation into a question about what every other entry does to the filesystem.
+Refusing them keeps the rule small enough to state in five lines and prove in two languages, and
+that was worth more than the last 35 MB.
+
+**Rejected:** a `schemaVersion` bump. The signed document is unchanged; only what the archive may
+contain grew. A consumer predating the rule rejects a link entry with a clear error rather than
+misreading it, which is the only thing a version bump would have bought.
 
 ## The document namespace belongs to the publishing project
 

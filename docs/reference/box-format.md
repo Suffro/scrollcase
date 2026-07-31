@@ -80,8 +80,16 @@ Guarantees the archive layer enforces:
 
 - **Deterministic.** Fixed timestamps (`2000-01-01T00:00:00Z`), stable file ordering, and modes
   derived from the target adapter. The same commit rebuilds to identical bytes.
-- **Link-free.** Symlinks are dereferenced before packing; the writer rejects links and special
-  entries outright.
+- **Links only where they are provably safe.** A symbolic link is carried when its target is
+  relative, resolves inside the payload, and ends at a regular file. Everything else — an absolute
+  target, one that climbs out through `..`, a link to a directory, a cycle — is materialised into
+  real content instead, and no entry may have a link as a path prefix, so nothing is ever written
+  *through* one. Windows boxes carry no links at all, because creating one there needs elevation.
+  Special entries are rejected outright.
+
+  This is not a convenience: a conda prefix stores every large shared library two or three times
+  through the soname convention, and materialising all of it made most of an extracted Linux box
+  duplicates of its own bytes. See [Design decisions](/concepts/design-decisions).
 - **Safe to extract.** Entry names are validated against path traversal on the way out, by both
   `verify` and any conforming client.
 - **Relocatable.** Nothing inside depends on the build machine's paths — see

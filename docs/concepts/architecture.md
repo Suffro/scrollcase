@@ -150,11 +150,15 @@ Instead, four repairs happen at build time:
 
 1. The few service files that carry the build prefix are removed
    (`conda-meta/pixi_env_prefix`, `bin/conda-unpack`, and friends).
-2. Every symlink is dereferenced, so the payload contains only regular files and directories — a
-   link that dangles or escapes the prefix is dropped rather than pulling host files into the box.
-   Links are recreated only after every regular entry is on disk, so no file content is ever written
-   through one; a prefix whose links chain through other links (icu's `current` directory, for
-   instance) unpacks like any other.
+2. Every symlink is settled: kept when it provably resolves, inside the payload, to a regular file;
+   materialised into real content when it does not; dropped when it dangles or escapes the prefix,
+   rather than pulling host files into the box. A link to a *directory* is always materialised —
+   that is the only way an entry could be written through a link and land somewhere its own name
+   does not describe, so a prefix whose links chain through directory links (icu's `current`, for
+   instance) unpacks like any other. Keeping the rest matters: the soname convention alone stores
+   every large shared library two or three times, and materialising all of it doubled an extracted
+   Linux box. The rule lives in `src/contract/links.mjs` and is re-applied by every consumer against
+   the archive as received, never trusted from the builder.
 3. Generated console scripts, whose shebangs embed the build interpreter's absolute path, are
    rewritten to resolve Python next to themselves.
 4. conda's per-package records in `conda-meta/` are reduced to name, version, build and licence,
