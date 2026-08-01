@@ -61,7 +61,7 @@ export default defineConfig({
         { text: 'Reference', link: '/reference/' },
         { text: 'Security & trust', link: '/concepts/security-and-trust' },
         { text: 'Other tools', link: '/concepts/tool-comparison' },
-        { text: 'White Paper', target: "_blank", link: '/white-paper' },
+        { text: 'White Paper', link: '/white-paper' },
       ] }
     ],
 
@@ -121,9 +121,8 @@ export default defineConfig({
       {
         // One page, deliberately: the white paper is meant to be downloaded and studied as a
         // single artefact, so it is a top-level entry rather than a section of its own.
-        text: 'White Paper ↗',
+        text: 'White Paper',
         collapsed: false,
-        target: "_blank",
         link: '/white-paper'
       },
     ],
@@ -137,7 +136,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: `Scrollcase v${packageVersion} · schema version 2 · <a href="/privacy">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md" target="_blank">Changelog</a>`,
+      message: `Scrollcase v${packageVersion} · schema version 2 · <a href="/privacy" target="_blank">Privacy</a> · <a href="https://github.com/suffro/scrollcase/blob/main/CHANGELOG.md" target="_blank">Changelog</a>`,
       copyright: 'Licensed under Apache-2.0'
     }
   }
