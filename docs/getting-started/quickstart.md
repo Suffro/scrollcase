@@ -11,41 +11,14 @@ hand while exercising the complete packaging and signing pipeline.
 
 Prerequisites: the CLI and toolchain from [Installation](/getting-started/installation).
 
-## Before that: see a box run, without installing a toolchain
+::: info Before that
+---
+#### Checkout the box run demo:
+This demo is useful if you only want to see what a box is, and how to run it. <br>
 
-Building needs pixi and conda-pack. **Consuming does not.** If you only want to see what a box is,
-take the published demo instead — it is the same `hello-box` this repository ships, built and signed
-by CI for each operating system.
+[**Try the demo**](/guides/demo-box)
 
-From the [demo box release](https://github.com/suffro/scrollcase/releases/tag/demo-box-v1),
-download the one archive named for your machine — `linux-x86_64-cpu`, `macos-aarch64-metal` or
-`windows-x86_64-cpu` — plus
-[`example-signing-public.json`](https://github.com/suffro/scrollcase/blob/main/examples/keys/example-signing-public.json):
-
-```sh
-npm install -g scrollcase
-unzip hello-box-1.0.0-<target>.zip -d hello-box && cd hello-box
-scrollcase verify *.release.json --public-key example-signing-public.json
-scrollcase run    *.release.json --public-key example-signing-public.json
-```
-
-Unpacking gives two files with hash names: the box archive and the signed release document that
-commits to it. Leave them named as they are and in the same directory — that adjacency is how
-`verify` finds the box, and it is the same layout a build writes under `.scrollcase/dist/`. The
-enclosing zip carries no guarantee of its own; it exists so the download says which machine it is
-for.
-
-`verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
-and works on any machine. `run` extracts the box to a temporary directory and executes its entry
-point with the interpreter *inside* it — so it needs a machine matching the box's target. What it
-prints is `sys.prefix`, which is the point: the interpreter answering is the one from the box.
-
-::: warning The demo key is a demo key
-Those boxes are signed with a key that exists only for the example. It signs nothing else and no
-trust chain depends on it. A signature from it means the example is intact — nothing more.
 :::
-
-The rest of this page builds a box of your own, which does need the toolchain.
 
 ## 1. Create a project
 
