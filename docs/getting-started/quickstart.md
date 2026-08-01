@@ -18,14 +18,22 @@ take the published demo instead — it is the same `hello-box` this repository s
 by CI for each operating system.
 
 From the [demo box release](https://github.com/suffro/scrollcase/releases/tag/demo-box-v1),
-download the `.zip` and `.release.json` pair matching your machine into one directory, plus
+download the one archive named for your machine — `linux-x86_64-cpu`, `macos-aarch64-metal` or
+`windows-x86_64-cpu` — plus
 [`example-signing-public.json`](https://github.com/suffro/scrollcase/blob/main/examples/keys/example-signing-public.json):
 
 ```sh
 npm install -g scrollcase
-scrollcase verify <sha>.release.json --public-key example-signing-public.json
-scrollcase run    <sha>.release.json --public-key example-signing-public.json
+unzip hello-box-1.0.0-<target>.zip -d hello-box && cd hello-box
+scrollcase verify *.release.json --public-key example-signing-public.json
+scrollcase run    *.release.json --public-key example-signing-public.json
 ```
+
+Unpacking gives two files with hash names: the box archive and the signed release document that
+commits to it. Leave them named as they are and in the same directory — that adjacency is how
+`verify` finds the box, and it is the same layout a build writes under `.scrollcase/dist/`. The
+enclosing zip carries no guarantee of its own; it exists so the download says which machine it is
+for.
 
 `verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
 and works on any machine. `run` extracts the box to a temporary directory and executes its entry

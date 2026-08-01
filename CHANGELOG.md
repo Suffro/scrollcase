@@ -6,6 +6,16 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Publish the demo box as one plainly named archive per operating system —
+  `hello-box-1.0.0-macos-aarch64-metal.zip` and its two siblings — each holding the box and its
+  signed release document. A box archive has to be named for its own SHA-256 and sit beside that
+  document, because that is how `verify` finds it, so publishing the files flat gave the release
+  page six hex names and no way to tell which three belonged to your machine before downloading
+  them. The names inside the wrapper stay content-addressed and adjacent; only the name outside is
+  for people. Stored rather than compressed, it costs 2.7 KB on a 37 MB box.
+
 ### Fixed
 
 - Name the `tar` release a box was actually written with in every target adapter's `archive`
