@@ -173,8 +173,8 @@ def run_extracted_box(
         raise ScrollcaseConsumerError(
             "Prepared box root no longer matches the prepared box."
         )
-    regular_files = frozenset(collect_files(root))
-    if prepared.python_entry_point not in regular_files:
+    resolvable_paths = frozenset(collect_files(root))
+    if prepared.python_entry_point not in resolvable_paths:
         raise ScrollcaseConsumerError(
             f"Prepared box is missing {prepared.python_entry_point}."
         )
@@ -182,7 +182,7 @@ def run_extracted_box(
         execution,
         state.target,
         cast(str, state.release["provenance"]["pythonVersion"]),
-        regular_files,
+        resolvable_paths,
     )
     _verify_required_assets(prepared)
 

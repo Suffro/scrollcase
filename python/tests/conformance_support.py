@@ -173,6 +173,35 @@ def _mutate_fixture(
             [entry for entry in fixture.entries if entry.path != remove_path]
         )
         return
+    # The other side of the link rule. A real box reaches its interpreter through exactly this
+    # shape — `venv/bin/python` is a link to the versioned binary beside it — so a consumer that
+    # only accepts regular files here rejects every box the builder produces on macOS and Linux.
+    if mutation == "link-interpreter":
+        entry_point = cast(str, fixture.release["pythonEntryPoint"])
+        directory, _, name = entry_point.rpartition("/")
+        link_target = f"{name}-real"
+        renamed = f"{directory}/{link_target}" if directory else link_target
+        entries = [
+            ArchiveEntry(renamed, entry.data, entry.mode, entry.file_type)
+            if entry.path == entry_point
+            else entry
+            for entry in fixture.entries
+        ]
+        entries.append(
+            ArchiveEntry(
+                entry_point,
+                link_target.encode(),
+                file_type=stat.S_IFLNK,
+            )
+        )
+        # A link is sized by its target string once extracted, which is exactly the entry's own
+        # bytes here. Stated rather than copied from the result, so the signed size is still earned.
+        fixture.release["installedSizeBytes"] = sum(
+            len(entry.data) for entry in entries
+        )
+        fixture.entries = entries
+        fixture.write_archive(entries)
+        return
     hostile: dict[str, ArchiveEntry] = {
         "add-traversal-entry": ArchiveEntry("../x", b"hostile"),
         "add-absolute-entry": ArchiveEntry("/abs", b"hostile"),

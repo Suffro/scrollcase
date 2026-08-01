@@ -52,17 +52,18 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Quickstart', link: '/getting-started/quickstart' },
-      { text: 'Resources', activeMatch: "(^/(?!getting-started/quickstart(?:/|$))[^/]+/[^/]+/?$)", items: [
+      { text: 'Resources', activeMatch: " ", items: [
         { text: 'Overview', link: '/getting-started/overview' },
-        { text: 'TL;DR', link: '/getting-started/tl-dr' },
         { text: 'Architecture', link: '/concepts/architecture' },
         { text: 'Concepts', link: '/concepts/' },
         { text: 'Guides', link: '/guides/' },
         { text: 'Reference', link: '/reference/' },
         { text: 'Security & trust', link: '/concepts/security-and-trust' },
         { text: 'Other tools', link: '/concepts/tool-comparison' },
-        { text: 'White Paper', link: '/white-paper' },
-      ] }
+        { text: 'Box-run Demo', link: '/guides/demo-box' },
+        { text: 'White paper', link: '/white-paper' },
+      ]
+    },
     ],
 
     sidebar: [
@@ -83,6 +84,7 @@ export default defineConfig({
         link: '/guides',
         collapsed: false,
         items: [
+          { text: 'Box-run demo', link: '/guides/demo-box' },
           { text: 'Managing Model Weights', link: '/guides/managing-weights' },
           { text: 'Packaging CUDA Boxes', link: '/guides/packaging-cuda' },
           { text: 'Accelerator Parity', link: '/guides/accelerator-parity' },

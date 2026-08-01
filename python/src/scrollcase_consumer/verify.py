@@ -235,8 +235,16 @@ def _inspect_box_archive(
         raise ScrollcaseConsumerError("Archive SHA-256 mismatch.")
 
     entries = list_zip_entries(archive_path)
+    # Two questions, deliberately not the same set. `box.json` is read out of the archive, so it
+    # must be an entry with its own bytes. Everything else asks only whether a path resolves — and
+    # a link does resolve, to a regular file inside this same payload, because `list_zip_entries`
+    # refused every link that did not before returning. A box reaches its interpreter through
+    # exactly such a link, so asking for regular files here rejects every box the builder makes.
     regular_files = frozenset(
         entry.path for entry in entries if entry.kind == "file"
+    )
+    resolvable_paths = frozenset(
+        entry.path for entry in entries if entry.kind in ("file", "link")
     )
     if "box.json" not in regular_files:
         raise ScrollcaseConsumerError("Archive is missing box.json.")
@@ -247,7 +255,7 @@ def _inspect_box_archive(
     validate_schema(box_value, "box-manifest.schema.json", "box.json")
     box = cast(dict[str, Any], box_value)
     _assert_manifest_agreement(box, release)
-    if release["pythonEntryPoint"] not in regular_files:
+    if release["pythonEntryPoint"] not in resolvable_paths:
         raise ScrollcaseConsumerError(
             f"Archive is missing {release['pythonEntryPoint']}."
         )
@@ -258,7 +266,7 @@ def _inspect_box_archive(
         execution,
         target,
         cast(str, release["provenance"]["pythonVersion"]),
-        regular_files,
+        resolvable_paths,
     )
     return _InspectedBox(
         archive_path=archive_path,
