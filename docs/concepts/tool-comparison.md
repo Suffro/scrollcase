@@ -17,7 +17,7 @@ Complete comparison between Scrollcase and other packaging tools, understanding 
 <Tabs :titles="['TL;DR','Pixi','conda-pack','Containers','PEX','PyInstaller','AppImage']">
 <Tab title="Pixi">
 
-### vs Pixi alone
+### Scrollcase vs Pixi alone
 
 Pixi is the environment manager underneath Scrollcase.
 
@@ -69,7 +69,7 @@ Scrollcase adds:
 </Tab>
 <Tab title="conda-pack">
 
-### vs conda-pack alone
+### Scrollcase vs conda-pack alone
 
 Scrollcase uses conda-pack, but is not only conda-pack. Conda environments are not generally relocatable by copying their directory, so conda-pack packages an existing environment and applies relocation logic.
 
@@ -127,7 +127,7 @@ verify and consume it through a defined contract
 </Tab>
 <Tab title="Containers">
 
-### vs container systems (eg. Docker)
+### Scrollcase vs container systems (eg. Docker)
 
 Container systems like Docker packages an application and its runtime into a container image. A container runs as an isolated process through a container runtime and is a natural fit for services, servers, CI, orchestration, and container-native infrastructure.
 
@@ -173,7 +173,7 @@ Signature and archive verification establish what was received. They do not make
 </Tab>
 <Tab title="PEX">
 
-### vs PEX
+### Scrollcase vs PEX
 
 Scrollcase is environment-oriented; PEX is Python-application-oriented. PEX builds executable Python environments from Python distributions. It is especially useful for Python applications and command-line tools that should be distributed as a single executable environment.
 
@@ -208,7 +208,7 @@ Scrollcase also separates the runtime artifact from the application that consume
 </Tab>
 <Tab title="PyInstaller">
 
-### vs PyInstaller
+### Scrollcase vs PyInstaller
 
 Scrollcase is not an application freezer like PyInstaller. PyInstaller analyzes a Python application and bundles it with the interpreter and dependencies needed to run it. It can produce a one-directory bundle or a single executable.
 
@@ -251,7 +251,7 @@ handles UI, updates, storage, and lifecycle itself
 </Tab>
 <Tab title="AppImage">
 
-### vs AppImage
+### Scrollcase vs AppImage
 
 Scrollcase is not a Linux application format like AppImage. AppImage packages a Linux application and the dependencies that cannot be assumed to exist on the target system into one executable file. Users can download it, mark it executable, and run it without a traditional installation or root privileges.
 

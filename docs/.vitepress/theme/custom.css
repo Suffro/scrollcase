@@ -159,9 +159,10 @@ body:has(.cookie-backdrop) {
 /* Two equal columns on wide screens. */
 .VPNavBarMenuGroup .items {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+
 
 .floating-share {
   cursor: pointer !important;

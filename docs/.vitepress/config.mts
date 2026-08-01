@@ -52,14 +52,23 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Quickstart', link: '/getting-started/quickstart' },
-      { text: 'Guides', link: '/guides/managing-weights', activeMatch: '/guides/' },
-      { text: 'Reference', link: '/reference/cli', activeMatch: '/reference/' },
-      { text: 'Concepts', link: '/concepts/architecture', activeMatch: '/concepts/' }
+      { text: 'Resources', activeMatch: "(^/(?!getting-started/quickstart(?:/|$))[^/]+/[^/]+/?$)", items: [
+        { text: 'Overview', link: '/getting-started/overview' },
+        { text: 'TL;DR', link: '/getting-started/tl-dr' },
+        { text: 'Architecture', link: '/concepts/architecture' },
+        { text: 'Concepts', link: '/concepts/' },
+        { text: 'Guides', link: '/guides/' },
+        { text: 'Reference', link: '/reference/' },
+        { text: 'Security & trust', link: '/concepts/security-and-trust' },
+        { text: 'Other tools', link: '/concepts/tool-comparison' },
+        { text: 'White Paper', target: "_blank", link: '/white-paper' },
+      ] }
     ],
 
     sidebar: [
       {
         text: 'Getting Started',
+        link: '/getting-started',
         collapsed: false,
         items: [
           { text: 'Overview', link: '/getting-started/overview' },
@@ -71,6 +80,7 @@ export default defineConfig({
       },
       {
         text: 'Guides',
+        link: '/guides',
         collapsed: false,
         items: [
           { text: 'Managing Model Weights', link: '/guides/managing-weights' },
@@ -85,6 +95,7 @@ export default defineConfig({
       },
       {
         text: 'Reference',
+        link: '/reference',
         collapsed: false,
         items: [
           { text: 'CLI Commands', link: '/reference/cli' },
@@ -97,6 +108,7 @@ export default defineConfig({
       },
       {
         text: 'Concepts',
+        link: '/concepts',
         collapsed: false,
         items: [
           { text: 'Architecture', link: '/concepts/architecture' },
@@ -105,7 +117,15 @@ export default defineConfig({
           { text: 'Design Decisions', link: '/concepts/design-decisions' },
           { text: 'Tool Comparison', link: '/concepts/tool-comparison' }
         ]
-      }
+      },
+      {
+        // One page, deliberately: the white paper is meant to be downloaded and studied as a
+        // single artefact, so it is a top-level entry rather than a section of its own.
+        text: 'White Paper ↗',
+        collapsed: false,
+        target: "_blank",
+        link: '/white-paper'
+      },
     ],
 
     socialLinks: [
