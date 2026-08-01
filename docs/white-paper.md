@@ -33,6 +33,32 @@ studiable offline.
 
 </div>
 
+<div class="h3-section-initial-part">
+
+### Document map
+
+The order is deliberate: vocabulary first, then the format, then what produces it, then what
+consumes it, then the properties that hold across all of it.
+
+| Section | Subject |
+| --- | --- |
+| 1. How to read this document | Audience, conventions, self-containment |
+| 2. Glossary | Every technical term used here, canonical and domain |
+| 3. The problem and the boundary | What Scrollcase is, and what it deliberately is not |
+| 4. The substrate | pixi, conda-pack, conda-forge, and the three runtime dependencies |
+| 5. The contract | `src/contract/`: targets, envelopes, links, schemas, fixtures, types |
+| 6. The build pipeline | `src/build/`: the ordered steps and every module that serves them |
+| 7. Signing and custody | `src/sign/`: keys, local signing, external signers, verification |
+| 8. The consumers | Node and Python, side by side, and their shared conformance fixtures |
+| 9. The command line | The nine verbs and where the thin-CLI boundary runs |
+| 10. The invariants | Determinism, provenance, verify-never-trust, and the paths that break silently |
+| 11. Test map | Which test proves which behaviour |
+| 12. Appendices | Module summary, index of public exports |
+
+Every section is present in this copy; the document is complete and self-contained.
+
+</div>
+
 ## 1. How to read this document
 
 <div class="h3-section-initial-part">
@@ -130,32 +156,6 @@ Version 2 is a clean break from version 1. A v2 verifier rejects a `schemaVersio
 an explicit unsupported-version error rather than reinterpreting it, and this paper describes v2
 only. Published v1 artefacts remain usable with the Scrollcase versions that produced them, and are
 otherwise out of scope here.
-
-<div class="h3-section-initial-part">
-
-### 1.5 Document map
-
-The order is deliberate: vocabulary first, then the format, then what produces it, then what
-consumes it, then the properties that hold across all of it.
-
-</div>
-
-| Section | Subject |
-| --- | --- |
-| 1. How to read this document | Audience, conventions, self-containment |
-| 2. Glossary | Every technical term used here, canonical and domain |
-| 3. The problem and the boundary | What Scrollcase is, and what it deliberately is not |
-| 4. The substrate | pixi, conda-pack, conda-forge, and the three runtime dependencies |
-| 5. The contract | `src/contract/`: targets, envelopes, links, schemas, fixtures, types |
-| 6. The build pipeline | `src/build/`: the ordered steps and every module that serves them |
-| 7. Signing and custody | `src/sign/`: keys, local signing, external signers, verification |
-| 8. The consumers | Node and Python, side by side, and their shared conformance fixtures |
-| 9. The command line | The nine verbs and where the thin-CLI boundary runs |
-| 10. The invariants | Determinism, provenance, verify-never-trust, and the paths that break silently |
-| 11. Test map | Which test proves which behaviour |
-| 12. Appendices | Module summary, index of public exports |
-
-Every section is present in this copy; the document is complete.
 
 ## 2. Glossary
 
