@@ -30,6 +30,10 @@ on:
 
 env:
   PIXI_VERSION: '0.73.0'
+  # The example this publishes. Declared once because the build path, the artifact name and the
+  # published asset name all have to agree, and they drifted apart the first time they did not.
+  BOX_ID: hello-box
+  BOX_VERSION: '1.0.0'
 
 jobs:
   build:
@@ -86,7 +90,7 @@ jobs:
       - name: Build and sign
         shell: bash
         run: |
-          node src/cli.mjs build hello-box/${{ matrix.target }} \
+          node src/cli.mjs build "$BOX_ID/${{ matrix.target }}" \
             --scrolls-dir examples \
             --weights embed \
             --private-key "$RUNNER_TEMP/demo-signing-private.pem" \
@@ -97,7 +101,7 @@ jobs:
       - name: Verify exactly as a newcomer will
         shell: bash
         run: |
-          release=$(ls .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*.release.json)
+          release=$(ls ".scrollcase/dist/boxes/$BOX_ID/$BOX_VERSION/${{ matrix.target }}"/*.release.json)
           node src/cli.mjs verify "$release" --self-test \
             --public-key examples/keys/example-signing-public.json
           node src/cli.mjs run "$release" --public-key examples/keys/example-signing-public.json
@@ -110,7 +114,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: demo-box-${{ matrix.target }}
-          path: .scrollcase/dist/boxes/hello-box/1.0.0/${{ matrix.target }}/*
+          path: .scrollcase/dist/boxes/${{ env.BOX_ID }}/${{ env.BOX_VERSION }}/${{ matrix.target }}/*
           if-no-files-found: error
           retention-days: 1
 
@@ -123,38 +127,74 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      # Not merged into one directory: each target's two files have to stay together to be wrapped,
+      # and merging them would leave one flat pile of hashes with nothing saying which pairs with
+      # which.
       - uses: actions/download-artifact@v4
         with:
           path: staged
           pattern: demo-box-*
-          merge-multiple: true
 
-      # Names are content-addressed, which is what makes an archive verifiable — and also means a
-      # rebuilt box never overwrites the one it replaces. Uploading alone would leave the previous
-      # boxes sitting beside the new ones, downloadable and stale, so anything not in this build is
-      # removed once the new set is safely up.
+      # A box archive must be named for its own SHA-256 and sit beside its release document, because
+      # that is how `verify` finds it. Published flat, that gave six hex names on the release page and
+      # no way to tell which three were yours before downloading them.
+      #
+      # So each target ships as one plainly named container holding that pair. The names inside stay
+      # content-addressed and adjacent, which is what `verify` needs; the name outside says which
+      # machine it is for, which is what a person needs. Stored rather than compressed: the inner
+      # archive is already deflated, and recompressing it would cost minutes to save nothing.
+      - name: Wrap each target as one plainly named archive
+        shell: bash
+        run: |
+          # Without this an unmatched glob stays literal, and the pair check below would count a
+          # filename that does not exist as one file and wrap nothing.
+          shopt -s nullglob
+          mkdir wrapped
+          for dir in staged/demo-box-*; do
+            target=${dir#staged/demo-box-}
+            zips=("$dir"/*.zip)
+            releases=("$dir"/*.release.json)
+            if [ "${#zips[@]}" -ne 1 ] || [ "${#releases[@]}" -ne 1 ]; then
+              echo "Expected one archive and one release document in $dir, found:" >&2
+              ls -l "$dir" >&2
+              exit 1
+            fi
+            zip -0 -X -j "wrapped/$BOX_ID-$BOX_VERSION-$target.zip" "${zips[0]}" "${releases[0]}"
+          done
+          ls -l wrapped
+
+      # A rebuilt box lands under a new hash and so never overwrites the one it replaces. Uploading
+      # alone would leave the previous boxes sitting beside the new ones, downloadable and stale, so
+      # anything not in this build is removed once the new set is safely up. That also clears the
+      # flat hash-named assets published before the wrapping above existed.
       - name: Publish the release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ls -l staged
-          count=$(ls staged/*.zip | wc -l)
+          count=$(ls wrapped/*.zip | wc -l)
           if [ "$count" -ne 3 ]; then
             echo "Expected three archives, one per target, found $count" >&2
             exit 1
           fi
-          if ! gh release view "${{ inputs.tag }}" >/dev/null 2>&1; then
+          # The notes are rewritten on every run, not only at creation. They name the assets and tell
+          # a reader what to do with them, so a re-publish that changed either would otherwise leave
+          # the previous instructions sitting above the new files.
+          if gh release view "${{ inputs.tag }}" >/dev/null 2>&1; then
+            gh release edit "${{ inputs.tag }}" \
+              --title "Demo box" \
+              --notes-file .github/demo-box-release-notes.md
+          else
             gh release create "${{ inputs.tag }}" \
               --title "Demo box" \
               --notes-file .github/demo-box-release-notes.md \
               ${{ inputs.draft && '--draft' || '' }}
           fi
-          gh release upload "${{ inputs.tag }}" staged/* --clobber
+          gh release upload "${{ inputs.tag }}" wrapped/* --clobber
           # Deleted only after the upload succeeded: a failed upload must leave the previous boxes
           # in place rather than empty the release.
           for asset in $(gh release view "${{ inputs.tag }}" --json assets -q '.assets[].name'); do
-            if [ ! -e "staged/$asset" ]; then
+            if [ ! -e "wrapped/$asset" ]; then
               echo "Removing superseded asset: $asset"
               gh release delete-asset "${{ inputs.tag }}" "$asset" --yes
             fi

@@ -5,14 +5,24 @@ built by CI from `examples/hello-box/` in this repository. It exists so you can 
 before installing anything beyond the CLI — `verify` and `run` need no pixi, no conda-pack, and no
 build.
 
-Download the pair matching your machine, keeping both files in the same directory, plus
+Download the one archive matching your machine:
+
+| Your machine | Download |
+| --- | --- |
+| Linux, Intel or AMD | `hello-box-1.0.0-linux-x86_64-cpu.zip` |
+| macOS, Apple silicon | `hello-box-1.0.0-macos-aarch64-metal.zip` |
+| Windows, Intel or AMD | `hello-box-1.0.0-windows-x86_64-cpu.zip` |
+
+Unpack it and you get two files: the box and its signed release document. Run the commands from the
+directory holding them, with
 [`examples/keys/example-signing-public.json`](../blob/main/examples/keys/example-signing-public.json)
 from the repository:
 
 ```sh
 npm install -g scrollcase
-scrollcase verify <sha>.release.json --public-key example-signing-public.json
-scrollcase run    <sha>.release.json --public-key example-signing-public.json
+unzip hello-box-1.0.0-<target>.zip -d hello-box && cd hello-box
+scrollcase verify *.release.json --public-key example-signing-public.json
+scrollcase run    *.release.json --public-key example-signing-public.json
 ```
 
 `verify` checks the signature, the archive's size and hash, the entry names and the manifest.
@@ -20,8 +30,11 @@ Adding `--self-test` extracts the box and imports with the interpreter inside it
 its entry point — both need the machine to match the box's target. `verify` on its own works
 anywhere.
 
-The file names are SHA-256 digests of their own contents: two builds of the same commit produce the
-same names, which is what makes the archive verifiable in the first place.
+The two unpacked names are SHA-256 digests of their own contents: two builds of the same commit
+produce the same names, which is what makes the archive verifiable in the first place. Keep them as
+they are and side by side — `verify` finds the box by the hash its release document commits to, and
+renaming or separating them breaks that. The enclosing zip exists only so the download says which
+machine it is for.
 
 ## About the signing key
 
