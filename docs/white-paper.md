@@ -4230,7 +4230,7 @@ diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that 
 
 #### What is in the file
 
-Thirty-four cases and nineteen error patterns, in a language-neutral JSON document. Each case is a
+Thirty-five cases and nineteen error patterns, in a language-neutral JSON document. Each case is a
 small declarative record:
 
 ```json
@@ -4253,6 +4253,10 @@ small declarative record:
 named corruption to apply, and `runtime` supplies arguments, an exit code, a signal, stream
 handling, a spawn failure or an asset state.
 
+`requiresSymlinks` marks the one thing a host may be unable to do: Windows boxes are link-free and
+creating a link there needs elevation, so a case that depends on one is skipped rather than
+weakened.
+
 The three tokens keep a case both exact and portable: `$NATIVE_PYTHON` and `$NATIVE_TARGET` expand
 to the running host's interpreter path and target ID, and `$BOX` to the prepared root. A case can
 therefore assert a complete absolute argument vector without hard-coding a platform or a temporary
@@ -4269,7 +4273,7 @@ the box format's `schemaVersion: 2`.
 
 | Group | Cases | What is pinned |
 | --- | --- | --- |
-| Valid preparation | 2 | Local and external signing paths both produce the same receipt |
+| Valid preparation | 3 | Local and external signing paths both produce the same receipt; an interpreter reached through a payload link is accepted |
 | Tampering | 6 | Altered signature, altered payload, altered archive bytes, altered size, release/`box.json` disagreement, altered execution metadata |
 | Missing pieces | 3 | Absent interpreter, absent script, undiscoverable module |
 | Hostile archives | 7 | Traversal, absolute path, escaping link, special entry, encrypted entry, duplicate entry, file/directory collision |

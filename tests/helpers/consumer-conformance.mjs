@@ -5,6 +5,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  rename,
   rm,
   stat,
   writeFile,
@@ -12,7 +13,7 @@ import {
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import yazl from 'yazl';
-import { collectFiles, sha256File } from '../../src/build/filesystem.mjs';
+import { collectFiles, payloadSize, sha256File } from '../../src/build/filesystem.mjs';
 import { boxTargetAdapter, boxTargetId } from '../../src/contract/targets.mjs';
 import {
   runBox,
@@ -145,6 +146,27 @@ async function mutateFixture(fixture, mutation, destination) {
   if (removePath) {
     await rm(join(fixture.payload, ...removePath.split('/')));
     await writeZip(fixture.archivePath, fixture.payload);
+    await refreshArchiveIdentity(fixture);
+    return;
+  }
+  // The other side of the link rule. A real box reaches its interpreter through exactly this shape
+  // — `venv/bin/python` is a link to the versioned binary beside it — so a consumer that only
+  // accepts regular files here rejects every box the builder produces on macOS and Linux.
+  if (mutation === 'link-interpreter') {
+    const parts = fixture.release.pythonEntryPoint.split('/');
+    const linkTarget = `${parts[parts.length - 1]}-real`;
+    const directory = join(fixture.payload, ...parts.slice(0, -1));
+    await rename(join(fixture.payload, ...parts), join(directory, linkTarget));
+    await writeZip(fixture.archivePath, fixture.payload, {
+      path: fixture.release.pythonEntryPoint,
+      contents: linkTarget,
+      options: { mode: 0o120777 },
+    });
+    // The link lives only as an archive entry, so the extracted tree weighs what the payload
+    // directory weighs plus the link itself — `lstat` sizes a link by its target string. Stated
+    // here rather than copied from the result, so the signed size still has to be earned.
+    fixture.release.installedSizeBytes =
+      await payloadSize(fixture.payload) + Buffer.byteLength(linkTarget);
     await refreshArchiveIdentity(fixture);
     return;
   }

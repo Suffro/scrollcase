@@ -228,7 +228,11 @@ def extract_zip_archive(archive_path: Path, destination: Path) -> None:
 
 
 def collect_files(root: Path, current: Path | None = None) -> list[str]:
-    """Return regular payload files in stable code-point order."""
+    """Return every payload path backed by a file or a link, in stable code-point order.
+
+    Links are listed beside regular files because a payload link resolves to a regular file inside
+    the same payload — a box reaches its interpreter through one — while special nodes are refused.
+    """
 
     directory = root if current is None else current
     files: list[str] = []

@@ -183,6 +183,23 @@
       }
     },
     {
+      "id": "linked-interpreter",
+      "action": "prepare",
+      "mutation": "link-interpreter",
+      "requiresSymlinks": true,
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
       "id": "special-entry",
       "action": "prepare",
       "mutation": "add-special-entry",

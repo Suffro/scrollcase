@@ -213,15 +213,19 @@ def assert_execution_files(
     execution: BoxExecution | None,
     target: BoxTarget,
     python_version: str,
-    regular_files: Collection[str],
+    resolvable_paths: Collection[str],
 ) -> None:
-    """Prove a signed script or module resolves from regular payload files."""
+    """Prove a signed script or module resolves from a payload path.
+
+    A payload link resolves to a regular file inside the same payload, so the caller passes
+    links alongside regular files: a box may reach its entry point through one.
+    """
 
     if execution is None:
         return
     if isinstance(execution, PythonScriptExecution):
         script = safe_relative_path(execution.script)
-        if script not in regular_files:
+        if script not in resolvable_paths:
             raise ScrollcaseConsumerError(
                 f"Execution script is missing from the box: {script}."
             )
@@ -237,7 +241,7 @@ def assert_execution_files(
     )
     roots = ("", standard_library, f"{standard_library}/site-packages")
     if not any(
-        (f"{root}/{candidate}" if root else candidate) in regular_files
+        (f"{root}/{candidate}" if root else candidate) in resolvable_paths
         for root in roots
         for candidate in candidates
     ):
