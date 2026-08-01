@@ -178,7 +178,8 @@ the error messages use no synonym for any of them.
 #### Box
 
 The built artefact: a single ZIP archive containing a complete, relocated Python environment, a
-self-describing manifest, any embedded assets, and a dependency licence inventory. A box is built
+self-describing manifest, any embedded assets, and — when the [scroll](#scroll) declares a reviewed
+licence audit — a dependency licence inventory. A box is built
 for exactly one [target](#target). It is never called an image or a container — it is neither, it
 carries no operating system and no isolation boundary, and borrowing either word would import
 expectations Scrollcase does not meet.
@@ -945,8 +946,9 @@ Read as guarantees rather than as steps, that pipeline says:
    real check.
 6. **Signed and self-describing.** A release commits to the archive's size and SHA-256; the archive
    carries a manifest that must agree with it.
-7. **Inventoried.** The dependency licence inventory is derived from the lock, so it is a property
-   of what was solved rather than of somebody's notes.
+7. **Inventoried.** When the scroll declares a reviewed licence audit, the dependency licence
+   inventory is derived from the lock, so it is a property of what was solved rather than of
+   somebody's notes.
 
 Scrollcase is **a library as well as a command line**. Its Node surfaces are `scrollcase/contract`,
 `scrollcase/contract/browser`, `scrollcase/contract/types`, `scrollcase/build`, `scrollcase/sign`
@@ -1927,7 +1929,7 @@ The `payloadPath` pattern is worth reading in full, because it encodes the path-
 schema level rather than leaving it to code:
 
 ```text
-^(?!/)(?![A-Za-z]:)(?!.*\\)(?!.*(?:^|/)\.\.(?:/|$))(?!.*//).*$
+^(?!/)(?![A-Za-z]:)(?!.*\\)(?!.*(?:^|/)\.\.(?:/|$))(?!.*//).+$
 ```
 
 Not absolute, not a drive letter, no backslash anywhere, no `..` segment, no empty segment,
@@ -2254,11 +2256,11 @@ interpreter first runs should be able to see it without following a call graph.
 | 3 | Refuse an unusable host, toolchain or tree | `targets.mjs`, `pixi.mjs`, `scroll.mjs` | `assertNativeHost`; pinned pixi and conda-pack located; `pixi.lock` present and hashed; git revision read, dirty tree refused |
 | 4 | Prepare the build tree | `box.mjs` | Removes and recreates `<buildDir>/<scrollId>/payload/`; clears the target's object directory under `dist/` |
 | 5 | Solve, pack and relocate | `pixi.mjs`, `launchers.mjs` | Installs into a build-local pixi workspace, packs it, extracts into `payload/venv/`, repairs it, deletes the workspace and tarball |
-| 6 | Stage assets | `assets.mjs` | Downloads verified assets, copies verified local files, expands asset archives — the first two only when weights are embedded |
+| 6 | Stage assets | `assets.mjs` | Downloads verified assets, copies verified local files, expands asset archives — the downloads and the archives only when weights are embedded, the local files always |
 | 7 | Prune | `box.mjs` | Deletes each `prunePaths` entry from the payload |
-| 8 | Licence inventory | `licenses.mjs` | Recomputes from the lock, compares against the reviewed copy, writes `payload/THIRD_PARTY_NOTICES/conda-distributions.json` |
-| 9 | Post-prune integrity | `box.mjs`, `execution.mjs` | Every `selfTest.files` entry still exists; execution names a real script or discoverable module |
-| 10 | Self-test | `box.mjs` | Runs `payload/venv/bin/python -c …` with the target's validation environment |
+| 8 | Licence inventory | `licenses.mjs` | When the scroll declares a reviewed audit: recomputes from the lock, compares against it, writes `payload/THIRD_PARTY_NOTICES/conda-distributions.json` |
+| 9 | Post-prune integrity | `box.mjs`, `execution.mjs` | Every `selfTest.files` entry still exists, except an asset deferred by `on-demand`; execution names a real script or discoverable module |
+| 10 | Self-test | `box.mjs` | Runs the adapter's own entry point — `payload/venv/bin/python -c …`, or `venv/python.exe` on Windows — with the target's validation environment |
 | 11 | Parity | `parity.mjs` | Runs the declared check once per accelerator and enforces the tolerances |
 | 12 | Describe, normalise, measure | `box.mjs`, `filesystem.mjs` | Writes `payload/box.json`; stamps every entry with the fixed mtime; sums the installed size |
 | 13 | Archive | `archive.mjs` | Writes `<buildDir>/<stem>.zip` deterministically; hashes and measures it |
@@ -4169,8 +4171,8 @@ try {
 }
 ```
 
-It composes the two public operations rather than reimplementing either, which is why it is fifty
-lines. The `onPrepared` hook exists for exactly one purpose: an on-demand box needs its assets
+It composes the two public operations rather than reimplementing either, which is why it is under
+fifty lines. The `onPrepared` hook exists for exactly one purpose: an on-demand box needs its assets
 placed into the extracted root after preparation and before execution, and that is the only moment
 at which the root path is known.
 
@@ -5367,7 +5369,7 @@ Twenty-five test files under `tests/unit/`, plus two shared fixtures under `test
 | `consumer.test.mjs` | Preparation, execution and one-shot: verified extraction through staging with an immutable typed receipt, an existing destination left untouched, staging removed when the logical size disagrees, an unsafe signed asset path refused, an invalid envelope shape refused even when its payload signature verifies, shell-free argument ordering, `-m` invocation, a real child with `cwd`, arguments and exit code intact, a replaced prepared root refused, on-demand assets verified before spawning, signals forwarded and every listener removed, and the temporary extraction removed on all three terminal paths |
 | `contract-links.test.mjs` | The link rule: the shapes a real prefix produces are accepted; targets escaping the payload, host-only shapes, cycles, over-long chains, dangling links and directory targets are refused; writing through a directory link is refused while an unused one is fine; and a Windows box is link-free |
 | `contract-schema.test.mjs` | The schemas describe what the builder actually emits — real release, channel, box and scroll documents validate, the channel vocabulary is the same in code and schema, every shipped example scroll validates, the execution union is canonical, release and box manifests carry the same optional execution contract; the namespace defaults to `scrollcase.box`, accepts a project's own, and rejects a malformed one; the envelope rejects a payload-hash mismatch and any missing field; and a shipped signed example verifies against its public key |
-| `contract-targets.test.mjs` | Every golden target-ID case; every unsupported target and invalid CUDA combination refused; adapters cover the accepted matrix and describe a layout consumers can rely on; the conda subdir mapping; the native-host and entry-point assertions |
+| `contract-targets.test.mjs` | Every golden target-ID case; every unsupported target and invalid CUDA combination refused; adapters cover the accepted matrix and describe a layout consumers can rely on; the archive backend names the versions the package actually installs; the conda subdir mapping; the native-host and entry-point assertions |
 | `docs-contract.test.mjs` | The documentation is checked against the code: schemas are published byte-identically on the routes their `$id`s claim, the privacy page exists and is linked, no third-party script is loaded, every CLI verb and option appears in the CLI reference, every public runtime export appears in the API reference, every complete JSON example parses and validates, internal routes resolve — and the three white-paper drift cases in section 11.5 |
 | `execution-contract.test.mjs` | A Python script must be a regular archive file at its exact safe path; runnable modules are found in both the POSIX and Windows layouts; a module in neither the box root nor its environment is refused |
 | `package-surface.test.mjs` | Every advertised subpath exists and resolves; `files` ships everything the exports map points at; the executable ships under the canonical command name; each entry point imports the way a dependent would; the browser graph reaches no Node built-in; a strict TypeScript consumer type-checks every entry point; an `npm pack` dry run contains the complete consumer import closure; the schema and fixture wildcards resolve; and both generated surfaces still match their sources |
@@ -5602,7 +5604,9 @@ consumer-only dependent avoid the entire build layer.
 | `schemaUrl`, `fixtureUrl` | function | Resolve a shipped schema or fixture from a dependent package |
 
 `scrollcase/contract/browser` exports the same set minus `decodeDocumentPayload`, `schemaUrl` and
-`fixtureUrl` — the three that need Node's `crypto` or its filesystem.
+`fixtureUrl`. The first needs Node's `crypto` to hash a payload; the other two build no more than a
+`URL` against the module's own location, and are left out because what they resolve to is a file on
+disk beside the installed package rather than something a browser can fetch.
 
 </div>
 

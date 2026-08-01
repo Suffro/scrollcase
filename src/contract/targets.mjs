@@ -40,11 +40,15 @@ const TARGET_ACCELERATORS = {
 };
 const CUDA_VERSION = /^[1-9][0-9]*\.[0-9]+$/;
 
+// The exact libraries that wrote and read a box, so a consumer knows what produced the bytes it
+// holds rather than inferring it. Each version is the one this package installs: they are pinned in
+// `package.json` and `tests/unit/contract-targets.test.mjs` fails when the two drift, because a
+// descriptor naming a release that never touched the archive is worse than no descriptor at all.
 const ARCHIVE_BACKEND = Object.freeze({
   format: 'zip',
   writer: 'yazl@3.3.1',
   reader: 'yauzl@3.4.0',
-  assetTarReader: 'tar@7.5.20',
+  assetTarReader: 'tar@7.5.22',
   zip64: true,
 });
 

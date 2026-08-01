@@ -4,6 +4,16 @@ All notable changes to Scrollcase are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Name the `tar` release a box was actually written with in every target adapter's `archive`
+  descriptor. The pin moved to 7.5.22 and the descriptor kept reporting 7.5.20, so a consumer
+  reading a box was told about a release that never touched its bytes. The three backend versions
+  are now checked against the package's own dependency pins by
+  `tests/unit/contract-targets.test.mjs`, so they cannot drift apart again.
+
 ## [0.6.0] — 2026-07-31
 
 ### Added

@@ -12,6 +12,7 @@ import {
 } from '../../src/contract/index.mjs';
 
 const contract = JSON.parse(readFileSync(fixtureUrl('target-id-contract'), 'utf8'));
+const packageJsonUrl = new URL('../../package.json', import.meta.url);
 
 describe('target identity', () => {
   it('produces the exact identifier every golden case declares', () => {
@@ -52,6 +53,20 @@ describe('target adapters', () => {
       expect(adapter.archive.format, adapter.id).toBe('zip');
       // The scripts directory must sit inside the payload root, or an installed box cannot find it.
       expect(adapter.python.scriptsDirectory, adapter.id).toMatch(/^venv/);
+    }
+  });
+
+  it('names the archive backend versions this package actually installs', () => {
+    // The descriptor tells a consumer what produced its box, so it is only worth anything while it
+    // matches the pins. It drifted once already: `tar` was upgraded and the adapter kept naming the
+    // superseded release.
+    const dependencies = JSON.parse(readFileSync(packageJsonUrl, 'utf8')).dependencies;
+    const backendFields = { writer: 'yazl', reader: 'yauzl', assetTarReader: 'tar' };
+    for (const adapter of boxTargetAdapters()) {
+      for (const [field, dependency] of Object.entries(backendFields)) {
+        expect(adapter.archive[field], `${adapter.id}.${field}`)
+          .toBe(`${dependency}@${dependencies[dependency]}`);
+      }
     }
   });
 
