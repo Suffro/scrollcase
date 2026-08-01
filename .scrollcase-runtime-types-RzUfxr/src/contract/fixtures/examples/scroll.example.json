@@ -1,0 +1,44 @@
+{
+  "$schema": "https://scrollcase.dev/schema/v2/scroll.schema.json",
+  "schemaVersion": 2,
+  "scrollId": "example-model-macos-arm64-metal",
+  "scrollVersion": "1.0.0",
+  "boxId": "example-model",
+  "modelId": "example-org-example-model",
+  "runtimeId": "example-model-runtime",
+  "version": "1.0.0",
+  "sourceRevision": "9f0d3a1c4b5e6f7081920a3b4c5d6e7f80910a2b",
+  "target": {
+    "platform": "macos",
+    "arch": "aarch64",
+    "accelerator": "metal"
+  },
+  "compatibility": {
+    "minHostAppVersion": "1.0.0",
+    "minMacosVersion": "13.0",
+    "minRamGb": 8
+  },
+  "pythonVersion": "3.11.15",
+  "pythonEntryPoint": "venv/bin/python",
+  "modelCacheSubdir": "model-cache/example-model",
+  "assetBaseUrl": "https://assets.example.org/boxes",
+  "assets": [
+    {
+      "url": "https://assets.example.org/example-model/weights.safetensors",
+      "relativePath": "model-cache/example-model/weights.safetensors",
+      "sizeBytes": 205385258,
+      "sha256": "6cb5d451ab5c4b33eb673adbe4fddc61d2389df1b89b7651a9fe2e557572b922"
+    }
+  ],
+  "selfTest": {
+    "imports": [
+      "torch",
+      "numpy"
+    ],
+    "files": [
+      "model-cache/example-model/weights.safetensors"
+    ]
+  },
+  "pixiVersion": "0.73.0",
+  "condaDependencyLicenseAudit": "legal/audits/example-model-macos-arm64-metal.json"
+}

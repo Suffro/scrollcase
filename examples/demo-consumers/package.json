@@ -1,0 +1,16 @@
+{
+  "name": "scrollcase-demo",
+  "private": true,
+  "type": "module",
+  "description": "Runs the published Scrollcase demo box through the Node consumer.",
+  "scripts": {
+    "start": "tsx run-box.ts"
+  },
+  "dependencies": {
+    "scrollcase": "^0.6.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
