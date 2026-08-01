@@ -107,6 +107,18 @@ scrollcase-demo/
     └── example-signing-public.json
 ```
 
+## What just happened
+
+`verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
+and works on any machine. `run` extracts the box to a temporary directory and executes its entry
+point with the interpreter *inside* it — so it needs a machine matching the box's target. What it
+prints is `sys.prefix`, which is the point: the interpreter answering is the one from the box.
+
+::: warning The demo key is a demo key
+Those boxes are signed with a key that exists only for the example. It signs nothing else and no
+trust chain depends on it. A signature from it means the example is intact — nothing more.
+:::
+
 ## Run it from your own app
 
 The CLI is the quickest way to see a box work, but an application does not shell out to it: both
@@ -189,15 +201,3 @@ trust chain itself.
 The Python package is published separately: `npm install scrollcase` does not install it, and
 `pip install scrollcase-consumer` needs no Node at all. Full surface in the
 [Library APIs reference](/reference/api).
-
-## What just happened
-
-`verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
-and works on any machine. `run` extracts the box to a temporary directory and executes its entry
-point with the interpreter *inside* it — so it needs a machine matching the box's target. What it
-prints is `sys.prefix`, which is the point: the interpreter answering is the one from the box.
-
-::: warning The demo key is a demo key
-Those boxes are signed with a key that exists only for the example. It signs nothing else and no
-trust chain depends on it. A signature from it means the example is intact — nothing more.
-:::

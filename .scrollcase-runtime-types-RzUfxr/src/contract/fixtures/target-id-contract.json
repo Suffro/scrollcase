@@ -1,0 +1,64 @@
+{
+  "valid": [
+    {
+      "name": "macOS arm64 Metal",
+      "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
+      "targetId": "macos-aarch64-metal"
+    },
+    {
+      "name": "macOS arm64 CPU",
+      "target": { "platform": "macos", "arch": "aarch64", "accelerator": "cpu" },
+      "targetId": "macos-aarch64-cpu"
+    },
+    {
+      "name": "Linux x86_64 CPU",
+      "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cpu" },
+      "targetId": "linux-x86_64-cpu"
+    },
+    {
+      "name": "Linux x86_64 CUDA 12.4",
+      "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cuda", "cudaVersion": "12.4" },
+      "targetId": "linux-x86_64-cuda12.4"
+    },
+    {
+      "name": "Windows x86_64 CPU",
+      "target": { "platform": "windows", "arch": "x86_64", "accelerator": "cpu" },
+      "targetId": "windows-x86_64-cpu"
+    },
+    {
+      "name": "Windows x86_64 CUDA 12.4",
+      "target": { "platform": "windows", "arch": "x86_64", "accelerator": "cuda", "cudaVersion": "12.4" },
+      "targetId": "windows-x86_64-cuda12.4"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "CUDA without a version",
+      "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cuda" }
+    },
+    {
+      "name": "CPU with a CUDA version",
+      "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cpu", "cudaVersion": "12.4" }
+    },
+    {
+      "name": "Metal with a CUDA version",
+      "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal", "cudaVersion": "12.4" }
+    },
+    {
+      "name": "CUDA version with a prefix",
+      "target": { "platform": "windows", "arch": "x86_64", "accelerator": "cuda", "cudaVersion": "cuda12.4" }
+    },
+    {
+      "name": "CUDA version without a minor component",
+      "target": { "platform": "linux", "arch": "x86_64", "accelerator": "cuda", "cudaVersion": "12" }
+    },
+    {
+      "name": "unsupported macOS Intel target",
+      "target": { "platform": "macos", "arch": "x86_64", "accelerator": "cpu" }
+    },
+    {
+      "name": "unsupported Linux arm64 target",
+      "target": { "platform": "linux", "arch": "aarch64", "accelerator": "cpu" }
+    }
+  ]
+}

@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "description": "Language-neutral semantic cases shared by the Node and Python Scrollcase consumers.",
+  "errorPatterns": {
+    "invalid-signature": "no valid signature",
+    "altered-payload": "Signed payload SHA-256 mismatch",
+    "archive-hash": "Archive SHA-256 mismatch",
+    "archive-size": "Archive size mismatch",
+    "manifest-disagreement": "box.json mismatch: modelId",
+    "execution-disagreement": "box.json mismatch: execution",
+    "missing-interpreter": "Archive is missing venv/",
+    "missing-script": "Execution script is missing",
+    "missing-module": "Execution module is not discoverable",
+    "unsafe-path": "Unsafe relative path|invalid relative path|absolute path",
+    "link-entry": "link does not resolve to a file inside the payload|would be written through a link|link target is too long",
+    "special-entry": "special entries",
+    "encrypted-entry": "Encrypted ZIP entries",
+    "entry-collision": "Archive entry collides with another entry",
+    "existing-destination": "Destination already exists",
+    "asset-missing": "asset is missing",
+    "asset-size": "asset size mismatch",
+    "asset-hash": "asset SHA-256 mismatch",
+    "spawn-failure": "failed to start|fixture spawn failed"
+  },
+  "cases": [
+    {
+      "id": "valid-local-signer",
+      "action": "prepare",
+      "fixture": {
+        "signer": "local"
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "valid-external-signer",
+      "action": "prepare",
+      "fixture": {
+        "signer": "external"
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "altered-signature",
+      "action": "prepare",
+      "mutation": "alter-signature",
+      "expected": {
+        "outcome": "rejected",
+        "error": "invalid-signature",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "altered-payload",
+      "action": "prepare",
+      "mutation": "alter-payload",
+      "expected": {
+        "outcome": "rejected",
+        "error": "altered-payload",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "altered-archive-hash",
+      "action": "prepare",
+      "mutation": "alter-archive-bytes",
+      "expected": {
+        "outcome": "rejected",
+        "error": "archive-hash",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "altered-archive-size",
+      "action": "prepare",
+      "mutation": "alter-archive-size",
+      "expected": {
+        "outcome": "rejected",
+        "error": "archive-size",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "release-box-disagreement",
+      "action": "prepare",
+      "mutation": "alter-release-model",
+      "expected": {
+        "outcome": "rejected",
+        "error": "manifest-disagreement",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "altered-execution-metadata",
+      "action": "prepare",
+      "mutation": "alter-release-execution",
+      "expected": {
+        "outcome": "rejected",
+        "error": "execution-disagreement",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "missing-interpreter",
+      "action": "prepare",
+      "mutation": "remove-interpreter",
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-interpreter",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "missing-script",
+      "action": "prepare",
+      "mutation": "remove-script",
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-script",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "missing-module",
+      "action": "prepare",
+      "fixture": {
+        "execution": "module"
+      },
+      "mutation": "remove-module",
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-module",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "traversal-entry",
+      "action": "prepare",
+      "mutation": "add-traversal-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "unsafe-path",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "absolute-entry",
+      "action": "prepare",
+      "mutation": "add-absolute-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "unsafe-path",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "link-entry",
+      "action": "prepare",
+      "mutation": "add-link-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "link-entry",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "linked-interpreter",
+      "action": "prepare",
+      "mutation": "link-interpreter",
+      "requiresSymlinks": true,
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "special-entry",
+      "action": "prepare",
+      "mutation": "add-special-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "special-entry",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "encrypted-entry",
+      "action": "prepare",
+      "mutation": "encrypt-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "encrypted-entry",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "extraction-collision",
+      "action": "prepare",
+      "mutation": "duplicate-entry",
+      "expected": {
+        "outcome": "rejected",
+        "error": "entry-collision",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "file-directory-collision",
+      "action": "prepare",
+      "mutation": "file-directory-collision",
+      "expected": {
+        "outcome": "rejected",
+        "error": "entry-collision",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "existing-destination",
+      "action": "prepare",
+      "mutation": "create-destination",
+      "expected": {
+        "outcome": "rejected",
+        "error": "existing-destination",
+        "destinationExists": true
+      }
+    },
+    {
+      "id": "macos-entry-point",
+      "action": "prepare",
+      "fixture": {
+        "target": "macos-aarch64-cpu"
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "venv/bin/python",
+          "targetId": "macos-aarch64-cpu"
+        }
+      }
+    },
+    {
+      "id": "linux-entry-point",
+      "action": "prepare",
+      "fixture": {
+        "target": "linux-x86_64-cpu"
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "venv/bin/python",
+          "targetId": "linux-x86_64-cpu"
+        }
+      }
+    },
+    {
+      "id": "windows-entry-point",
+      "action": "prepare",
+      "fixture": {
+        "target": "windows-x86_64-cpu"
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "venv/python.exe",
+          "targetId": "windows-x86_64-cpu"
+        }
+      }
+    },
+    {
+      "id": "persistent-prepared-execution",
+      "action": "run-prepared",
+      "runtime": {
+        "exitCode": 0
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "persistentRootExists": true,
+        "spawned": true
+      }
+    },
+    {
+      "id": "default-user-argument-ordering",
+      "action": "run-prepared",
+      "runtime": {
+        "args": [
+          "--caller",
+          "caller value"
+        ],
+        "exitCode": 0,
+        "inspectInvocation": true
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "argv": [
+          "$BOX/$NATIVE_PYTHON",
+          "$BOX/app/main.py",
+          "--default",
+          "value with spaces",
+          "--caller",
+          "caller value"
+        ],
+        "cwd": "$BOX",
+        "shell": false
+      }
+    },
+    {
+      "id": "shell-metacharacter-preservation",
+      "action": "run-prepared",
+      "runtime": {
+        "args": [
+          "$(touch never)",
+          "semi;colon",
+          "quote'\"value"
+        ],
+        "exitCode": 0,
+        "inspectInvocation": true
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "argv": [
+          "$BOX/$NATIVE_PYTHON",
+          "$BOX/app/main.py",
+          "--default",
+          "value with spaces",
+          "$(touch never)",
+          "semi;colon",
+          "quote'\"value"
+        ],
+        "cwd": "$BOX",
+        "shell": false
+      }
+    },
+    {
+      "id": "standard-stream-forwarding",
+      "action": "run-prepared",
+      "runtime": {
+        "exitCode": 0,
+        "streams": true
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "streamsPreserved": true
+      }
+    },
+    {
+      "id": "child-non-zero-exit",
+      "action": "run-prepared",
+      "runtime": {
+        "exitCode": 23
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 23,
+          "signal": null
+        },
+        "spawned": true
+      }
+    },
+    {
+      "id": "signal-forwarding",
+      "action": "run-prepared",
+      "runtime": {
+        "signal": "SIGTERM"
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": null,
+          "signal": "SIGTERM"
+        },
+        "forwardedSignal": "SIGTERM"
+      }
+    },
+    {
+      "id": "temporary-cleanup-success",
+      "action": "run-box",
+      "runtime": {
+        "exitCode": 0
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "temporaryDirectoryEmpty": true
+      }
+    },
+    {
+      "id": "temporary-cleanup-failure",
+      "action": "run-box",
+      "runtime": {
+        "spawnError": true
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "spawn-failure",
+        "temporaryDirectoryEmpty": true
+      }
+    },
+    {
+      "id": "temporary-cleanup-signal",
+      "action": "run-box",
+      "runtime": {
+        "signal": "SIGTERM"
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": null,
+          "signal": "SIGTERM"
+        },
+        "temporaryDirectoryEmpty": true
+      }
+    },
+    {
+      "id": "on-demand-asset-missing",
+      "action": "run-prepared",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "missing"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-missing",
+        "spawned": false
+      }
+    },
+    {
+      "id": "on-demand-asset-size-mismatch",
+      "action": "run-prepared",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "wrong-size"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-size",
+        "spawned": false
+      }
+    },
+    {
+      "id": "on-demand-asset-hash-mismatch",
+      "action": "run-prepared",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "wrong-hash"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-hash",
+        "spawned": false
+      }
+    }
+  ]
+}
