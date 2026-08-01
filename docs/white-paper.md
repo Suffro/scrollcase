@@ -42,18 +42,18 @@ consumes it, then the properties that hold across all of it.
 
 | Section | Subject |
 | --- | --- |
-| 1. How to read this document | Audience, conventions, self-containment |
-| 2. Glossary | Every technical term used here, canonical and domain |
-| 3. The problem and the boundary | What Scrollcase is, and what it deliberately is not |
-| 4. The substrate | pixi, conda-pack, conda-forge, and the three runtime dependencies |
-| 5. The contract | `src/contract/`: targets, envelopes, links, schemas, fixtures, types |
-| 6. The build pipeline | `src/build/`: the ordered steps and every module that serves them |
-| 7. Signing and custody | `src/sign/`: keys, local signing, external signers, verification |
-| 8. The consumers | Node and Python, side by side, and their shared conformance fixtures |
-| 9. The command line | The nine verbs and where the thin-CLI boundary runs |
-| 10. The invariants | Determinism, provenance, verify-never-trust, and the paths that break silently |
-| 11. Test map | Which test proves which behaviour |
-| 12. Appendices | Module summary, index of public exports |
+| [1. How to read this document](#_1-how-to-read-this-document) | Audience, conventions, self-containment |
+| [2. Glossary](#_2-glossary) | Every technical term used here, canonical and domain |
+| [3. The problem and the boundary](#_3-the-problem-and-the-boundary) | What Scrollcase is, and what it deliberately is not |
+| [4. The substrate](#_4-the-substrate) | pixi, conda-pack, conda-forge, and the three runtime dependencies |
+| [5. The contract](#_5-the-contract) | `src/contract/`: targets, envelopes, links, schemas, fixtures, types |
+| [6. The build pipeline](#_6-the-build-pipeline) | `src/build/`: the ordered steps and every module that serves them |
+| [7. Signing and custody](#_7-signing-and-custody) | `src/sign/`: keys, local signing, external signers, verification |
+| [8. The consumers](#_8-the-consumers) | Node and Python, side by side, and their shared conformance fixtures |
+| [9. The command line](#_9-the-command-line) | The nine verbs and where the thin-CLI boundary runs |
+| [10. The invariants](#_10-the-invariants) | Determinism, provenance, verify-never-trust, and the paths that break silently |
+| [11. Test map](#_11-test-map) | Which test proves which behaviour |
+| [12. Appendices](#_12-appendices) | Module summary, index of public exports |
 
 Every section is present in this copy; the document is complete and self-contained.
 
