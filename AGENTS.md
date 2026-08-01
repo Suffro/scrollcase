@@ -103,6 +103,9 @@ afterwards.**
   does not exist and you need to update local memory, create it in the root.
 - `docs/` is a VitePress site and part of the deliverable. A behaviour change not reflected there is
   unfinished.
+- `docs/white-paper.md` describes the codebase module by module and is part of the same deliverable:
+  a new module, a new public export, or a changed guarantee must be reflected there too. Three cases
+  in `docs-contract.test.mjs` fail when it is not.
 
 ## Naming (canonical terms — use exactly these)
 
