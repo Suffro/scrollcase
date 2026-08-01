@@ -22,9 +22,9 @@ Download the demo for your system:
 
 ::: tip NOTE
 
-The file you download (eg. <samp>hello-box-1.0.0-macos-aarch64-metal.zip</samp>) is **NOT** the demo box — it is just a container, named so you can tell which machine it is for.
+The file you download (eg. <samp>hello-box-1.0.0-macos-aarch64-metal.zip</samp>) is **NOT** the demo box — it is a container, named so you can tell which machine it is for, holding the box together with two ready-to-run examples.
 
-The demo box is the <samp>.zip</samp> you find inside it, next to the <samp>.release.json</samp>. Do not unzip that one: **it's ready to run**. Leave both files named as they are and side by side, because that is how `verify` finds the box.
+The demo box is the <samp>.zip</samp> inside it under <samp>box/</samp>, next to its <samp>.release.json</samp>. Do not unzip that one: **it's ready to run**. Leave both named as they are and side by side, because that is how `verify` finds the box.
 
 :::
 
@@ -32,15 +32,15 @@ The demo box is the <samp>.zip</samp> you find inside it, next to the <samp>.rel
 
 Once you have downloaded the demo, follow these steps:
 
-1. **Install scrollcase and unpack the demo into a folder of its own:**
+1. **Unpack the demo into a folder of its own:**
 
 ```sh
-npm install -g scrollcase # this will install it globally
-mkdir scrollcase-demo && cd scrollcase-demo
-unzip ../hello-box-1.0.0-<target>.zip -d box
+unzip hello-box-1.0.0-<target>.zip -d scrollcase-demo
+cd scrollcase-demo
 ```
 
-> **box/** now holds 2 files: the **demo box** `.zip` to run, and its matching `.release.json`. <br>
+> **box/** holds 2 files: the **demo box** `.zip` to run, and its matching `.release.json`. Beside it
+> you already have `run-box.ts` and `run_box.py` — nothing to retype. <br>
 
 ---
 
@@ -64,16 +64,25 @@ habit to carry into a real project, where the key will not be a demo key.
 
 3. **Verify and run the box:**
 
+<Tabs :titles="['Terminal', 'Node/Python']">
+<Tab title="Terminal">
+
+This path needs the CLI, and nothing else — no pixi, no conda-pack, no build:
+
+```sh
+npm install -g scrollcase
+```
+
 <Tabs :titles="['macOS / Linux', 'Windows (PowerShell)']">
-  <Tab title="macOS / Linux">
+<Tab title="macOS / Linux">
 
 ```sh
 scrollcase verify box/*.release.json --public-key keys/example-signing-public.json
 scrollcase run    box/*.release.json --public-key keys/example-signing-public.json
 ```
 
-  </Tab>
-  <Tab title="Windows (PowerShell)">
+</Tab>
+<Tab title="Windows (PowerShell)">
 
 ```powershell
 scrollcase verify (Get-ChildItem box\*.release.json).FullName --public-key keys\example-signing-public.json
@@ -89,115 +98,90 @@ scrollcase run    (Get-ChildItem box\*.release.json).FullName --public-key keys\
 > after unzipping. You never name the box archive: `verify` finds it beside the release document,
 > under the hash that document commits to.</small>
 
-
-
----
-
-4. **Check out the results, that's it.**
-
-At this point the folder looks like this — the box untouched in its own directory, the key beside
-it, nothing loose:
-
-```text
-scrollcase-demo/
-├── box/
-│   ├── <archive sha256>.zip          # the demo box, left exactly as downloaded
-│   └── <document sha256>.release.json
-└── keys/
-    └── example-signing-public.json
-```
-
-## What just happened
+### What just happened
 
 `verify` checks the signature, the archive's size and hash, the entry names and manifest agreement,
 and works on any machine. `run` extracts the box to a temporary directory and executes its entry
 point with the interpreter *inside* it — so it needs a machine matching the box's target. What it
 prints is `sys.prefix`, which is the point: the interpreter answering is the one from the box.
 
+</Tab>
+<Tab title="Node/Python">
+
+
+### Run it from your own app
+
+The CLI is the quickest way to see a box work, but an application does not shell out to it: both
+consumers expose the same verify-then-run semantics as a library. `run-box.ts` and `run_box.py` are
+already in the folder you unpacked, so this is two commands, not a copy-paste.
+
+<Tabs :titles="['Node', 'Python']">
+<Tab title="Node">
+
+```sh
+npm install
+npx tsx run-box.ts
+```
+
+::: details run-box.ts — the file you just ran
+<<< @/../examples/demo-consumers/run-box.ts
+:::
+
+</Tab>
+<Tab title="Python">
+
+```sh
+python -m pip install scrollcase-consumer
+python run_box.py
+```
+
+::: details run_box.py — the file you just ran
+<<< @/../examples/demo-consumers/run_box.py
+:::
+
+</Tab>
+</Tabs>
+
+`runBox` verifies the signature, extracts to a private temporary directory, executes, and cleans up
+after itself — the same chain `scrollcase run` performs, minus the terminal. `onPrepared` fires
+after verification and before execution, which is how an application shows what it is about to run
+without repeating the trust chain itself.
+
+Neither file names the box archive. Both find the release document by its suffix and let the
+consumer resolve the archive beside it, under the hash that document commits to.
+
+The Python package is published separately: `npm install scrollcase` does not install it, and
+`pip install scrollcase-consumer` needs no Node at all. Full surface in the
+[Library APIs reference](/reference/api).
+
+</Tab>
+</Tabs>
+
 ::: warning The demo key is a demo key
 Those boxes are signed with a key that exists only for the example. It signs nothing else and no
 trust chain depends on it. A signature from it means the example is intact — nothing more.
 :::
 
-## Run it from your own app
 
-The CLI is the quickest way to see a box work, but an application does not shell out to it: both
-consumers expose the same verify-then-run semantics as a library, and they take the very files you
-just downloaded. Same folder, same key, nothing rebuilt.
+---
 
-<Tabs :titles="['TypeScript', 'Python']">
-  <Tab title="TypeScript">
+4. **Check out the results, that's it.**
 
-```sh
-npm install scrollcase
-npm install --save-dev tsx typescript
+At this point the folder looks like this — the box untouched in its own directory, the key in
+another, the runnable examples above both:
+
+```text
+scrollcase-demo/
+├── box/                               # from the download, left exactly as it arrived
+│   ├── <archive sha256>.zip
+│   └── <document sha256>.release.json
+├── keys/                              # step 2, from the repository — never from the release
+│   └── example-signing-public.json
+├── run-box.ts                         # from the download
+├── run_box.py                         # from the download
+├── package.json                       # from the download
+└── README.md                          # from the download
 ```
 
-```ts
-// run-box.ts
-import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { runBox } from 'scrollcase/consumer';
-
-const release = readdirSync('box').find((name) => name.endsWith('.release.json'))!;
-
-runBox(join('box', release), {
-  publicPath: 'keys/example-signing-public.json',
-  stdout: 'inherit',
-  stderr: 'inherit',
-  onPrepared: ({ boxId, version, targetId }) => {
-    console.log(`Running ${boxId} ${version} (${targetId})`);
-  },
-}).then((result) => {
-  process.exitCode = result.exitCode ?? 1;
-});
-```
-
-```sh
-npx tsx run-box.ts
-```
-
-  </Tab>
-  <Tab title="Python">
-
-```sh
-python -m pip install scrollcase-consumer
-```
-
-```python
-# run_box.py
-from pathlib import Path
-
-from scrollcase_consumer import PreparedBox, run_box
-
-release = next(Path("box").glob("*.release.json"))
-
-
-def report(prepared: PreparedBox) -> None:
-    print(f"Running {prepared.box_id} {prepared.version} ({prepared.target_id})", flush=True)
-
-
-result = run_box(
-    release,
-    public_key_path="keys/example-signing-public.json",
-    on_prepared=report,
-)
-raise SystemExit(result.exit_code or 0)
-```
-
-```sh
-python run_box.py
-```
-
-  </Tab>
-</Tabs>
-
-Drop either file at the top of `scrollcase-demo/` and run it from there. `runBox` verifies the
-signature, extracts to a private temporary directory, executes, and cleans up after itself — the
-same chain `scrollcase run` performs, minus the terminal. `onPrepared` fires after verification and
-before execution, which is how an application shows what it is about to run without repeating the
-trust chain itself.
-
-The Python package is published separately: `npm install scrollcase` does not install it, and
-`pip install scrollcase-consumer` needs no Node at all. Full surface in the
-[Library APIs reference](/reference/api).
+Everything except `keys/` came out of the one file you downloaded. The key is the deliberate
+exception, and the reason is above.

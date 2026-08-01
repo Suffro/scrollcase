@@ -139,10 +139,16 @@ jobs:
       # that is how `verify` finds it. Published flat, that gave six hex names on the release page and
       # no way to tell which three were yours before downloading them.
       #
-      # So each target ships as one plainly named container holding that pair. The names inside stay
-      # content-addressed and adjacent, which is what `verify` needs; the name outside says which
+      # So each target ships as one plainly named container. The pair keeps content-addressed names
+      # and stays adjacent under `box/`, which is what `verify` needs; the name outside says which
       # machine it is for, which is what a person needs. Stored rather than compressed: the inner
       # archive is already deflated, and recompressing it would cost minutes to save nothing.
+      #
+      # The consumer examples travel with it, so unpacking gives a folder that already runs three
+      # ways instead of source to retype. They are copied from `examples/demo-consumers/`, the same
+      # files the guide embeds, so the page cannot document something other than what ships. The
+      # trust key is deliberately absent: a signature proves nothing if the key arrives in the same
+      # package as what it signs.
       - name: Wrap each target as one plainly named archive
         shell: bash
         run: |
@@ -159,7 +165,19 @@ jobs:
               ls -l "$dir" >&2
               exit 1
             fi
-            zip -0 -X -j "wrapped/$BOX_ID-$BOX_VERSION-$target.zip" "${zips[0]}" "${releases[0]}"
+            stage="staging/$target"
+            mkdir -p "$stage/box"
+            cp "${zips[0]}" "${releases[0]}" "$stage/box/"
+            cp examples/demo-consumers/run-box.ts \
+               examples/demo-consumers/run_box.py \
+               examples/demo-consumers/package.json \
+               examples/demo-consumers/README.md "$stage/"
+            # Entries named explicitly rather than with `.`, so the archive carries no `./` prefix
+            # and no stray dotfile the runner happens to leave in the staging directory.
+            ( cd "$stage" && zip -0 -X -r -q \
+                "$GITHUB_WORKSPACE/wrapped/$BOX_ID-$BOX_VERSION-$target.zip" \
+                box run-box.ts run_box.py package.json README.md )
+            unzip -l "wrapped/$BOX_ID-$BOX_VERSION-$target.zip"
           done
           ls -l wrapped
 

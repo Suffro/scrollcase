@@ -9,12 +9,22 @@ All notable changes to Scrollcase are documented here. The format follows
 ### Changed
 
 - Publish the demo box as one plainly named archive per operating system —
-  `hello-box-1.0.0-macos-aarch64-metal.zip` and its two siblings — each holding the box and its
-  signed release document. A box archive has to be named for its own SHA-256 and sit beside that
+  `hello-box-1.0.0-macos-aarch64-metal.zip` and its two siblings — that unpacks to a folder which
+  already runs. A box archive has to be named for its own SHA-256 and sit beside its release
   document, because that is how `verify` finds it, so publishing the files flat gave the release
   page six hex names and no way to tell which three belonged to your machine before downloading
-  them. The names inside the wrapper stay content-addressed and adjacent; only the name outside is
-  for people. Stored rather than compressed, it costs 2.7 KB on a 37 MB box.
+  them. The pair now keeps those names under `box/`, where `verify` still resolves one from the
+  other, while the name outside says which machine it is for.
+
+  Beside it travel `run-box.ts`, `run_box.py` and a `package.json`, so each of the three ways to run
+  a box — CLI, Node consumer, Python consumer — is two commands rather than source to copy out of a
+  page and save under the right name. Those files come from `examples/demo-consumers/` and the guide
+  embeds them from there, so what is documented and what is shipped cannot drift apart. The trust
+  key is deliberately not among them and still comes from the repository: a signature proves nothing
+  if the key arrives in the same package as what it signs.
+
+  Stored rather than compressed, since the box archive is already deflated: the container costs
+  about 9 KB on a 37 MB box.
 
 ### Fixed
 
