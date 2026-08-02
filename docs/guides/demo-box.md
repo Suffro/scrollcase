@@ -3,7 +3,7 @@ title: Demo Box
 description: Try a box run, without installing a toolchain.
 ---
 
-# Demo Box
+# Box-run demo
 
 <big> **Try a box run easily, without installing a toolchain** </big>
 
