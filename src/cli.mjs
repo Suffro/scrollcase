@@ -335,7 +335,9 @@ async function runRelease(path, flags, args) {
     publicPath: keyPaths(flags).publicPath,
     archive: text(flags, 'archive'),
     args,
-    log: step,
+    // Every other command owns stdout; `run` hands it to the box. A status line written there
+    // would land in whatever file or process the caller piped the application's output into.
+    log: (message) => console.error(statusLine('step', message)),
   });
 }
 

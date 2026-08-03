@@ -54,6 +54,7 @@ async function readExactScroll(reference) {
     ...(scroll.assetArchives ?? []).flatMap((archive) => [archive.relativePath, archive.destination]),
     ...(scroll.localFiles ?? []).flatMap((file) => [file.sourcePath, file.relativePath]),
     ...(scroll.prunePaths ?? []),
+    ...(scroll.uncompressedPaths ?? []),
     ...scroll.selfTest.files,
     ...(scroll.execution?.kind === 'python-script' ? [scroll.execution.script] : []),
     ...(scroll.parity ? [scroll.parity.script] : []),

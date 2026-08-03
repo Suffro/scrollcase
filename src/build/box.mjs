@@ -255,7 +255,16 @@ export async function buildBox(name, options = {}) {
   await normalizeTree(payloadDir);
   const installedSizeBytes = await payloadSize(payloadDir);
   await mkdir(workspace.distDir, { recursive: true });
-  await createDeterministicZip(payloadDir, archivePath, adapter);
+  // Declared assets are the one thing a box carries that arrives already compressed, so they are
+  // stored rather than deflated without the project having to say so. `uncompressedPaths` covers
+  // what only the project can know: the tree an expanded archive left behind, a bundled corpus.
+  // Under `on-demand` the assets are not in the payload at all and the first list simply matches
+  // nothing.
+  const uncompressedPaths = [
+    ...scroll.assets.map((asset) => safeRelativePath(asset.relativePath)),
+    ...(scroll.uncompressedPaths ?? []).map((path) => safeRelativePath(path)),
+  ];
+  await createDeterministicZip(payloadDir, archivePath, adapter, uncompressedPaths);
 
   const archiveSha = await sha256File(archivePath);
   const archiveSize = (await stat(archivePath)).size;

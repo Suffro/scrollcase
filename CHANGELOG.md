@@ -6,7 +6,27 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Store already-compressed payload paths in the box archive instead of deflating them. Every path a
+  scroll declares in `assets` is stored automatically, and the new optional `uncompressedPaths`
+  names anything else the project knows to be compressed already — the tree an `assetArchives` entry
+  expanded into, a bundled corpus — matching a path itself and everything beneath it.
+
+  Weights arrive compressed, and deflating them again is loss on both sides of the trade: measured
+  on incompressible bytes, level 6 runs at 47 MB/s and produces an archive 0.03% *larger* than its
+  input, and level 1 recovers 4 MB/s because the search fails either way. Lowering the level is not
+  a fix; not compressing is. Nothing opens the file or reads its extension — the decision comes from
+  the scroll and the path alone, so a rebuild of the same commit stays byte-identical.
+
 ### Changed
+
+- Print `run`'s own status lines on stderr, and say on every run that the extraction is temporary.
+  Every other verb owns its standard output; `run` hands stdout to the box, so a caller redirecting
+  it into a file was receiving a Scrollcase status line mixed into the application's bytes, with no
+  way for the box to tell. The second line states what `run` is — one-shot, deleted on exit — rather
+  than leaving a caller to read a repeated multi-gigabyte extraction as the tool being slow. A box
+  kept across runs is `verifyAndExtractBox` plus `runExtractedBox` from the library, not this verb.
 
 - Publish the demo box as one plainly named archive per operating system —
   `hello-box-1.0.0-macos-aarch64-metal.zip` and its two siblings — that unpacks to a folder which

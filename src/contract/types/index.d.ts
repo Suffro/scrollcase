@@ -170,6 +170,10 @@ export interface BoxScroll {
    */
   prunePaths?: PayloadPath[];
   /**
+   * Payload paths stored in the archive instead of deflated, because their bytes are already compressed and re-compressing them costs build time while making the archive marginally larger. A path matches itself and everything beneath it, so one entry can name a weights file or the directory an expanded asset archive landed in. Declared assets are stored automatically; this is for anything else the project knows to be already compressed.
+   */
+  uncompressedPaths?: PayloadPath[];
+  /**
    * Builder checks run with the payload's own interpreter before archiving. Schema version 2 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.
    */
   selfTest: {

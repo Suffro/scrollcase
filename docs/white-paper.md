@@ -1371,7 +1371,8 @@ internal validator reading the shipped schemas — see section 6.
 
 **`yazl` — writing.** Entries are added in a stable collected order, with a fixed timestamp
 (`2000-01-01T00:00:00Z`), a mode derived from the target adapter rather than from the filesystem,
-DOS timestamps forced so no local timezone leaks in, and deflate at a fixed compression level.
+DOS timestamps forced so no local timezone leaks in, and deflate at a fixed compression level —
+except for the paths a scroll declared as already compressed, which are stored instead.
 Symbolic links are written as a small entry whose content is the target string and whose mode
 carries the symbolic-link type bits — the same two facts every ZIP implementation reads a link back
 from. Zip64 structures are emitted only where needed.
@@ -3024,9 +3025,10 @@ The writing side is where [determinism](#determinism) becomes bytes.
 
 ```js
 // src/build/archive.mjs
+const compressionLevel = isDeclaredUncompressed(entry.path, uncompressedPaths) ? 0 : 6;
 zip.addFile(join(payloadDir, ...entry.path.split('/')), entry.path, {
-  compress: true,
-  compressionLevel: 6,
+  compress: compressionLevel !== 0,
+  compressionLevel,
   mtime: FIXED_ARCHIVE_TIME,
   mode: archiveFileMode(adapter, entry.path),
   forceDosTimestamp: true,
@@ -3035,8 +3037,8 @@ zip.addFile(join(payloadDir, ...entry.path.split('/')), entry.path, {
 
 Every variable that could differ between two runs has been removed. Entry order comes from the
 sorted enumeration; the timestamp is fixed and forced into DOS form so no local timezone leaks in;
-the compression level is pinned, because a different level produces different bytes for identical
-input; and the mode comes from the **target adapter** rather than from the filesystem:
+the compression level is pinned per path, because a different level produces different bytes for
+identical input; and the mode comes from the **target adapter** rather than from the filesystem:
 
 | Path | Mode | Reason |
 | --- | --- | --- |
@@ -3047,6 +3049,16 @@ input; and the mode comes from the **target adapter** rather than from the files
 
 Reading the mode from disk instead would make the archive depend on the umask of whoever ran the
 build.
+
+**Already-compressed paths are stored rather than deflated.** Model weights arrive compressed —
+GGUF, safetensors — and deflating them buys nothing while costing real time: measured on
+incompressible bytes, level 6 runs at 47 MB/s and produces a result 0.03% *larger* than its input,
+and dropping to level 1 recovers 4 MB/s because the search fails either way. Lowering the level is
+therefore not a fix; only not compressing is. Which paths those are comes from the scroll and never
+from the file: every declared asset is stored automatically, and `uncompressedPaths` names anything
+else the project knows to be compressed already, matching a path itself and everything beneath it.
+Nothing here opens the file or reads its extension, so the decision depends only on the scroll and
+the path — which is what keeps two builds of the same commit byte-identical.
 
 Symbolic links are written as a small entry whose *content* is the target string, under a mode
 carrying the symbolic-link type bits — the same two facts every ZIP implementation reads a link back
@@ -4348,10 +4360,18 @@ if (result.signal) terminate(result.signal);
 else setExitCode(result.exitCode ?? 1);
 ```
 
-The module adds two things and nothing else: a status line printed from the `onPrepared` hook, and a
-translation of the child's terminal result into this process's own. A child killed by a signal makes
-the CLI kill *itself* with the same signal, so a shell sees the real termination cause rather than
-an invented exit code; otherwise the child's exit code becomes the CLI's.
+The module adds two things and nothing else: two status lines printed from the `onPrepared` hook, and
+a translation of the child's terminal result into this process's own. A child killed by a signal
+makes the CLI kill *itself* with the same signal, so a shell sees the real termination cause rather
+than an invented exit code; otherwise the child's exit code becomes the CLI's.
+
+Both lines go to **stderr**, because stdout belongs to the box. Every other verb owns its standard
+output; `run` hands it to the application, and a status line written there would land inside
+whatever file or process the caller piped that output into, with the box unable to tell. The second
+line states what `run` is — a one-shot extraction, deleted on exit — and prints on every run rather
+than above a size threshold, because a caller who does not know that reads a repeated
+multi-gigabyte extraction as the tool being slow. A box kept across runs is `verifyAndExtractBox`
+and `runExtractedBox` from the library, not this verb.
 
 Verification, extraction, execution, signal forwarding and cleanup all stay in `runBox`. The
 injectable `run`, `log`, `setExitCode` and `terminate` parameters exist so the translation can be

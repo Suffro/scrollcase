@@ -254,10 +254,26 @@ tidiness.
 Each entry is a **literal path** removed recursively — there is no glob support, and a path that
 matches nothing is skipped silently. Over-pruning is caught by `selfTest.files`, below.
 
+### `uncompressedPaths`
+
+Payload paths stored in the archive rather than deflated, because their bytes are already
+compressed — re-compressing them costs build time and makes the archive marginally larger.
+
+```jsonc
+"uncompressedPaths": ["model-cache/hello", "corpora/images"]
+```
+
+An entry matches that path **and everything beneath it**, so one line can name a weights file or
+the directory an `assetArchives` entry expanded into. Every path declared in `assets` is stored
+automatically and does not need repeating here.
+
+The decision is taken from the scroll alone — nothing opens the file or reads its extension — which
+is what keeps two builds of the same commit byte-identical.
+
 ::: warning Payload paths
-Every path inside the payload (`relativePath`, `destination`, `prunePaths`, `selfTest.files`) is
-relative and may never escape the payload root. Absolute paths, `..` segments, and drive letters
-are rejected.
+Every path inside the payload (`relativePath`, `destination`, `prunePaths`, `uncompressedPaths`,
+`selfTest.files`) is relative and may never escape the payload root. Absolute paths, `..` segments,
+and drive letters are rejected.
 :::
 
 ### `assetBaseUrl`
