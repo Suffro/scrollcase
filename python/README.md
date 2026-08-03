@@ -23,6 +23,12 @@ The public operations are `verify_and_extract_box`, `attach_extracted_box`,
 execution, and the child application runs with the box's own interpreter through an argument array,
 never a shell.
 
+Every verification, attachment, payload-check, and run result carries `environment_report`.
+Release-declared values override inherited host and caller values; no inherited variable is
+filtered. Host values are masked by default. Pass `env_report=True` to include every name and
+`env_report_values=True` only when revealing host values in logs is intentional. The report is a
+local diagnostic snapshot, not a signed guarantee of the box.
+
 A receipt is bound to the process that produced it, so an application that installs a box once and
 runs it across restarts calls `attach_extracted_box` on each later launch: it re-identifies the
 extracted directory against the signed release without the archive and without re-reading original

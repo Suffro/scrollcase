@@ -57,11 +57,17 @@ together. Never commit the private key under `.scrollcase/keys/`.
 3. Locate the archive and compare its byte size and SHA-256 with the signed release.
 4. List ZIP entries defensively, rejecting traversal, links, and special entries before extraction.
 5. Require `box.json` and recursively compare every shared schema-v2 field: identity and version,
-   complete target, entry point, cache subdirectory, consumer self-test, weights/assets policy,
-   and provenance.
+   complete target, entry point, cache subdirectory, declared environment, consumer self-test,
+   weights/assets policy, and provenance.
 6. Require the declared interpreter entry inside the archive.
 7. With `--self-test`, require a matching native host, extract to a temporary directory, compare
-   the logical extracted payload size, and run the signed import check with the box's interpreter.
+   the logical extracted payload size, and run the signed import check with the box's interpreter
+   under the signed environment declaration and target validation controls.
+
+The process still inherits the launching host's environment. `--env-report` reports provenance and
+conflicts, while `--env-report-values` deliberately reveals inherited values; neither is a sandbox
+or a signed guarantee. The declaration is authenticated format data. The report is a local consumer
+diagnostic that changes with the process inspecting or running the box.
 
 The builder's richer scroll checks—optional `pythonCode` and post-prune file assertions—are not
 part of the signed release and therefore cannot be repeated by a consumer. See

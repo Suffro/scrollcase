@@ -61,6 +61,21 @@ describe('the parity gate', () => {
     expect(result.valueCount).toBe(3);
   });
 
+  it('applies the signed environment to every parity run', async () => {
+    const calls = [];
+    const run = (_interpreter, _args, options) => {
+      calls.push(options.env);
+      return JSON.stringify({ values: [1, 2, 3] });
+    };
+    await checkParity({
+      ...args(run),
+      environment: { SCROLLCASE_MODEL_ROOT: 'model-cache/example' },
+    });
+    expect(calls).toHaveLength(2);
+    expect(calls.every((environment) =>
+      environment.SCROLLCASE_MODEL_ROOT === 'model-cache/example')).toBe(true);
+  });
+
   it('fails the build when the accelerator drifts outside the declared tolerance', async () => {
     const { run } = scriptedRun({ cpu: [1, 2, 3], cuda: [1, 2, 9] });
     await expect(checkParity(args(run))).rejects.toThrow(/Parity check cpu vs cuda/);

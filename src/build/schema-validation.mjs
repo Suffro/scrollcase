@@ -120,12 +120,25 @@ function validate(value, schema, context, path, errors) {
       if (own(value, key)) validate(value[key], propertySchema, context, `${path}.${key}`, errors);
       if (errors.length > 0) return;
     }
+    if (schema.propertyNames) {
+      for (const key of Object.keys(value)) {
+        validate(key, schema.propertyNames, context, `${path} property name ${JSON.stringify(key)}`, errors);
+        if (errors.length > 0) return;
+      }
+    }
     if (schema.additionalProperties === false) {
       const allowed = new Set(Object.keys(schema.properties ?? {}));
       const unexpected = Object.keys(value).find((key) => !allowed.has(key));
       if (unexpected) {
         errors.push(`${path}.${unexpected} is not allowed`);
         return;
+      }
+    } else if (objectValue(schema.additionalProperties)) {
+      const declared = new Set(Object.keys(schema.properties ?? {}));
+      for (const [key, nested] of Object.entries(value)) {
+        if (declared.has(key)) continue;
+        validate(nested, schema.additionalProperties, context, `${path}.${key}`, errors);
+        if (errors.length > 0) return;
       }
     }
     for (const [key, dependencies] of Object.entries(schema.dependentRequired ?? {})) {

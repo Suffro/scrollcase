@@ -6,6 +6,7 @@
  * suite builds boxes without pixi or conda-pack installed.
  */
 import { spawnSync } from 'node:child_process';
+import { mergeEnvironmentLayers } from '../environment.mjs';
 
 /**
  * Subprocess options shared by the library surface and its injected test seams.
@@ -39,7 +40,7 @@ export function fail(message) {
 export function runResult(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env },
+    env: mergeEnvironmentLayers(process.platform, process.env, options.env ?? {}),
     encoding: 'utf8',
     input: options.input,
     maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,

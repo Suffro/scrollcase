@@ -40,6 +40,7 @@ from ._contract import (
     validate_schema,
 )
 from .errors import ScrollcaseConsumerError
+from .environment import release_environment_report
 from .extract import (
     collect_files,
     extract_zip_archive,
@@ -59,6 +60,7 @@ _AGREEMENT_FIELDS = (
     "target",
     "pythonEntryPoint",
     "modelCacheSubdir",
+    "environment",
     "selfTest",
     "execution",
     "weights",
@@ -326,6 +328,8 @@ def verify_and_extract_box(
     public_key_path: str | os.PathLike[str],
     destination: str | os.PathLike[str],
     archive: str | os.PathLike[str] | None = None,
+    env_report: bool = False,
+    env_report_values: bool = False,
 ) -> PreparedBox:
     """Verify and atomically prepare one local box without executing its code."""
 
@@ -400,6 +404,12 @@ def verify_and_extract_box(
             archive_sha256=cast(str, release["archive"]["sha256"]),
             archive_size_bytes=cast(int, release["archive"]["sizeBytes"]),
             installed_size_bytes=extracted_size,
+            environment_report=release_environment_report(
+                release,
+                target,
+                expanded=env_report or env_report_values,
+                reveal_host_values=env_report_values,
+            ),
         )
         _PREPARED_STATES[receipt] = _PreparedState(
             release=release,
@@ -466,6 +476,8 @@ def attach_extracted_box(
     *,
     public_key_path: str | os.PathLike[str],
     root: str | os.PathLike[str],
+    env_report: bool = False,
+    env_report_values: bool = False,
 ) -> PreparedBox:
     """Re-identify a box that is already extracted, without its archive.
 
@@ -531,6 +543,12 @@ def attach_extracted_box(
         archive_sha256=cast(str, release["archive"]["sha256"]),
         archive_size_bytes=cast(int, release["archive"]["sizeBytes"]),
         installed_size_bytes=installed_size,
+        environment_report=release_environment_report(
+            release,
+            target,
+            expanded=env_report or env_report_values,
+            reveal_host_values=env_report_values,
+        ),
     )
     _PREPARED_STATES[receipt] = _PreparedState(
         release=release,
@@ -547,6 +565,8 @@ def verify_extracted_payload(
     *,
     public_key_path: str | os.PathLike[str],
     root: str | os.PathLike[str],
+    env_report: bool = False,
+    env_report_values: bool = False,
 ) -> PayloadVerification:
     """Prove an extracted tree is the one a signed release describes.
 
@@ -625,4 +645,10 @@ def verify_extracted_payload(
         version=cast(str, release["version"]),
         target_id=target_id(target_from_json(cast(dict[str, Any], release["target"]))),
         entry_count=len(entries),
+        environment_report=release_environment_report(
+            release,
+            target_from_json(cast(dict[str, Any], release["target"])),
+            expanded=env_report or env_report_values,
+            reveal_host_values=env_report_values,
+        ),
     )

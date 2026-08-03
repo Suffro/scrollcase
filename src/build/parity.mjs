@@ -13,6 +13,7 @@
  */
 
 import { fail } from './process.mjs';
+import { mergeEnvironmentLayers } from '../environment.mjs';
 
 /** Reads the array of numbers a parity check prints, rejecting anything else. */
 function readValues(output, accelerator) {
@@ -85,7 +86,7 @@ export function breachedTolerance(measured, tolerances) {
  * `cpu`, because it is the one available everywhere and the least likely to be wrong. Returns the
  * measurements so they can be recorded as evidence even when nothing failed.
  */
-export async function checkParity({ parity, adapter, interpreter, payloadDir, run }) {
+export async function checkParity({ parity, adapter, interpreter, payloadDir, environment, run }) {
   if (!parity) return null;
   const { script, accelerators, tolerances } = parity;
   if (!Array.isArray(accelerators) || accelerators.length < 2) {
@@ -93,11 +94,15 @@ export async function checkParity({ parity, adapter, interpreter, payloadDir, ru
   }
   const runs = [];
   for (const accelerator of accelerators) {
-    const environment = adapter.validationEnvironments[accelerator];
-    if (!environment) {
+    const validationEnvironment = adapter.validationEnvironments[accelerator];
+    if (!validationEnvironment) {
       fail(`Target ${adapter.id} defines no validation environment for accelerator ${accelerator}.`);
     }
-    const output = run(interpreter, [script], { cwd: payloadDir, env: environment, capture: true });
+    const output = run(interpreter, [script], {
+      cwd: payloadDir,
+      env: mergeEnvironmentLayers(adapter.platform, environment ?? {}, validationEnvironment),
+      capture: true,
+    });
     runs.push({ accelerator, values: readValues(output, accelerator) });
   }
   const [reference, ...others] = runs;

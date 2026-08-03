@@ -69,6 +69,7 @@ export async function createConsumerBoxFixture({
   interpreterContents = 'test interpreter placeholder',
   scriptContents = 'print("consumer fixture")\n',
   payloadDigest = true,
+  environment = undefined,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'scrollcase-consumer-fixture-'));
   const payload = join(root, 'payload');
@@ -101,6 +102,7 @@ export async function createConsumerBoxFixture({
       pythonImports: ['json'],
       timeoutSeconds: 30,
     },
+    ...(environment === undefined ? {} : { environment }),
     ...(execution ? { execution } : {}),
     provenance: {
       scrollId: 'consumer-fixture-scroll',

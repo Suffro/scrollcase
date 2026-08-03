@@ -10,14 +10,17 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from scrollcase_consumer import (
-    BoxRunResult,
+    EnvironmentReport,
     PreparedBox,
     ScrollcaseConsumerError,
+    attach_extracted_box,
     run_box,
     run_extracted_box,
     verify_and_extract_box,
+    verify_extracted_payload,
 )
 
 from .support import ConsumerFixture, create_fixture
@@ -111,7 +114,7 @@ class ExecutionTests(unittest.TestCase):
             stderr=subprocess.STDOUT,
             popen_factory=fake,
         )
-        self.assertEqual(result, BoxRunResult(exit_code=23, signal=None))
+        self.assertEqual((result.exit_code, result.signal), (23, None))
         argv, options = fake.calls[0]
         self.assertEqual(argv[0], str(Path(prepared.root) / prepared.python_entry_point))
         self.assertEqual(
@@ -128,6 +131,71 @@ class ExecutionTests(unittest.TestCase):
         self.assertFalse(options["shell"])
         self.assertEqual(options["cwd"], prepared.root)
         self.assertEqual(options["env"]["CONSUMER_FIXTURE"], "yes")
+
+    def test_reports_environment_from_verify_attach_and_execution(self) -> None:
+        name = "SCROLLCASE_ENV_REPORT_TEST"
+        fixture = self.fixture(
+            environment={
+                name: "release-value",
+                "SCROLLCASE_RELEASE_ONLY": "public-value",
+            }
+        )
+        with patch.dict(
+            os.environ,
+            {name: "host-secret", "PYTHONPATH": "/host/code"},
+        ):
+            prepared = self.prepare(fixture, "prepared-environment")
+            self.assertEqual(prepared.environment_report.mode, "summary")
+            self.assertEqual(prepared.environment_report.release_variable_count, 2)
+            self.assertIn(
+                "PYTHONPATH",
+                prepared.environment_report.dangerous_host_variables,
+            )
+            prepared_variable = next(
+                variable
+                for variable in prepared.environment_report.variables
+                if variable.name == name
+            )
+            self.assertEqual(prepared_variable.source, "release")
+            self.assertEqual(prepared_variable.sources[0].value, "<masked>")
+
+            attached = attach_extracted_box(
+                fixture.release_path,
+                public_key_path=fixture.public_key_path,
+                root=prepared.root,
+                env_report=True,
+            )
+            self.assertEqual(attached.environment_report.mode, "full")
+            verified = verify_extracted_payload(
+                fixture.release_path,
+                public_key_path=fixture.public_key_path,
+                root=prepared.root,
+                env_report=True,
+            )
+            self.assertEqual(verified.environment_report.mode, "full")
+
+            reports: list[EnvironmentReport] = []
+            fake = FakePopen()
+            result = run_extracted_box(
+                attached,
+                env={name: "caller-value"},
+                env_report_values=True,
+                on_environment_report=reports.append,
+                popen_factory=fake,
+            )
+            self.assertEqual(fake.calls[0][1]["env"][name], "release-value")
+            resolved = next(
+                variable
+                for variable in result.environment_report.variables
+                if variable.name == name
+            )
+            self.assertEqual(resolved.source, "release")
+            self.assertEqual(
+                tuple(source.source for source in resolved.sources),
+                ("host", "caller", "release"),
+            )
+            self.assertEqual(resolved.sources[0].value, "host-secret")
+            self.assertEqual(reports, [result.environment_report])
 
     def test_invokes_a_module_with_dash_m_and_preserves_order(self) -> None:
         fixture = self.fixture(
@@ -170,7 +238,7 @@ class ExecutionTests(unittest.TestCase):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        self.assertEqual(result, BoxRunResult(exit_code=7, signal=None))
+        self.assertEqual((result.exit_code, result.signal), (7, None))
         self.assertEqual(
             (Path(prepared.root) / marker).read_text(),
             '["--default", "value with spaces", "--caller", "$(touch never)"]',
@@ -199,10 +267,8 @@ class ExecutionTests(unittest.TestCase):
         with self.assertRaisesRegex(ScrollcaseConsumerError, "asset SHA-256 mismatch"):
             run_extracted_box(prepared, popen_factory=fake)
         asset_path.write_bytes(data)
-        self.assertEqual(
-            run_extracted_box(prepared, popen_factory=fake),
-            BoxRunResult(exit_code=0, signal=None),
-        )
+        result = run_extracted_box(prepared, popen_factory=fake)
+        self.assertEqual((result.exit_code, result.signal), (0, None))
         self.assertEqual(len(fake.calls), 1)
 
     def test_rejects_replaced_roots_forged_receipts_and_library_boxes(self) -> None:
@@ -243,7 +309,7 @@ class ExecutionTests(unittest.TestCase):
         previous = signal.getsignal(signal.SIGTERM)
         fake = FakePopen(signal_to_raise=signal.SIGTERM)
         result = run_extracted_box(prepared, popen_factory=fake)
-        self.assertEqual(result, BoxRunResult(exit_code=None, signal="SIGTERM"))
+        self.assertEqual((result.exit_code, result.signal), (None, "SIGTERM"))
         self.assertEqual(fake.children[0].sent_signals, [signal.SIGTERM])
         self.assertIs(signal.getsignal(signal.SIGTERM), previous)
 
@@ -260,7 +326,7 @@ class ExecutionTests(unittest.TestCase):
             on_prepared=lambda prepared: prepared_roots.append(prepared.root),
             popen_factory=FakePopen(returncode=19),
         )
-        self.assertEqual(result, BoxRunResult(exit_code=19, signal=None))
+        self.assertEqual((result.exit_code, result.signal), (19, None))
         self.assertFalse(Path(prepared_roots[0]).exists())
         self.assertEqual(list(temporary_parent.iterdir()), [])
 
@@ -283,7 +349,7 @@ class ExecutionTests(unittest.TestCase):
             on_prepared=lambda prepared: signal_roots.append(prepared.root),
             popen_factory=FakePopen(signal_to_raise=signal.SIGTERM),
         )
-        self.assertEqual(result, BoxRunResult(exit_code=None, signal="SIGTERM"))
+        self.assertEqual((result.exit_code, result.signal), (None, "SIGTERM"))
         self.assertFalse(Path(signal_roots[0]).exists())
         self.assertEqual(list(temporary_parent.iterdir()), [])
 
@@ -316,7 +382,7 @@ class ExecutionTests(unittest.TestCase):
                 stdout=stdout,
                 stderr=stderr,
             )
-        self.assertEqual(result, BoxRunResult(exit_code=0, signal=None))
+        self.assertEqual((result.exit_code, result.signal), (0, None))
         self.assertEqual(output_path.read_text(), "out:payload")
         self.assertEqual(error_path.read_text(), "err:payload")
 

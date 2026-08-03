@@ -12,6 +12,10 @@
 /** @typedef {import('./run-extracted.mjs').BoxRunResult} BoxRunResult */
 /** @typedef {import('./run-extracted.mjs').RunExtractedBoxOptions} RunExtractedBoxOptions */
 /** @typedef {import('./run-box.mjs').RunBoxOptions} RunBoxOptions */
+/** @typedef {import('../environment.mjs').EnvironmentSource} EnvironmentSource */
+/** @typedef {import('../environment.mjs').EnvironmentSourceValue} EnvironmentSourceValue */
+/** @typedef {import('../environment.mjs').EnvironmentVariableReport} EnvironmentVariableReport */
+/** @typedef {import('../environment.mjs').EnvironmentReport} EnvironmentReport */
 
 export {
   attachExtractedBox,

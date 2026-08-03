@@ -114,6 +114,11 @@ export type BoxTargetAdapter = {
      */
     validationEnvironments: Readonly<Record<string, Readonly<Record<string, string>>>>;
     /**
+     * inherited variables whose
+     * presence can change which code the box interpreter loads or executes
+     */
+    executionAffectingEnvironmentVariables: readonly string[];
+    /**
      * the platform assertion prepended to every self-test
      */
     selfTestPython: string;

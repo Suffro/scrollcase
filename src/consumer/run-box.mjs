@@ -37,6 +37,8 @@ export async function runBox(releaseDocumentPath, options) {
       publicPath: options.publicPath,
       archive: options.archive,
       destination: join(temporaryRoot, 'box'),
+      envReport: options.envReport,
+      envReportValues: options.envReportValues,
     });
     await options.onPrepared?.(prepared);
     return await runExtractedBox(prepared, options);

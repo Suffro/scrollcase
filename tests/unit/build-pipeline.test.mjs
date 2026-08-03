@@ -136,8 +136,8 @@ function plantPrefixSymlinks(prefix) {
  * asset staging, pruning, the self-test gate, box.json, the deterministic archive, signing — is the
  * real implementation, which is what this test is here to exercise.
  */
-function fakeToolchain(payloadDir, { module = null } = {}) {
-  const run = function run(command, args = []) {
+function fakeToolchain(payloadDir, { module = null, onSelfTest = null } = {}) {
+  const run = function run(command, args = [], options = {}) {
     if (command === 'pixi' && args[0] === 'install') {
       const manifest = args[args.indexOf('--manifest-path') + 1];
       const prefix = join(dirname(manifest), '.pixi', 'envs', 'default');
@@ -170,6 +170,7 @@ function fakeToolchain(payloadDir, { module = null } = {}) {
     }
     // Anything else is the box's own interpreter, running the self-test.
     expect(command).toBe(join(payloadDir, ...ENTRY_SEGMENTS));
+    onSelfTest?.({ command, args, options });
     return '';
   };
   // Tool discovery probes `pixi --version` and `conda-pack --help` before anything is installed.
@@ -317,6 +318,14 @@ describe('the build pipeline', () => {
         accelerators: ['cpu', 'cuda'],
         tolerances: { absolute: 0 },
       },
+    }],
+    ['an invalid environment name', {
+      ...SCROLL,
+      environment: { 'INVALID=NAME': 'value' },
+    }],
+    ['an environment value containing NUL', {
+      ...SCROLL,
+      environment: { VALID_NAME: 'invalid\0value' },
     }],
   ])('rejects %s against the complete scroll schema', async (_label, scroll) => {
     await makeProject(scroll, { commit: false, dirName: SCROLL_REF });
@@ -527,6 +536,42 @@ describe('the build pipeline', () => {
     expect(receipt.status).toBe('passed');
     expect(receipt.localSignatureVerified).toBe(true);
     expect(receipt.archiveSha256).toBe(built.archiveSha256);
+  });
+
+  it('signs the declared environment and applies it to build and verification self-tests', async () => {
+    const environment = {
+      SCROLLCASE_MODEL_ROOT: 'model-cache/example-model',
+      SCROLLCASE_OFFLINE: '1',
+    };
+    const { keys, payloadDir } = await makeProject({ ...SCROLL, environment });
+    const buildRuns = [];
+    const built = await buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir, { onSelfTest: (call) => buildRuns.push(call) }),
+      log: () => {},
+    });
+    expect(buildRuns).toHaveLength(1);
+    expect(buildRuns[0].options.env).toMatchObject(environment);
+
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    expect(release.environment).toEqual(environment);
+    const inspectionRoot = await mkdtemp(join(tmpdir(), 'scrollcase-environment-inspect-'));
+    created.push(inspectionRoot);
+    const extracted = join(inspectionRoot, 'payload');
+    await extractZipArchive(built.archivePath, extracted);
+    const box = JSON.parse(await readFile(join(extracted, 'box.json'), 'utf8'));
+    expect(box.environment).toEqual(environment);
+
+    const verificationRuns = [];
+    const result = await verifyBox(built.releasePath, {
+      publicPath: keys.publicPath,
+      selfTest: true,
+      run: (...args) => verificationRuns.push(args),
+      log: () => {},
+    });
+    expect(verificationRuns).toHaveLength(1);
+    expect(verificationRuns[0][2].env).toMatchObject(environment);
+    expect(result.environmentReport.releaseVariableCount).toBe(2);
   });
 
   it('rejects a signed v1 release payload even inside a valid v2 envelope', async () => {

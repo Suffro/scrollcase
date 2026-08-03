@@ -26,6 +26,7 @@ const AGREEMENT_FIELDS = [
   'target',
   'pythonEntryPoint',
   'modelCacheSubdir',
+  'environment',
   'selfTest',
   'execution',
   'weights',
@@ -50,6 +51,7 @@ import { assertExecutionFiles } from './execution.mjs';
 import { fileExists, payloadDigest, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
 import { fail, run as runProcess } from './process.mjs';
 import { schemaValidationError } from './schema-validation.mjs';
+import { resolveEnvironment } from '../environment.mjs';
 
 const schemaUrls = [
   new URL('../contract/schema/release-manifest.schema.json', import.meta.url),
@@ -199,6 +201,25 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
     adapter,
   } = inspected;
 
+  const environmentLayers = [
+    { source: 'host', values: process.env },
+    { source: 'release', values: release.environment },
+    ...(selfTest ? [{
+      source: 'validation',
+      values: adapter.validationEnvironments[release.target.accelerator],
+    }] : []),
+  ];
+  const resolvedEnvironment = resolveEnvironment({
+    platform: adapter.platform,
+    layers: environmentLayers,
+    executionAffectingVariables: adapter.executionAffectingEnvironmentVariables,
+    expanded: Boolean(options.envReport || options.envReportValues),
+    revealHostValues: Boolean(options.envReportValues),
+  });
+  const environmentReport = resolvedEnvironment.report;
+  if (selfTest || options.envReport || options.envReportValues) {
+    await options.onEnvironmentReport?.(environmentReport);
+  }
   if (selfTest) {
     assertNativeHost(adapter);
     const extracted = await mkdtemp(join(tmpdir(), 'scrollcase-verify-'));
@@ -219,7 +240,7 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
       const python = join(extracted, safeRelativePath(release.pythonEntryPoint));
       run(python, ['-c', `${adapter.selfTestPython}\nimport ${release.selfTest.pythonImports.join(', ')}`], {
         cwd: extracted,
-        env: adapter.validationEnvironments[release.target.accelerator],
+        env: resolvedEnvironment.environment,
       });
     } finally {
       await rm(extracted, { recursive: true, force: true });
@@ -235,5 +256,6 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
     archiveSha256: release.archive.sha256,
     archiveSizeBytes: release.archive.sizeBytes,
     selfTest: selfTest ? 'passed' : 'not-requested',
+    environmentReport,
   };
 }

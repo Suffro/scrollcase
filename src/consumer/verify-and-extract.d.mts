@@ -27,13 +27,16 @@ export function verifyRequiredAssets(root: string, assets: readonly RequiredAsse
  * rename stays on one filesystem and exposes either the complete verified tree or nothing.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, archive?: string | null, destination: string }} options
+ * @param {{ publicPath: string, archive?: string | null, destination: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
-export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, archive, destination, }: {
+export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, archive, destination, envReport, envReportValues, }: {
     publicPath: string;
     archive?: string | null;
     destination: string;
+    envReport?: boolean;
+    envReportValues?: boolean;
 }): Promise<Readonly<PreparedBox>>;
 /**
  * Re-identifies a box that is already extracted, without its archive.
@@ -48,12 +51,14 @@ export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, a
  * minted here exists to be executed.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string }} options
+ * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
-export function attachExtractedBox(releaseDocumentPath: string, { publicPath, root }: {
+export function attachExtractedBox(releaseDocumentPath: string, { publicPath, root, envReport, envReportValues, }: {
     publicPath: string;
     root: string;
+    envReport?: boolean;
+    envReportValues?: boolean;
 }): Promise<Readonly<PreparedBox>>;
 /**
  * The result of comparing an extracted tree against the entry list its release commits to.
@@ -65,6 +70,7 @@ export function attachExtractedBox(releaseDocumentPath: string, { publicPath, ro
  * @property {string} version
  * @property {string} targetId
  * @property {number} entryCount how many payload entries were checked
+ * @property {import('../environment.mjs').EnvironmentReport} environmentReport diagnostic snapshot
  */
 /**
  * Proves an extracted tree is the one a signed release describes.
@@ -77,12 +83,14 @@ export function attachExtractedBox(releaseDocumentPath: string, { publicPath, ro
  * release describes, and is it still whole.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string }} options
+ * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PayloadVerification>>}
  */
-export function verifyExtractedPayload(releaseDocumentPath: string, { publicPath, root }: {
+export function verifyExtractedPayload(releaseDocumentPath: string, { publicPath, root, envReport, envReportValues, }: {
     publicPath: string;
     root: string;
+    envReport?: boolean;
+    envReportValues?: boolean;
 }): Promise<Readonly<PayloadVerification>>;
 /**
  * The result of comparing an extracted tree against the entry list its release commits to.
@@ -97,6 +105,10 @@ export type PayloadVerification = {
      * how many payload entries were checked
      */
     entryCount: number;
+    /**
+     * diagnostic snapshot
+     */
+    environmentReport: import("../environment.mjs").EnvironmentReport;
 };
 /**
  * An on-demand asset whose signed bytes the caller must place under `root` before execution.
@@ -143,4 +155,9 @@ export type PreparedBox = {
      * produced — on an attached receipt it is a current measurement, not an agreement with the release
      */
     installedSizeBytes: number;
+    /**
+     * diagnostic snapshot
+     * of this process's host environment resolved against the signed declaration
+     */
+    environmentReport: import("../environment.mjs").EnvironmentReport;
 };

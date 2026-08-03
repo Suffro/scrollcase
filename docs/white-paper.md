@@ -1574,6 +1574,7 @@ interpreter.
 | `python.launcherKind` | `posix-polyglot` | `posix-polyglot` | `uv-windows-pe` |
 | `nativeLibraryInspection` | `otool -L`, `.dylib` `.so` | `ldd`, `.so` | `dumpbin /DEPENDENTS`, `.dll` `.pyd` |
 | `validationEnvironments` | `cpu`, `metal` | `cpu`, `cuda` | `cpu`, `cuda` |
+| `executionAffectingEnvironmentVariables` | Python controls + `DYLD_INSERT_LIBRARIES` | Python controls + `LD_PRELOAD` | Python controls |
 | `selfTestPython` | `assert sys.platform == 'darwin'` | `assert sys.platform.startswith('linux')` | `assert sys.platform == 'win32'` |
 | `archive` | shared backend descriptor | shared backend descriptor | shared backend descriptor |
 
@@ -1587,6 +1588,11 @@ applied to validation runs — `CUDA_VISIBLE_DEVICES: ''` to force CPU, `CUDA_VI
 force CUDA, `PYTORCH_ENABLE_MPS_FALLBACK: '0'` so a Metal run fails loudly instead of quietly
 falling back to CPU. Without that last one, a [parity](#parity) check comparing Metal against CPU
 could pass by comparing CPU against itself.
+
+**`executionAffectingEnvironmentVariables` drives diagnostics, not policy.** The shared Python set
+is `PYTHONPATH`, `PYTHONHOME`, `PYTHONSTARTUP`, and `PYTHONBREAKPOINT`; the two POSIX loaders add
+their platform-specific injection variable. Their presence is reported because it can change which
+code runs. No adapter filters them.
 
 **`selfTestPython` is prepended to every self-test**, so the check begins by asserting it is running
 on the platform the box claims. A box that somehow reached the wrong operating system fails at the
@@ -2180,12 +2186,13 @@ agreeing about what must fail is where independent implementations drift.
 
 #### `consumer-conformance.json`
 
-Fifty-nine language-neutral semantic cases shared by the Node and Python consumers, plus twenty-six
+Sixty-five language-neutral semantic cases shared by the Node and Python consumers, plus twenty-seven
 error patterns each case's failure message must match. The cases cover valid preparation under both
 signing paths, every tampering scenario, unsafe archive entries, extraction collisions, per-platform
 entry points, attachment across process restarts, installed-payload verification, argument ordering,
-stream forwarding, exit codes and signals, temporary-directory cleanup, and on-demand asset
-failures.
+stream forwarding, exit codes and signals, temporary-directory cleanup, on-demand asset failures,
+signed environment agreement, precedence, masking, explicit value reveal, and report parity across
+preparation, attachment, payload verification, and execution.
 
 Error *patterns* rather than exact strings, deliberately: two languages should agree on what went
 wrong without being forced to phrase it identically. Section 8 covers the cases in detail — they
@@ -2353,6 +2360,8 @@ what it claims. Neither would mean anything if pruning came after them.
 **The self-test runs before the payload can become an archive.** This is the step that earns the box
 its name: the modules are imported by the payload's *own* interpreter, in the payload directory,
 under the target's validation environment.
+The scroll's declared environment is present too; target validation is layered last so it cannot be
+disabled by a declaration.
 
 **Parity runs after the self-test, never before.** There is no point comparing accelerators in a box
 that cannot import its dependencies in the first place.
@@ -2955,14 +2964,20 @@ representation.
 // src/build/box.mjs
 run(interpreter, ['-c', code], {
   cwd: payloadDir,
-  env: adapter.validationEnvironments[scroll.target.accelerator],
+  env: mergeEnvironmentLayers(
+    adapter.platform,
+    scroll.environment ?? {},
+    adapter.validationEnvironments[scroll.target.accelerator],
+  ),
 });
 ```
 
 Three things make it meaningful. The interpreter is the payload's own, so what is proven is the box
 rather than the host. The working directory is the payload, so relative resolution behaves as it
 will after extraction. And the environment is the target's validation environment, so a Metal box is
-tested with the MPS fallback disabled rather than quietly falling back to CPU.
+tested with the MPS fallback disabled rather than quietly falling back to CPU. The signed
+environment declaration is applied here too, before the target controls, so a bad runtime path fails
+the build while accelerator validation remains authoritative.
 
 The code that runs is the adapter's platform assertion, then the declared imports, then the scroll's
 optional extra Python. Only the import subset reaches the signed release, with
@@ -2978,8 +2993,9 @@ and claiming otherwise would tell a consumer it had verified something it never 
 
 #### Parity — `parity.mjs`
 
-The [parity](#parity) gate runs the declared script once per accelerator, using each accelerator's
-validation environment, and compares every run against the first.
+The [parity](#parity) gate runs the declared script once per accelerator, using the declared box
+environment followed by each accelerator's validation environment, and compares every run against
+the first.
 
 The check script must print a JSON array of numbers, or an object with a `values` array. Three
 refusals happen before any arithmetic:
@@ -3249,13 +3265,13 @@ ones come after the cheap ones that could have ended the check.
 // src/build/verify.mjs
 const AGREEMENT_FIELDS = [
   'schemaVersion', 'boxId', 'modelId', 'runtimeId', 'version', 'target',
-  'pythonEntryPoint', 'modelCacheSubdir', 'selfTest', 'execution',
+  'pythonEntryPoint', 'modelCacheSubdir', 'environment', 'selfTest', 'execution',
   'weights', 'assets', 'provenance',
 ];
 ```
 
 Each is compared with `isDeepStrictEqual`, so nested objects — the target, the self-test, the whole
-provenance block, the asset descriptor list — must agree recursively rather than merely being
+provenance block, the environment map, the asset descriptor list — must agree recursively rather than merely being
 present. This is what binds the archive's contents to its signed metadata: the release commits to
 the archive by hash, and the archive's own description of itself must match the release.
 
@@ -3433,8 +3449,10 @@ non-zero with exactly one clear line, and it is why there is no second error pat
 
 `runResult()` wraps `spawnSync` and returns the raw result; `run()` interprets it, distinguishing a
 command that could not start from one that exited non-zero, and attaching captured output to the
-message when there is any. The merged environment (`{ ...process.env, ...options.env }`) is what
-lets a validation environment force an accelerator without discarding everything else, and the
+message when there is any. `mergeEnvironmentLayers()` preserves that inheritance while removing
+case-only duplicates on Windows, where `Path` and `PATH` name the same variable; later layers win
+deterministically instead of leaving Node's child serializer to choose. That is what lets a
+validation environment force an accelerator without discarding everything else, and the
 64 MiB buffer is sized for a chatty solver rather than for a prompt.
 
 Both are the **[injection seam](#injection-seam)** the whole test suite depends on. Passing a fake
@@ -4125,7 +4143,8 @@ const preparedBoxes = new WeakMap();
 
 The receipt itself is public and useful — status, identity, version, [target](#target), target ID,
 interpreter path, execution metadata, required assets, signing key IDs, the signed-document payload
-digest, the archive digest and size, the measured installed size. It is frozen recursively, so a
+digest, the archive digest and size, the measured installed size, and a masked environment report
+for the verifying process. It is frozen recursively, so a
 caller cannot mutate what was verified. `status: 'prepared'` says the directory came from an archive
 whose signed hash was checked in this process; `status: 'attached'` says an existing directory was
 re-identified without proving its payload bytes. The type carries both values because the two
@@ -4216,8 +4235,17 @@ caller argument containing `$(…)`, `;`, a quote or a newline arrives at the pr
 argument. The conformance suite asserts exactly that with an argument of `$(touch never)`: if any
 shell ever crept into the path, the case fails and names the file that should not exist.
 
-The environment is the current process environment with the caller's values merged over it, and the
-three standard streams default to `inherit` in Node and to the caller's handles in Python.
+The environment keeps three provenance layers: the current process, caller values, and the signed
+release declaration, in that precedence order. Nothing is filtered. Windows names are matched
+case-insensitively, and the release therefore wins even when the host spells `Path` differently.
+The three standard streams default to `inherit` in Node and to the caller's handles in Python.
+
+The resolver returns the exact child environment and a structured diagnostic. Its compact form
+contains signed declarations, inherited variables capable of changing executed code, conflicts and
+their winner, and a count of omitted names. `envReport` / `env_report` expands all names;
+`envReportValues` / `env_report_values` reveals inherited host values. Verification and attachment
+receipts carry a host-plus-release snapshot; execution recalculates it with the caller layer. The
+declaration is format. The report is local consumer output and never a box guarantee.
 
 </div>
 
@@ -4234,7 +4262,8 @@ its child would keep a dead reference and forward a later signal to nothing. Pyt
 handlers only when running on the main thread, because installing a signal handler from a worker
 thread raises, and restores the previous handlers in a `finally` regardless of how the wait ended.
 
-The result is the same value in both: `{ exitCode, signal }`, exactly one of which is non-null.
+The terminal fields are the same in both: `{ exitCode, signal, environmentReport }`, exactly one of
+`exitCode` and `signal` being non-null.
 Python derives it from the negative return code convention and converts it back to a signal name, so
 callers see `SIGTERM` rather than `-15`.
 
@@ -4325,7 +4354,7 @@ diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that 
 
 #### What is in the file
 
-Fifty-nine cases and twenty-six error patterns, in a language-neutral JSON document. Each case is a
+Sixty-five cases and twenty-seven error patterns, in a language-neutral JSON document. Each case is a
 small declarative record:
 
 ```json
@@ -5552,18 +5581,18 @@ Twenty-seven test files under `tests/unit/`, plus two shared fixtures under `tes
 | --- | --- |
 | `archive-security.test.mjs` | Traversal spellings are rejected before any join; a traversal entry stops extraction before the destination is created; a link resolving inside the payload is carried, one reaching outside is refused, nothing is written *through* a link, an over-long link target is refused; scroll tarball links are rejected before any extracted asset is copied; entries are ordered by raw path strings, not host collation |
 | `assets.test.mjs` | Only bytes matching the declared size **and** hash are written; a resumed download sends the exact `Range` header; a same-size wrong-hash response is never promoted and restarts cleanly; a dropped connection is retried through injected time and logging |
-| `build-pipeline.test.mjs` | The pipeline end to end: scroll layout and target resolution, every refusal that must happen before probing or fetching, a full build-sign-verify, platform-correct symlink handling, `conda-meta/` reduced to identity, the `dist/` layout with nothing written twice, a **byte-identical rebuild** of the same commit, dirty-tree and non-checkout refusals, on-demand descriptors instead of packed assets, detection of a tampered archive, rejection of an untrusted key, and manifest agreement field by field |
+| `build-pipeline.test.mjs` | The pipeline end to end: scroll layout and target resolution, every refusal that must happen before probing or fetching, a full build-sign-verify, signed environment propagation into both manifests and self-tests, platform-correct symlink handling, `conda-meta/` reduced to identity, the `dist/` layout with nothing written twice, a **byte-identical rebuild** of the same commit, dirty-tree and non-checkout refusals, on-demand descriptors instead of packed assets, detection of a tampered archive, rejection of an untrusted key, and manifest agreement field by field |
 | `cli-args.test.mjs` | Every application argument after `--` is preserved byte for byte; the inline, separated and bare flag forms still parse as before |
 | `cli-init.test.mjs` | Every answer is collected before any installer runs; PyPI is offered when conda-forge was chosen without conda; a declined fallback installs nothing; no consumer questions are asked when there is no example |
 | `cli-output.test.mjs` | Symbols survive redirection while ANSI does not; only the symbol is coloured; `NO_COLOR` wins even when empty; the distribution summary is relative and hash-free |
-| `cli-run.test.mjs` | Exactly one release path before the separator; `runBox` is called once and the child's exit code is preserved; a termination signal is re-raised *after* cleanup; the real CLI preserves application arguments and exit status, and forwards Ctrl-C while still removing the temporary box; a library-only release and an unmaterialised on-demand asset are refused; a non-native target is refused before any interpreter is spawned |
+| `cli-run.test.mjs` | Exactly one release path before the separator; `runBox` is called once and the child's exit code is preserved; environment report flags and stderr formatting; a termination signal is re-raised *after* cleanup; the real CLI preserves application arguments and exit status, and forwards Ctrl-C while still removing the temporary box; a library-only release and an unmaterialised on-demand asset are refused; a non-native target is refused before any interpreter is spawned |
 | `cli-signing.test.mjs` | The preflight fails clearly when no local keys exist, refuses to overwrite an incomplete pair, and requires the trust key for an external signer without offering to generate one |
 | `cli-target-choice.test.mjs` | The whole selection policy: sole host target without a terminal, refusal of an ambiguous non-terminal choice, the macOS Metal default and preselection, the navigable menu, explicit `--target` honoured and validated, scroll selection through the menu and its non-terminal refusal, canonical target parsing including the CUDA ABI, example-scroll creation, `--no-example`, non-terminal `new scroll`, and the channel and weights menus |
 | `cli-version.test.mjs` | `-v` and `--version` print exactly the package version, run from an unrelated working directory |
-| `cli-verify.test.mjs` | `verify --extracted` delegates to the consumer, reports signed identity and entry count, names a tampered path through the CLI failure edge, refuses archive/self-test combinations, and requires a directory value |
+| `cli-verify.test.mjs` | `verify --extracted` delegates to the consumer, reports signed identity and entry count, names a tampered path through the CLI failure edge, emits masked and explicitly revealed environment reports, refuses archive/self-test combinations, and requires a directory value |
 | `consumer-conformance.test.mjs` | Every case in the shared fixture, through the Node consumer |
 | `consumer-setup.test.mjs` | Conda detection from the workspace root; npm run through `cmd.exe` on Windows; the PEP 668 user-install fallback; a clear error when conda disappears after selection; an unknown package source rejected before anything runs |
-| `consumer.test.mjs` | Preparation, attachment, installed-payload verification, execution and one-shot: immutable process-bound receipts, root and asset checks, list-not-directory semantics, named corruption failures, shell-free invocation, signals, and cleanup on every terminal path |
+| `consumer.test.mjs` | Preparation, attachment, installed-payload verification, execution and one-shot: immutable process-bound receipts, environment precedence and reports at every surface, root and asset checks, list-not-directory semantics, named corruption failures, shell-free invocation, signals, and cleanup on every terminal path |
 | `contract-links.test.mjs` | The link rule: the shapes a real prefix produces are accepted; targets escaping the payload, host-only shapes, cycles, over-long chains, dangling links and directory targets are refused; writing through a directory link is refused while an unused one is fine; and a Windows box is link-free |
 | `contract-payload-digest.test.mjs` | The canonical payload entry stream against shared golden vectors, including byte ordering above the BMP, newline framing, link/file discrimination, parsing refusals, and the collector's self-exclusion |
 | `contract-schema.test.mjs` | The schemas describe what the builder actually emits — real release, channel, box and scroll documents validate, the channel vocabulary is the same in code and schema, every shipped example scroll validates, the execution union is canonical, release and box manifests carry the same optional execution contract; the namespace defaults to `scrollcase.box`, accepts a project's own, and rejects a malformed one; the envelope rejects a payload-hash mismatch and any missing field; and a shipped signed example verifies against its public key |
@@ -5571,7 +5600,8 @@ Twenty-seven test files under `tests/unit/`, plus two shared fixtures under `tes
 | `docs-contract.test.mjs` | The documentation is checked against the code: schemas are published byte-identically on the routes their `$id`s claim, the privacy page exists and is linked, no third-party script is loaded, every CLI verb and option appears in the CLI reference, every public runtime export appears in the API reference, every complete JSON example parses and validates, internal routes resolve — and the three white-paper drift cases in section 11.5 |
 | `execution-contract.test.mjs` | A Python script must be a regular archive file at its exact safe path; runnable modules are found in both the POSIX and Windows layouts; a module in neither the box root nor its environment is refused |
 | `package-surface.test.mjs` | Every advertised subpath exists and resolves; `files` ships everything the exports map points at; the executable ships under the canonical command name; each entry point imports the way a dependent would; the browser graph reaches no Node built-in; a strict TypeScript consumer type-checks every entry point; an `npm pack` dry run contains the complete consumer import closure; the schema and fixture wildcards resolve; and both generated surfaces still match their sources |
-| `parity.test.mjs` | The metrics themselves — absolute error, relative error, cosine similarity, the zero-reference case, a length mismatch, which bound was breached — and the gate: one run per accelerator under each accelerator environment, a failing build on drift, non-finite output refused, non-numeric output refused, at least two accelerators required, and the whole gate skipped when a scroll declares none |
+| `environment.test.mjs` | Case-aware Windows precedence, inherited-environment preservation, compact selection, host-value masking, explicit reveal, and report formatting |
+| `parity.test.mjs` | The metrics themselves — absolute error, relative error, cosine similarity, the zero-reference case, a length mismatch, which bound was breached — and the gate: one run per accelerator under each accelerator environment with the declared box environment applied, a failing build on drift, non-finite output refused, non-numeric output refused, at least two accelerators required, and the whole gate skipped when a scroll declares none |
 | `project-surface.test.mjs` | `init` scaffolds the workspace and never overwrites, so re-running is safe; `doctor` reports every problem at once with a remedy each, reports a wrong pixi version as a failure rather than an absence, and **writes nothing**; `audit` summarises straight from the lock, writes the reviewed copy only when asked, and fails when the lock no longer matches it |
 | `scroll-authoring.test.mjs` | Every authored shape — library-only, wizard answers, a module with default arguments, the Windows interpreter and conda platform derived from the adapter — plus a staged script hashed at a safe payload path, a generated starter whose declared hash matches its bytes, an initialised example left untouched, and refusal to overwrite anything |
 | `signing.test.mjs` | The external signer: a quoted command with spaces is parsed and its result verified locally; a signer that validly signs a *different* payload is rejected; an invalid signature is rejected even when the payload was echoed exactly |
@@ -5595,9 +5625,9 @@ Six test files under `python/tests/`, plus two support modules.
 | --- | --- |
 | `test_contract.py` | The mirror is faithful: every canonical target-ID and payload-digest vector in the shared fixtures, bundled schemas are exact generated copies, and the payload link rule accepts and refuses exactly what the Node implementation does |
 | `test_verify.py` | Verification, extraction, attachment and installed-payload checking: immutable typed receipts with honest status, existing/file/link roots handled correctly, native-host and asset checks, list-not-directory semantics, named tampering failures, v1 and invalid signatures refused before extraction, archive/manifest disagreement, installed size, and hostile ZIP entries |
-| `test_run.py` | Execution: signed and caller arguments preserved in order without a shell, `-m` invocation, a **real** child process preserving shell metacharacters, on-demand assets verified before spawning, replaced roots and forged receipts and library-only boxes refused, a non-native target refused before spawning, signals forwarded with parent handlers restored, one-shot execution removing its temporary bytes on every terminal path, and the real standard streams routed through the box interpreter |
+| `test_run.py` | Execution: signed and caller arguments preserved in order without a shell, environment reports from verification, attachment and execution, release precedence and masking, `-m` invocation, a **real** child process preserving shell metacharacters, on-demand assets verified before spawning, replaced roots and forged receipts and library-only boxes refused, a non-native target refused before spawning, signals forwarded with parent handlers restored, one-shot execution removing its temporary bytes on every terminal path, and the real standard streams routed through the box interpreter |
 | `test_conformance.py` | Every case in the shared fixture, through the Python consumer |
-| `test_public_api.py` | The package exports exactly the five consumer operations |
+| `test_public_api.py` | The package exports the five consumer operations and immutable environment report models, with every public name declared in `__all__` |
 | `test_release.py` | The release tag check accepts `python-v<version>`, and rejects both the Node tag namespace and a mismatched version — so the two packages cannot be released under each other's tags |
 
 `support.py` and `conformance_support.py` are the Python counterparts of the Node helpers, and
@@ -5721,6 +5751,7 @@ line over all of them.
 
 | Module | Role | Section |
 | --- | --- | --- |
+| `src/environment.mjs` | Case-aware environment precedence, provenance reports, masking and CLI formatting | 6.17, 8.4 |
 | `src/sign/index.mjs` | Two signing paths and one envelope: a local key, or an external signer | 7.3, 7.5 |
 | `src/sign/keys.mjs` | Key generation, reading a pair back, and signature verification | 7.2, 7.4 |
 | `src/consumer/index.mjs` | The local execution surface: the five operations and nothing else | 8.1 |

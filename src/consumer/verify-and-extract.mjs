@@ -29,6 +29,7 @@ import {
   parsePayloadDigestStream,
 } from '../contract/payload-digest.mjs';
 import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
+import { resolveEnvironment } from '../environment.mjs';
 
 /**
  * An on-demand asset whose signed bytes the caller must place under `root` before execution.
@@ -67,6 +68,8 @@ import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/tar
  * @property {number} archiveSizeBytes
  * @property {number} installedSizeBytes logical size of the box root, measured when this receipt was
  *   produced — on an attached receipt it is a current measurement, not an agreement with the release
+ * @property {import('../environment.mjs').EnvironmentReport} environmentReport diagnostic snapshot
+ *   of this process's host environment resolved against the signed declaration
  */
 
 /** @type {WeakMap<object, {
@@ -140,8 +143,30 @@ function requiredAssetsOf(release) {
   return assets;
 }
 
+/** Resolves the diagnostic snapshot carried by every verification receipt. */
+function releaseEnvironmentReport(release, options = {}) {
+  const adapter = boxTargetAdapter(release.target);
+  return resolveEnvironment({
+    platform: adapter.platform,
+    layers: [
+      { source: 'host', values: process.env },
+      { source: 'release', values: release.environment },
+    ],
+    executionAffectingVariables: adapter.executionAffectingEnvironmentVariables,
+    expanded: Boolean(options.envReport || options.envReportValues),
+    revealHostValues: Boolean(options.envReportValues),
+  }).report;
+}
+
 /** Builds the public receipt and binds the private state that authorises execution. */
-function mintReceipt(status, { root, release, signed, installedSizeBytes, identity }) {
+function mintReceipt(status, {
+  root,
+  release,
+  signed,
+  installedSizeBytes,
+  identity,
+  environmentOptions,
+}) {
   const frozenRelease = freezeValue(release);
   const receipt = freezeValue({
     status,
@@ -160,6 +185,7 @@ function mintReceipt(status, { root, release, signed, installedSizeBytes, identi
     archiveSha256: release.archive.sha256,
     archiveSizeBytes: release.archive.sizeBytes,
     installedSizeBytes,
+    environmentReport: releaseEnvironmentReport(release, environmentOptions),
   });
   preparedBoxes.set(receipt, { release: frozenRelease, rootIdentity: identity });
   return receipt;
@@ -172,13 +198,16 @@ function mintReceipt(status, { root, release, signed, installedSizeBytes, identi
  * rename stays on one filesystem and exposes either the complete verified tree or nothing.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, archive?: string | null, destination: string }} options
+ * @param {{ publicPath: string, archive?: string | null, destination: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
 export async function verifyAndExtractBox(releaseDocumentPath, {
   publicPath,
   archive = null,
   destination,
+  envReport = false,
+  envReportValues = false,
 }) {
   if (!destination) fail('A destination is required to prepare a box.');
   const finalRoot = resolve(destination);
@@ -225,6 +254,7 @@ export async function verifyAndExtractBox(releaseDocumentPath, {
       signed,
       installedSizeBytes: extractedSize,
       identity: { device: installedMetadata.dev, inode: installedMetadata.ino },
+      environmentOptions: { envReport, envReportValues },
     });
   } finally {
     await rm(stageRoot, { recursive: true, force: true });
@@ -261,10 +291,15 @@ async function resolveExtractedRoot(root) {
  * minted here exists to be executed.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string }} options
+ * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
-export async function attachExtractedBox(releaseDocumentPath, { publicPath, root }) {
+export async function attachExtractedBox(releaseDocumentPath, {
+  publicPath,
+  root,
+  envReport = false,
+  envReportValues = false,
+}) {
   const { root: boxRoot, metadata } = await resolveExtractedRoot(root);
   const { signed, release, adapter } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
   try {
@@ -302,6 +337,7 @@ export async function attachExtractedBox(releaseDocumentPath, { publicPath, root
     signed,
     installedSizeBytes,
     identity: { device: settled.dev, inode: settled.ino },
+    environmentOptions: { envReport, envReportValues },
   });
 }
 
@@ -315,6 +351,7 @@ export async function attachExtractedBox(releaseDocumentPath, { publicPath, root
  * @property {string} version
  * @property {string} targetId
  * @property {number} entryCount how many payload entries were checked
+ * @property {import('../environment.mjs').EnvironmentReport} environmentReport diagnostic snapshot
  */
 
 /**
@@ -328,10 +365,15 @@ export async function attachExtractedBox(releaseDocumentPath, { publicPath, root
  * release describes, and is it still whole.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string }} options
+ * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PayloadVerification>>}
  */
-export async function verifyExtractedPayload(releaseDocumentPath, { publicPath, root }) {
+export async function verifyExtractedPayload(releaseDocumentPath, {
+  publicPath,
+  root,
+  envReport = false,
+  envReportValues = false,
+}) {
   const { root: boxRoot } = await resolveExtractedRoot(root);
   const { release } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
   if (release.payloadDigest === undefined) {
@@ -389,5 +431,6 @@ export async function verifyExtractedPayload(releaseDocumentPath, { publicPath, 
     version: release.version,
     targetId: boxTargetId(release.target),
     entryCount: entries.length,
+    environmentReport: releaseEnvironmentReport(release, { envReport, envReportValues }),
   });
 }

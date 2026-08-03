@@ -105,7 +105,9 @@ prerequisites, then atomically renames a fresh staging tree into `destination`. 
 not exist.
 
 It returns an immutable `PreparedBox` receipt with signed identity, target, execution, archive and
-signing information. The receipt is process-bound: `runExtractedBox` rejects copied or constructed
+signing information, plus `environmentReport`, a masked diagnostic snapshot of this process's host
+environment resolved against the signed declaration. The receipt is process-bound:
+`runExtractedBox` rejects copied or constructed
 lookalikes, and also rejects a prepared root replaced after verification.
 
 For `on-demand` weights, `prepared.requiredAssets` contains the signed URL, relative path, size and
@@ -125,7 +127,8 @@ not read original payload file contents, though it enumerates paths and measures
 its original-payload work scales with entry count rather than byte size. Required on-demand assets
 are hashed in full. The receipt it returns carries
 `status: 'attached'` rather than `'prepared'`, because the bytes on disk were not proved — only the
-release, and the shape of the directory. `runExtractedBox` accepts either.
+release, and the shape of the directory. Its `environmentReport` is produced by the same resolver as
+preparation. `runExtractedBox` accepts either.
 
 `root` must be a real directory; a symbolic link is refused, since execution requires a real one.
 
@@ -144,6 +147,8 @@ it after installing, on a user's request, or in a maintenance job. Embedded weig
 can make the check read tens of gigabytes; on-demand assets are later extras and keep their separate
 signed per-file verification. File mode and modification time are deliberately not committed. A
 release built before this field existed is refused rather than silently treated as verified.
+The returned `PayloadVerification` also carries `environmentReport`; it describes the inspecting
+process, not the payload bytes that were just checked.
 
 ::: warning What it does and does not prove
 It binds a directory to a signed release and detects corruption. It is not a defence against a local
@@ -163,9 +168,11 @@ enforces the native target, starts the declared script or `-m` module with the b
 uses the box root as `cwd`, and appends caller `args` after signed `defaultArgs`. It never invokes a
 shell.
 
-`stdin`, `stdout`, and `stderr` accept Node child-process stdio values or streams; `env` is merged
-over the current environment. `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded while the child is
-alive. The returned `{ exitCode, signal }` preserves the child's terminal result.
+`stdin`, `stdout`, and `stderr` accept Node child-process stdio values or streams. Environment
+precedence is inherited host, then caller `env`, then signed release `environment`; later layers win
+without filtering any inherited name. `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded while the
+child is alive. The returned `{ exitCode, signal, environmentReport }` preserves the child's
+terminal result and the exact diagnostic used for that spawn.
 
 `runBox(releaseDocumentPath, options)` composes preparation and execution in a private temporary
 directory and guarantees cleanup after a normal exit, non-zero exit, spawn failure, or forwarded
@@ -184,6 +191,36 @@ const result = await runBox('release.json', {
 });
 process.exitCode = result.exitCode ?? 1;
 ```
+
+### Environment reports
+
+Every preparation, attachment, payload verification, and run result includes a structured report.
+The compact default contains every release-declared variable, every inherited variable the target
+adapter identifies as capable of changing executed code, and every conflict, plus
+`remainingVariableCount`. A variable records its winning `source`, visible winning `value`, whether
+it is `executionAffecting`, and all `sources` in precedence order. Release values are visible because
+they are already public in the signed document; inherited host values are `"<masked>"` by default.
+
+Pass `envReport: true` to any consumer operation to include every resolved variable name. Pass
+`envReportValues: true` to imply the full report and reveal host values deliberately. Python uses
+`env_report` and `env_report_values`. Run operations also accept `onEnvironmentReport` /
+`on_environment_report`, called after resolution and before spawning.
+
+```js
+const result = await runExtractedBox(prepared, {
+  envReport: true,
+  onEnvironmentReport(report) {
+    logger.info({ environment: report });
+  },
+});
+```
+
+::: warning Diagnostic, not guarantee
+The `environment` declaration is signed format data and every verifier checks agreement. An
+`environmentReport` is local consumer output: it changes with the host, caller values, flags, and
+time of execution. A caller that starts `venv/bin/python` directly gets neither resolution nor a
+report. Do not describe the report as a property guaranteed by the box.
+:::
 
 ## `scrollcase_consumer`
 
@@ -217,13 +254,17 @@ result = run_extracted_box(
 ```
 
 The receipt fields use idiomatic snake case (`box_id`, `target_id`, `required_assets`,
-`archive_sha256`). `attach_extracted_box(release, public_key_path=…, root=…)` and
+`archive_sha256`, `environment_report`). `attach_extracted_box(release, public_key_path=…, root=…)` and
 `verify_extracted_payload(release, public_key_path=…, root=…)` mirror their Node counterparts
 exactly, including the `attached` status and the refusal of a release that commits to no payload
 digest. `run_box` performs the same one-shot prepare/run/cleanup composition. Stream
 arguments accept Python file objects or `subprocess` constants; the default inherits the parent's
 streams. On the main Python thread, `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded and then the
 previous handlers are restored.
+
+`EnvironmentReport`, `EnvironmentVariableReport`, and `EnvironmentSourceValue` are immutable public
+models. Their fields mirror the Node structure in snake case; `BoxRunResult` and every verification
+receipt include one.
 
 The distribution is not a downloader: callers still supply local release, archive, trust-key,
 destination, and on-demand asset paths. It verifies Ed25519 signatures with `cryptography` and

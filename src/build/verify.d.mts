@@ -69,4 +69,5 @@ export function verifyBox(releaseDocumentPath: any, options?: {}): Promise<{
     archiveSha256: any;
     archiveSizeBytes: any;
     selfTest: string;
+    environmentReport: import("../environment.mjs").EnvironmentReport;
 }>;

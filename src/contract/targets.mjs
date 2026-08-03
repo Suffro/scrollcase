@@ -30,6 +30,8 @@
  *   extensions: readonly string[] }} nativeLibraryInspection
  * @property {Readonly<Record<string, Readonly<Record<string, string>>>>} validationEnvironments
  *   the environment that forces a run onto one accelerator, keyed by accelerator
+ * @property {readonly string[]} executionAffectingEnvironmentVariables inherited variables whose
+ *   presence can change which code the box interpreter loads or executes
  * @property {string} selfTestPython the platform assertion prepended to every self-test
  */
 
@@ -39,6 +41,12 @@ const TARGET_ACCELERATORS = {
   windows: { x86_64: ['cpu', 'cuda'] },
 };
 const CUDA_VERSION = /^[1-9][0-9]*\.[0-9]+$/;
+const PYTHON_EXECUTION_ENVIRONMENT = Object.freeze([
+  'PYTHONPATH',
+  'PYTHONHOME',
+  'PYTHONSTARTUP',
+  'PYTHONBREAKPOINT',
+]);
 
 // The exact libraries that wrote and read a box, so a consumer knows what produced the bytes it
 // holds rather than inferring it. Each version is the one this package installs: they are pinned in
@@ -77,6 +85,10 @@ const TARGET_ADAPTERS = Object.freeze([
       cpu: Object.freeze({ CUDA_VISIBLE_DEVICES: '' }),
       metal: Object.freeze({ PYTORCH_ENABLE_MPS_FALLBACK: '0' }),
     }),
+    executionAffectingEnvironmentVariables: Object.freeze([
+      ...PYTHON_EXECUTION_ENVIRONMENT,
+      'DYLD_INSERT_LIBRARIES',
+    ]),
     selfTestPython: "import sys; assert sys.platform == 'darwin'",
   }),
   Object.freeze({
@@ -102,6 +114,10 @@ const TARGET_ADAPTERS = Object.freeze([
       cpu: Object.freeze({ CUDA_VISIBLE_DEVICES: '' }),
       cuda: Object.freeze({ CUDA_VISIBLE_DEVICES: '0' }),
     }),
+    executionAffectingEnvironmentVariables: Object.freeze([
+      ...PYTHON_EXECUTION_ENVIRONMENT,
+      'LD_PRELOAD',
+    ]),
     selfTestPython: "import sys; assert sys.platform.startswith('linux')",
   }),
   Object.freeze({
@@ -127,6 +143,7 @@ const TARGET_ADAPTERS = Object.freeze([
       cpu: Object.freeze({ CUDA_VISIBLE_DEVICES: '' }),
       cuda: Object.freeze({ CUDA_VISIBLE_DEVICES: '0' }),
     }),
+    executionAffectingEnvironmentVariables: PYTHON_EXECUTION_ENVIRONMENT,
     selfTestPython: "import sys; assert sys.platform == 'win32'",
   }),
 ]);

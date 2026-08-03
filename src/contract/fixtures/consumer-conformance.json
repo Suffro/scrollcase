@@ -8,6 +8,7 @@
     "archive-size": "Archive size mismatch",
     "manifest-disagreement": "box.json mismatch: modelId",
     "execution-disagreement": "box.json mismatch: execution",
+    "environment-disagreement": "box.json mismatch: environment",
     "missing-interpreter": "Archive is missing venv/",
     "missing-script": "Execution script is missing",
     "missing-module": "Execution module is not discoverable",
@@ -64,6 +65,280 @@
           "pythonEntryPoint": "$NATIVE_PYTHON",
           "targetId": "$NATIVE_TARGET"
         }
+      }
+    },
+    {
+      "id": "declared-environment-in-prepare-report",
+      "action": "prepare",
+      "fixture": {
+        "environment": {
+          "SCROLLCASE_DECLARED_MODEL_ROOT": "model-cache/consumer-fixture"
+        }
+      },
+      "runtime": {
+        "reportVariables": [
+          "SCROLLCASE_DECLARED_MODEL_ROOT"
+        ]
+      },
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET",
+          "environmentReport": {
+            "mode": "summary",
+            "hostValuesRevealed": false,
+            "releaseVariableCount": 1,
+            "conflictCount": 0,
+            "variables": [
+              {
+                "name": "SCROLLCASE_DECLARED_MODEL_ROOT",
+                "source": "release",
+                "value": "model-cache/consumer-fixture",
+                "executionAffecting": false,
+                "conflict": false,
+                "sources": [
+                  {
+                    "source": "release",
+                    "name": "SCROLLCASE_DECLARED_MODEL_ROOT",
+                    "value": "model-cache/consumer-fixture"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "masked-environment-conflict-in-attach-report",
+      "action": "attach",
+      "fixture": {
+        "environment": {
+          "SCROLLCASE_ENV_CONFLICT": "release-value"
+        }
+      },
+      "runtime": {
+        "hostEnvironment": {
+          "SCROLLCASE_ENV_CONFLICT": "host-secret"
+        },
+        "envReport": true,
+        "reportVariables": [
+          "SCROLLCASE_ENV_CONFLICT"
+        ]
+      },
+      "expected": {
+        "outcome": "attached",
+        "receipt": {
+          "status": "attached",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET",
+          "environmentReport": {
+            "mode": "full",
+            "hostValuesRevealed": false,
+            "releaseVariableCount": 1,
+            "conflictCount": 1,
+            "variables": [
+              {
+                "name": "SCROLLCASE_ENV_CONFLICT",
+                "source": "release",
+                "value": "release-value",
+                "executionAffecting": false,
+                "conflict": true,
+                "sources": [
+                  {
+                    "source": "host",
+                    "name": "SCROLLCASE_ENV_CONFLICT",
+                    "value": "<masked>"
+                  },
+                  {
+                    "source": "release",
+                    "name": "SCROLLCASE_ENV_CONFLICT",
+                    "value": "release-value"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "revealed-environment-conflict-in-payload-verify-report",
+      "action": "verify-payload",
+      "fixture": {
+        "environment": {
+          "SCROLLCASE_VERIFY_ENV": "release-value"
+        }
+      },
+      "runtime": {
+        "hostEnvironment": {
+          "SCROLLCASE_VERIFY_ENV": "host-secret"
+        },
+        "envReportValues": true,
+        "reportVariables": [
+          "SCROLLCASE_VERIFY_ENV"
+        ]
+      },
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3,
+          "environmentReport": {
+            "mode": "full",
+            "hostValuesRevealed": true,
+            "releaseVariableCount": 1,
+            "conflictCount": 1,
+            "variables": [
+              {
+                "name": "SCROLLCASE_VERIFY_ENV",
+                "source": "release",
+                "value": "release-value",
+                "executionAffecting": false,
+                "conflict": true,
+                "sources": [
+                  {
+                    "source": "host",
+                    "name": "SCROLLCASE_VERIFY_ENV",
+                    "value": "host-secret"
+                  },
+                  {
+                    "source": "release",
+                    "name": "SCROLLCASE_VERIFY_ENV",
+                    "value": "release-value"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "release-environment-wins-host-and-caller",
+      "action": "run-prepared",
+      "fixture": {
+        "environment": {
+          "SCROLLCASE_ENV_PRECEDENCE": "release-value"
+        }
+      },
+      "runtime": {
+        "hostEnvironment": {
+          "SCROLLCASE_ENV_PRECEDENCE": "host-secret"
+        },
+        "env": {
+          "SCROLLCASE_ENV_PRECEDENCE": "caller-value"
+        },
+        "reportVariables": [
+          "SCROLLCASE_ENV_PRECEDENCE"
+        ]
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null,
+          "environmentReport": {
+            "mode": "summary",
+            "hostValuesRevealed": false,
+            "releaseVariableCount": 1,
+            "conflictCount": 1,
+            "variables": [
+              {
+                "name": "SCROLLCASE_ENV_PRECEDENCE",
+                "source": "release",
+                "value": "release-value",
+                "executionAffecting": false,
+                "conflict": true,
+                "sources": [
+                  {
+                    "source": "host",
+                    "name": "SCROLLCASE_ENV_PRECEDENCE",
+                    "value": "<masked>"
+                  },
+                  {
+                    "source": "caller",
+                    "name": "SCROLLCASE_ENV_PRECEDENCE",
+                    "value": "caller-value"
+                  },
+                  {
+                    "source": "release",
+                    "name": "SCROLLCASE_ENV_PRECEDENCE",
+                    "value": "release-value"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "effectiveEnvironment": {
+          "SCROLLCASE_ENV_PRECEDENCE": "release-value"
+        }
+      }
+    },
+    {
+      "id": "execution-affecting-host-value-requires-explicit-reveal",
+      "action": "run-prepared",
+      "runtime": {
+        "hostEnvironment": {
+          "PYTHONPATH": "/host/code"
+        },
+        "envReportValues": true,
+        "reportVariables": [
+          "PYTHONPATH"
+        ]
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null,
+          "environmentReport": {
+            "mode": "full",
+            "hostValuesRevealed": true,
+            "releaseVariableCount": 0,
+            "conflictCount": 0,
+            "variables": [
+              {
+                "name": "PYTHONPATH",
+                "source": "host",
+                "value": "/host/code",
+                "executionAffecting": true,
+                "conflict": false,
+                "sources": [
+                  {
+                    "source": "host",
+                    "name": "PYTHONPATH",
+                    "value": "/host/code"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "effectiveEnvironment": {
+          "PYTHONPATH": "/host/code"
+        }
+      }
+    },
+    {
+      "id": "altered-environment-metadata",
+      "action": "prepare",
+      "mutation": "alter-release-environment",
+      "expected": {
+        "outcome": "rejected",
+        "error": "environment-disagreement",
+        "destinationExists": false
       }
     },
     {

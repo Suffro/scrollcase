@@ -26,9 +26,11 @@ from ._contract import (
     path_under,
 )
 from .errors import ScrollcaseConsumerError
+from .environment import resolve_environment
 from .extract import collect_files, sha256_file
 from .models import (
     BoxRunResult,
+    EnvironmentReport,
     PreparedBox,
     PythonModuleExecution,
     PythonScriptExecution,
@@ -61,21 +63,6 @@ def _arguments(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _environment(values: Mapping[str, str] | None) -> dict[str, str]:
-    environment = dict(os.environ)
-    if values is None:
-        return environment
-    if not all(
-        isinstance(key, str) and isinstance(value, str)
-        for key, value in values.items()
-    ):
-        raise ScrollcaseConsumerError(
-            "Box execution environment must map strings to strings."
-        )
-    environment.update(values)
-    return environment
-
-
 def _forwarded_signals() -> tuple[signal.Signals, ...]:
     names = ("SIGINT", "SIGTERM", "SIGHUP")
     return tuple(
@@ -85,7 +72,10 @@ def _forwarded_signals() -> tuple[signal.Signals, ...]:
     )
 
 
-def _wait_for_child(child: ChildProcess) -> BoxRunResult:
+def _wait_for_child(
+    child: ChildProcess,
+    environment_report: EnvironmentReport,
+) -> BoxRunResult:
     previous: dict[signal.Signals, Any] = {}
 
     def forward(
@@ -111,8 +101,16 @@ def _wait_for_child(child: ChildProcess) -> BoxRunResult:
             signal_name = signal.Signals(-return_code).name
         except ValueError:
             signal_name = f"SIG{-return_code}"
-        return BoxRunResult(exit_code=None, signal=signal_name)
-    return BoxRunResult(exit_code=return_code, signal=None)
+        return BoxRunResult(
+            exit_code=None,
+            signal=signal_name,
+            environment_report=environment_report,
+        )
+    return BoxRunResult(
+        exit_code=return_code,
+        signal=None,
+        environment_report=environment_report,
+    )
 
 
 def run_extracted_box(
@@ -123,6 +121,9 @@ def run_extracted_box(
     stdin: Stdio = None,
     stdout: Stdio = None,
     stderr: Stdio = None,
+    env_report: bool = False,
+    env_report_values: bool = False,
+    on_environment_report: Callable[[EnvironmentReport], None] | None = None,
     popen_factory: PopenFactory = subprocess.Popen,
 ) -> BoxRunResult:
     """Execute a verified prepared box with its own interpreter."""
@@ -174,11 +175,26 @@ def run_extracted_box(
         )
     execution_args.extend(execution.default_args)
     execution_args.extend(caller_args)
+    environment, environment_report = resolve_environment(
+        state.target,
+        (
+            ("host", os.environ),
+            ("caller", env),
+            (
+                "release",
+                cast(Mapping[str, str] | None, state.release.get("environment")),
+            ),
+        ),
+        expanded=env_report or env_report_values,
+        reveal_host_values=env_report_values,
+    )
+    if on_environment_report is not None:
+        on_environment_report(environment_report)
     try:
         child = popen_factory(
             [str(python), *execution_args],
             cwd=str(root),
-            env=_environment(env),
+            env=environment,
             stdin=stdin,
             stdout=stdout,
             stderr=stderr,
@@ -188,7 +204,7 @@ def run_extracted_box(
         raise ScrollcaseConsumerError(
             f"Box application failed to start: {error}"
         ) from error
-    return _wait_for_child(child)
+    return _wait_for_child(child, environment_report)
 
 
 def run_box(
@@ -201,6 +217,9 @@ def run_box(
     stdin: Stdio = None,
     stdout: Stdio = None,
     stderr: Stdio = None,
+    env_report: bool = False,
+    env_report_values: bool = False,
+    on_environment_report: Callable[[EnvironmentReport], None] | None = None,
     temporary_directory: str | os.PathLike[str] | None = None,
     on_prepared: Callable[[PreparedBox], None] | None = None,
     popen_factory: PopenFactory = subprocess.Popen,
@@ -221,6 +240,8 @@ def run_box(
             public_key_path=public_key_path,
             archive=archive,
             destination=temporary_root / "box",
+            env_report=env_report,
+            env_report_values=env_report_values,
         )
         if on_prepared is not None:
             on_prepared(prepared)
@@ -231,6 +252,9 @@ def run_box(
             stdin=stdin,
             stdout=stdout,
             stderr=stderr,
+            env_report=env_report,
+            env_report_values=env_report_values,
+            on_environment_report=on_environment_report,
             popen_factory=popen_factory,
         )
     finally:

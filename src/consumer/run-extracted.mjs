@@ -13,6 +13,7 @@ import { collectFiles, safeRelativePath } from '../build/filesystem.mjs';
 import { assertExecutionFiles } from '../build/execution.mjs';
 import { fail } from '../build/process.mjs';
 import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
+import { resolveEnvironment } from '../environment.mjs';
 import { preparedBoxState, verifyRequiredAssets } from './verify-and-extract.mjs';
 
 /**
@@ -29,12 +30,17 @@ import { preparedBoxState, verifyRequiredAssets } from './verify-and-extract.mjs
  * @property {BoxStdio} [stderr]
  * @property {typeof spawnProcess} [spawn] injectable process seam
  * @property {Pick<NodeJS.Process, 'on' | 'removeListener'>} [signalSource] injectable signal seam
+ * @property {boolean} [envReport] include every variable in the structured diagnostic
+ * @property {boolean} [envReportValues] reveal inherited host values and imply `envReport`
+ * @property {(report: import('../environment.mjs').EnvironmentReport) => void | Promise<void>}
+ *   [onEnvironmentReport] called after resolution and before the child starts
  */
 
 /**
  * @typedef {object} BoxRunResult
  * @property {number | null} exitCode
  * @property {NodeJS.Signals | null} signal
+ * @property {import('../environment.mjs').EnvironmentReport} environmentReport
  */
 
 const FORWARDED_SIGNALS = /** @type {const} */ (['SIGINT', 'SIGTERM', 'SIGHUP']);
@@ -124,10 +130,23 @@ export async function runExtractedBox(prepared, options = {}) {
     : ['-m', release.execution.module];
   executionArgs.push(...release.execution.defaultArgs, ...callerArgs);
 
+  const { environment, report: environmentReport } = resolveEnvironment({
+    platform: adapter.platform,
+    layers: [
+      { source: 'host', values: process.env },
+      { source: 'caller', values: options.env },
+      { source: 'release', values: release.environment },
+    ],
+    executionAffectingVariables: adapter.executionAffectingEnvironmentVariables,
+    expanded: Boolean(options.envReport || options.envReportValues),
+    revealHostValues: Boolean(options.envReportValues),
+  });
+  await options.onEnvironmentReport?.(environmentReport);
+
   const spawn = options.spawn ?? spawnProcess;
   const child = spawn(python, executionArgs, {
     cwd: prepared.root,
-    env: { ...process.env, ...options.env },
+    env: environment,
     stdio: [
       options.stdin ?? 'inherit',
       options.stdout ?? 'inherit',
@@ -135,5 +154,8 @@ export async function runExtractedBox(prepared, options = {}) {
     ],
     shell: false,
   });
-  return waitForChild(child, options.signalSource ?? process);
+  return {
+    ...await waitForChild(child, options.signalSource ?? process),
+    environmentReport,
+  };
 }

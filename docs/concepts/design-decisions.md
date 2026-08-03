@@ -307,6 +307,30 @@ terminal confirmation rather than being selected silently.
 second identity layer and encouraged product-plus-machine directory names even though the scroll
 already declares both facts.
 
+## The environment is declared; inheritance is reported, not policed
+
+A scroll may declare the string map its interpreter requires. The builder copies it into
+`box.json` and the signed release, applies it to its own self-test and parity gate, and consumers
+apply it over inherited host and caller values. Target validation controls remain last for the
+accelerator checks. A wrong declared path therefore fails during the build instead of first failing
+on a user's machine.
+
+The inherited environment is intentionally not filtered. Scrollcase is responsible for integrity,
+verifiable declarations, and truthful diagnostics; it is not a sandbox for the developer or the
+application launching a box. Consumers instead return a masked provenance report, and the CLI can
+expand it with `--env-report`. Revealing inherited values requires the separate, deliberate
+`--env-report-values` flag because a generic verbosity switch is routinely enabled in public CI
+logs.
+
+The boundary is permanent: the declaration is part of the format and can be verified by any
+implementation. The report is output from a particular consumer process and must never be
+documented as a guarantee of the box. Starting the packed interpreter directly bypasses the report,
+just as it bypasses every other consumer check.
+
+**Rejected:** a default-deny environment with a hand-maintained minimal base per platform. It would
+silently make the tool a sandbox policy, and a mistaken Windows base could prevent the packed
+interpreter from starting at all.
+
 ## Provenance refuses to lie
 
 A box records the commit it was built from and whether that working tree was dirty, including

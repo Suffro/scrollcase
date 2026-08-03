@@ -135,6 +135,12 @@ export interface BoxScroll {
   pythonEntryPoint: string;
   modelCacheSubdir: string;
   /**
+   * Environment variables the box requires when its interpreter runs. The declaration is copied into box.json and the signed release; its values override both the inherited host environment and caller-supplied values.
+   */
+  environment?: {
+    [k: string]: string;
+  };
+  /**
    * Base URL of the mirror the built archive and its objects are published under.
    */
   assetBaseUrl?: string;
@@ -231,6 +237,12 @@ export interface BoxManifest {
   target: BoxTarget;
   pythonEntryPoint: string;
   modelCacheSubdir: string;
+  /**
+   * Environment variables repeated from the signed release. Scrollcase consumers compare this declaration before execution and apply it over inherited and caller-supplied values.
+   */
+  environment?: {
+    [k: string]: string;
+  };
   selfTest: {
     /**
      * @minItems 1
@@ -350,6 +362,12 @@ export interface BoxReleaseManifest {
    * Directory relative to the extracted box root holding model assets.
    */
   modelCacheSubdir: string;
+  /**
+   * Signed environment variables applied whenever Scrollcase runs the box interpreter. These values override both the inherited host environment and caller-supplied values.
+   */
+  environment?: {
+    [k: string]: string;
+  };
   /**
    * The import check a consumer can repeat after extraction with the box's own interpreter. The builder also ran the scroll's Python-code and file assertions, which are builder-only checks.
    */

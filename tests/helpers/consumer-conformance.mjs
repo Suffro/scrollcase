@@ -177,6 +177,11 @@ async function mutateFixture(fixture, mutation, destination) {
     await writeSignedRelease(fixture, fixture.release);
     return;
   }
+  if (mutation === 'alter-release-environment') {
+    fixture.release.environment = { SCROLLCASE_CHANGED_AFTER_BUILD: '1' };
+    await writeSignedRelease(fixture, fixture.release);
+    return;
+  }
   if (mutation === 'create-destination') {
     await mkdir(destination);
     return;
@@ -333,6 +338,27 @@ function fixtureOptions(spec = {}) {
     ...(execution ? { execution } : {}),
     requiredAsset,
     payloadDigest: spec.payloadDigest !== false,
+    environment: spec.environment,
+  };
+}
+
+function environmentReport(report, names = []) {
+  const selected = new Set(names);
+  return {
+    mode: report.mode,
+    hostValuesRevealed: report.hostValuesRevealed,
+    releaseVariableCount: report.releaseVariableCount,
+    conflictCount: report.conflictCount,
+    variables: report.variables
+      .filter((variable) => selected.has(variable.name))
+      .map((variable) => ({
+        name: variable.name,
+        source: variable.source,
+        value: variable.value,
+        executionAffecting: variable.executionAffecting,
+        conflict: variable.conflict,
+        sources: variable.sources,
+      })),
   };
 }
 
@@ -382,6 +408,12 @@ export async function runNodeConformanceCase(testCase) {
   let prepared;
   let fake;
   let streams;
+  const runtime = testCase.runtime ?? {};
+  const previousHostEnvironment = new Map();
+  for (const [name, value] of Object.entries(runtime.hostEnvironment ?? {})) {
+    previousHostEnvironment.set(name, process.env[name]);
+    process.env[name] = value;
+  }
   try {
     if (testCase.fixture?.linkedInterpreter) {
       await mutateFixture(fixture, 'link-interpreter', destination);
@@ -397,18 +429,27 @@ export async function runNodeConformanceCase(testCase) {
         publicPath: fixture.publicPath,
         archive: fixture.archivePath,
         destination,
+        envReport: Boolean(runtime.envReport),
+        envReportValues: Boolean(runtime.envReportValues),
       });
+      const receipt = {
+        status: prepared.status,
+        boxId: prepared.boxId,
+        executionKind: prepared.execution?.kind ?? null,
+        requiredAssetCount: prepared.requiredAssets.length,
+        pythonEntryPoint: prepared.pythonEntryPoint,
+        targetId: prepared.targetId,
+      };
+      if (testCase.expected.receipt?.environmentReport) {
+        receipt.environmentReport = environmentReport(
+          prepared.environmentReport,
+          runtime.reportVariables,
+        );
+      }
       return {
         actual: {
           outcome: 'prepared',
-          receipt: {
-            status: prepared.status,
-            boxId: prepared.boxId,
-            executionKind: prepared.execution?.kind ?? null,
-            requiredAssetCount: prepared.requiredAssets.length,
-            pythonEntryPoint: prepared.pythonEntryPoint,
-            targetId: prepared.targetId,
-          },
+          receipt,
         },
         expected,
         root: fixture.root,
@@ -420,6 +461,8 @@ export async function runNodeConformanceCase(testCase) {
         publicPath: fixture.publicPath,
         archive: fixture.archivePath,
         destination,
+        envReport: Boolean(runtime.envReport),
+        envReportValues: Boolean(runtime.envReportValues),
       });
       await materializeAsset(prepared, testCase.runtime?.assetState);
       const root = await mutateExtractedRoot(
@@ -431,18 +474,27 @@ export async function runNodeConformanceCase(testCase) {
         const attached = await attachExtractedBox(fixture.releasePath, {
           publicPath: fixture.publicPath,
           root,
+          envReport: Boolean(runtime.envReport),
+          envReportValues: Boolean(runtime.envReportValues),
         });
+        const receipt = {
+          status: attached.status,
+          boxId: attached.boxId,
+          executionKind: attached.execution?.kind ?? null,
+          requiredAssetCount: attached.requiredAssets.length,
+          pythonEntryPoint: attached.pythonEntryPoint,
+          targetId: attached.targetId,
+        };
+        if (testCase.expected.receipt?.environmentReport) {
+          receipt.environmentReport = environmentReport(
+            attached.environmentReport,
+            runtime.reportVariables,
+          );
+        }
         return {
           actual: {
             outcome: 'attached',
-            receipt: {
-              status: attached.status,
-              boxId: attached.boxId,
-              executionKind: attached.execution?.kind ?? null,
-              requiredAssetCount: attached.requiredAssets.length,
-              pythonEntryPoint: attached.pythonEntryPoint,
-              targetId: attached.targetId,
-            },
+            receipt,
           },
           expected,
           root: fixture.root,
@@ -451,16 +503,25 @@ export async function runNodeConformanceCase(testCase) {
       const verified = await verifyExtractedPayload(fixture.releasePath, {
         publicPath: fixture.publicPath,
         root,
+        envReport: Boolean(runtime.envReport),
+        envReportValues: Boolean(runtime.envReportValues),
       });
+      const verificationResult = {
+        status: verified.status,
+        boxId: verified.boxId,
+        targetId: verified.targetId,
+        entryCount: verified.entryCount,
+      };
+      if (testCase.expected.result?.environmentReport) {
+        verificationResult.environmentReport = environmentReport(
+          verified.environmentReport,
+          runtime.reportVariables,
+        );
+      }
       return {
         actual: {
           outcome: 'verified',
-          result: {
-            status: verified.status,
-            boxId: verified.boxId,
-            targetId: verified.targetId,
-            entryCount: verified.entryCount,
-          },
+          result: verificationResult,
         },
         expected,
         root: fixture.root,
@@ -468,7 +529,6 @@ export async function runNodeConformanceCase(testCase) {
     }
 
     fake = fakeSpawn(testCase.runtime);
-    const runtime = testCase.runtime ?? {};
     const signalSource = runtime.signal ? new EventEmitter() : undefined;
     if (runtime.streams) {
       streams = {
@@ -495,6 +555,9 @@ export async function runNodeConformanceCase(testCase) {
         args: runtime.args ?? [],
         spawn: fake.spawn,
         signalSource,
+        env: runtime.env,
+        envReport: Boolean(runtime.envReport),
+        envReportValues: Boolean(runtime.envReportValues),
         ...streams,
       });
       if (runtime.signal) {
@@ -511,6 +574,9 @@ export async function runNodeConformanceCase(testCase) {
         args: runtime.args ?? [],
         spawn: fake.spawn,
         signalSource,
+        env: runtime.env,
+        envReport: Boolean(runtime.envReport),
+        envReportValues: Boolean(runtime.envReportValues),
         ...streams,
       });
       if (runtime.signal) {
@@ -523,8 +589,22 @@ export async function runNodeConformanceCase(testCase) {
     }
     const actual = {
       outcome: 'completed',
-      result,
+      result: {
+        exitCode: result.exitCode,
+        signal: result.signal,
+      },
     };
+    if (expected.result?.environmentReport) {
+      actual.result.environmentReport = environmentReport(
+        result.environmentReport,
+        runtime.reportVariables,
+      );
+    }
+    if ('effectiveEnvironment' in expected) {
+      actual.effectiveEnvironment = Object.fromEntries(
+        Object.keys(expected.effectiveEnvironment).map((name) => [name, fake.calls[0].options.env[name]]),
+      );
+    }
     if ('persistentRootExists' in expected) actual.persistentRootExists = await pathExists(prepared.root);
     if ('spawned' in expected) actual.spawned = fake.calls.length > 0;
     if ('temporaryDirectoryEmpty' in expected) {
@@ -556,6 +636,11 @@ export async function runNodeConformanceCase(testCase) {
         && (await readdir(temporaryDirectory)).length === 0;
     }
     return { actual, expected, root: fixture.root };
+  } finally {
+    for (const [name, value] of previousHostEnvironment) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 }
 

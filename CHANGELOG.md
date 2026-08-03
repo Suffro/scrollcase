@@ -10,7 +10,7 @@ All notable changes to Scrollcase are documented here. The format follows
 
 - Commit new boxes to their extracted payload through the optional signed `payloadDigest` release
   field and the canonical `payload-digest.v1` list inside the archive. Node and Python share golden
-  byte vectors for the list format and 59 language-neutral consumer cases. `schemaVersion` remains
+  byte vectors for the list format and 65 language-neutral consumer cases. `schemaVersion` remains
   2 because the field is additive: existing v2 releases still verify normally, while an explicit
   installed-payload check refuses a release that carries no digest rather than claiming success.
 
@@ -35,6 +35,20 @@ All notable changes to Scrollcase are documented here. The format follows
   input, and level 1 recovers 4 MB/s because the search fails either way. Lowering the level is not
   a fix; not compressing is. Nothing opens the file or reads its extension — the decision comes from
   the scroll and the path alone, so a rebuild of the same commit stays byte-identical.
+
+- Add the optional `environment` declaration to scrolls, `box.json`, and signed release manifests.
+  Scrollcase applies it to the build self-test, parity runs, verification self-tests, and consumer
+  execution; signed release values override inherited host and caller values, while target
+  validation variables remain authoritative for the accelerator gate. Nothing inherited is
+  filtered.
+
+  Node and Python verification receipts, attachment receipts, payload-verification results, and run
+  results now carry the same structured environment report. Compact reports include every signed
+  declaration, execution-affecting inherited variables, conflicts and their winner, plus the count
+  omitted; `envReport` / `env_report` expands all names, and `envReportValues` /
+  `env_report_values` explicitly reveals inherited host values. The CLI exposes the same distinction
+  as `--env-report` and `--env-report-values` on `run` and `verify`. The report is consumer
+  diagnostics, not a signed box guarantee.
 
 ### Changed
 

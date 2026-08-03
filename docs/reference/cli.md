@@ -329,8 +329,8 @@ Run the format checks a consumer can repeat against a signed release document an
 before anything is published.
 
 ```sh
-scrollcase verify <release.json> [--archive <path>] [--self-test] [--public-key <path>]
-scrollcase verify <release.json> --extracted <dir> [--public-key <path>]
+scrollcase verify <release.json> [--archive <path>] [--self-test] [--env-report]
+scrollcase verify <release.json> --extracted <dir> [--env-report]
 ```
 
 | Flag | Default | Meaning |
@@ -338,15 +338,24 @@ scrollcase verify <release.json> --extracted <dir> [--public-key <path>]
 | `--archive` | `<archive.sha256>.zip` next to the release document | The archive to check |
 | `--self-test` | off | Extract to a temporary directory and import the declared modules with the box's own interpreter. Only runs on a matching native host |
 | `--extracted` | off | Verify an existing extracted payload against the signed payload digest. Cannot be combined with `--archive` or `--self-test` |
+| `--env-report` | off | Expand the diagnostic from the compact relevant subset to every resolved variable name; inherited host values remain masked |
+| `--env-report-values` | off | Expand the report and reveal inherited host values. Use deliberately: logs may contain secrets |
 | `--public-key` | `<keys>/signing-public.json` | Trusted key file (a single key, or a `{ "keys": [...] }` bundle) |
 
 Checks, in order: envelope payload hash and at least one trusted signature; release kind; coherent
 target and entry point; archive size and SHA-256; safe entry names; recursively equal shared
-`box.json` fields (identity/version, full target, entry point, cache subdirectory, consumer
-self-test, weights/assets, and provenance); and the declared interpreter. `--self-test`
+`box.json` fields (identity/version, full target, entry point, cache subdirectory, declared
+environment, consumer self-test, weights/assets, and provenance); and the declared interpreter. `--self-test`
 additionally requires a matching native host, extracts to a temporary directory, checks logical
 payload size, and runs the signed import check. It does not repeat scroll-only `pythonCode` or file
 assertions, which are builder-only checks.
+
+Every verification result carries a structured environment snapshot in the library. The CLI stays
+silent on a plain verification unless a report flag is present; `--self-test` prints the compact
+report automatically when the release declares variables, conflicts exist, or inherited variables
+such as `PYTHONPATH`, `PYTHONHOME`, `PYTHONSTARTUP`, `PYTHONBREAKPOINT`, `LD_PRELOAD`, or
+`DYLD_INSERT_LIBRARIES` can change which code runs. The snapshot is diagnostic output from this
+consumer and this process, not evidence signed into the box.
 
 `--extracted` takes the archive path out of this flow and delegates to the Node consumer's payload
 verification operation. It verifies the signed release document and the payload list carried by
@@ -362,7 +371,7 @@ Python caches.
 Verify and execute one caller-supplied local release through `scrollcase/consumer`:
 
 ```sh
-scrollcase run <release.json> [--archive <box.zip>] [--public-key <path>] -- [application args]
+scrollcase run <release.json> [--archive <box.zip>] [--env-report] -- [application args]
 ```
 
 The command performs the same signature, schema, archive, safe-entry, manifest-agreement, installed
@@ -370,6 +379,11 @@ size, interpreter, and execution checks as the Node consumer. It then extracts i
 temporary directory, prints the signed box ID, version, target and execution kind, attaches terminal
 stdio, and runs the declared script or module with the box's own Python. Signed `defaultArgs` come
 first; every string after `--` follows unchanged, without a shell.
+
+The compact environment report appears automatically when it has something relevant to say.
+`--env-report` expands it to every variable name and provenance source while keeping inherited host
+values masked; `--env-report-values` explicitly reveals those values and implies the full report.
+The signed declaration wins over inherited and caller values. Nothing is filtered.
 
 The child exit code becomes the Scrollcase exit code. `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded
 to the child; after the child terminates, the temporary box is removed and the CLI terminates by the

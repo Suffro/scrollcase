@@ -46,6 +46,7 @@ non-terminal flags derive the target layout and Python entry point, generate the
   "pixiVersion": "0.73.0",
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/hello",
+  "environment": { "MODEL_ROOT": "model-cache/hello", "HF_HUB_OFFLINE": "1" },
   "assetBaseUrl": "https://assets.example.org/boxes",
   "assets": [],
   "selfTest": { "imports": ["json", "sqlite3"], "files": [] }
@@ -106,6 +107,7 @@ of the box's identity, so a CUDA 12.4 build can never be mistaken for a 12.8 one
 | `pixiVersion` | yes | The exact pixi release used to solve and install. `lock` and `build` refuse any other version |
 | `pythonEntryPoint` | yes | Interpreter path relative to the box root. Fixed per target: `venv/bin/python` on macOS and Linux, `venv/python.exe` on Windows — a mismatch is rejected |
 | `modelCacheSubdir` | yes | Directory relative to the box root holding model assets |
+| `environment` | no | String environment variables required whenever Scrollcase runs the box interpreter |
 | `condaDependencyLicenseAudit` | no | Path (from the project root) to the reviewed licence inventory. When declared, the build fails if the lock no longer matches what was reviewed |
 
 The dependencies themselves live in `pixi.toml`, not here:
@@ -122,6 +124,29 @@ python = "3.11.*"
 
 `platforms` must equal the target's conda subdirectory — `osx-arm64`, `linux-64`, or `win-64` —
 or the solve produces an environment that cannot run on the machine the box is for.
+
+### Declared runtime environment
+
+`environment` is a map of names to string values:
+
+```jsonc
+"environment": {
+  "MODEL_ROOT": "model-cache/hello",
+  "HF_HUB_OFFLINE": "1"
+}
+```
+
+The builder copies the map unchanged into `box.json` and the signed release. It applies the same
+values to the build self-test and every parity run, so a bad path or offline setting fails before a
+box reaches a user. Consumers apply the declaration when they run the box or repeat its self-test.
+On a name conflict, the signed release wins over the inherited host environment and caller-supplied
+`env`; the small target-validation map still wins for its own accelerator controls, so a declared
+variable cannot silently turn a CUDA or Metal check into a CPU check.
+
+This does **not** replace or filter the host environment. A box inherits it exactly as before.
+Scrollcase reports the resulting provenance through its CLI and Node/Python consumer APIs; see
+[Environment reports](/reference/api#environment-reports). Names must be non-empty and contain
+neither `=` nor NUL; values are strings and may be empty but cannot contain NUL.
 
 ## Execution intent
 

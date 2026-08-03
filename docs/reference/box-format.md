@@ -113,14 +113,16 @@ built.
   "target": { "platform": "macos", "arch": "aarch64", "accelerator": "metal" },
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/example",
+  "environment": { "MODEL_ROOT": "model-cache/example" },
   "selfTest": { "pythonImports": ["json", "sqlite3"], "timeoutSeconds": 180 },
   "provenance": { "…": "see below" }
 }
 ```
 
 `verify` recursively checks every shared field against the signed release: schema and identity,
-complete target, entry point, cache subdirectory, consumer self-test, weights/assets policy, and
-provenance. That agreement binds the archive's contents to its signed metadata.
+complete target, entry point, cache subdirectory, declared environment, consumer self-test,
+weights/assets policy, and provenance. That agreement binds the archive's contents to its signed
+metadata.
 
 ## Provenance
 
@@ -205,10 +207,17 @@ lives and what it hashes to, the consumer import check to repeat, and provenance
   },
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/example",
+  "environment": { "MODEL_ROOT": "model-cache/example" },
   "selfTest": { "pythonImports": ["json", "sqlite3"], "timeoutSeconds": 180 },
   "provenance": { "…": "…" }
 }
 ```
+
+`environment` is optional for compatibility with earlier schema-v2 releases. When present it is a
+signed string map repeated value-for-value in `box.json`. A conforming verifier checks the
+declaration; a Scrollcase consumer additionally resolves it against its current process and may
+emit an environment report. That report is not part of the format and is not a guarantee of the
+box.
 
 `installedSizeBytes` is the sum of logical extracted payload file and link sizes, including the
 digest list. It is an estimate and lower bound, not an identity or free-space guarantee: consumers

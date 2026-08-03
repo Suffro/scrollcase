@@ -53,6 +53,7 @@ import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseScroll, chooseTarget, nativeExampleTarget } from './cli-targets.mjs';
 import { verifyExtractedPayload } from './consumer/index.mjs';
 import { CHANNELS } from './contract/index.mjs';
+import { formatEnvironmentReport, shouldReportEnvironment } from './environment.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
 const success = (message) => console.log(statusLine('success', message));
@@ -336,7 +337,12 @@ async function verify(path, flags) {
     const result = await verifyExtractedPayload(path, {
       publicPath: keyPaths(flags).publicPath,
       root: extracted,
+      envReport: Boolean(flags.get('env-report')),
+      envReportValues: Boolean(flags.get('env-report-values')),
     });
+    if (flags.has('env-report') || flags.has('env-report-values')) {
+      for (const line of formatEnvironmentReport(result.environmentReport)) console.error(line);
+    }
     console.log(
       `Verified extracted payload ${result.boxId} ${result.version} `
       + `(${result.targetId}, ${result.entryCount} entries)`,
@@ -347,6 +353,12 @@ async function verify(path, flags) {
     publicPath: keyPaths(flags).publicPath,
     archive: text(flags, 'archive'),
     selfTest: Boolean(flags.get('self-test')),
+    envReport: Boolean(flags.get('env-report')),
+    envReportValues: Boolean(flags.get('env-report-values')),
+    onEnvironmentReport: (report) => {
+      if (!shouldReportEnvironment(report)) return;
+      for (const line of formatEnvironmentReport(report)) console.error(line);
+    },
   });
 }
 
@@ -355,6 +367,8 @@ async function runRelease(path, flags, args) {
     publicPath: keyPaths(flags).publicPath,
     archive: text(flags, 'archive'),
     args,
+    envReport: Boolean(flags.get('env-report')),
+    envReportValues: Boolean(flags.get('env-report-values')),
     // Every other command owns stdout; `run` hands it to the box. A status line written there
     // would land in whatever file or process the caller piped the application's output into.
     log: (message) => console.error(statusLine('step', message)),
@@ -452,12 +466,16 @@ Scroll targets:
 Verify options:
   --archive <path>           Archive to check, if not beside the release document
   --self-test                Extract and import with the box's own interpreter
+  --env-report               Expand the environment report
+  --env-report-values        Also reveal inherited host values
   --extracted <dir>          Verify an existing extracted payload against its signed digest;
                              cannot be combined with --archive or --self-test
 
 Run:
   scrollcase run <release.json> [--archive <box.zip>] -- [application args]
   --archive <path>           Local archive, if not beside the release document
+  --env-report               Expand the execution environment report
+  --env-report-values        Also reveal inherited host values
                              Uses --public-key from Signing below, attaches terminal stdio,
                              forwards signals, and exits with the application result.
 

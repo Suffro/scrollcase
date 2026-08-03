@@ -298,6 +298,7 @@ export async function createScroll({
     pixiVersion: identity.pixiVersion,
     pythonEntryPoint: adapter.python.entryPoint,
     modelCacheSubdir: `model-cache/${identity.boxId}`,
+    environment: {},
     assetBaseUrl: identity.assetBaseUrl,
     assets: [],
     selfTest: {

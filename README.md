@@ -42,6 +42,10 @@ comparison with Docker, Pixi, conda-pack, PEX, and PyInstaller.
 - **Runnable locally.** `scrollcase run` verifies a caller-supplied local release and archive,
   executes its declared script or module without a shell, forwards signals, preserves the child
   result, and removes the temporary extraction. It does not download or install persistently.
+- **Explicit about runtime environment.** A scroll can sign the variables its interpreter requires;
+  they are exercised during the build self-test and win over inherited/caller values. Consumers
+  inherit everything else unchanged and return a masked provenance report rather than pretending
+  to sandbox the launcher.
 - **Audited.** `audit` derives a licence inventory per package straight from the lock, and a
   dependency without a declared licence fails the parse.
 - **Honest about provenance.** A box records the commit it was built from. Building outside a git

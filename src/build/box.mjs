@@ -20,6 +20,7 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { assertNativeHost, boxTargetId } from '../contract/targets.mjs';
 import { CHANNELS, documentKinds } from '../contract/documents.mjs';
+import { mergeEnvironmentLayers } from '../environment.mjs';
 import {
   PAYLOAD_DIGEST_FILE,
   PAYLOAD_DIGEST_FORMAT,
@@ -57,7 +58,11 @@ function runSelfTest({ interpreter, adapter, scroll, payloadDir, run }) {
     : `${adapter.selfTestPython}\n${imports}`;
   run(interpreter, ['-c', code], {
     cwd: payloadDir,
-    env: adapter.validationEnvironments[scroll.target.accelerator],
+    env: mergeEnvironmentLayers(
+      adapter.platform,
+      scroll.environment ?? {},
+      adapter.validationEnvironments[scroll.target.accelerator],
+    ),
   });
 }
 
@@ -209,6 +214,7 @@ export async function buildBox(name, options = {}) {
     adapter,
     interpreter,
     payloadDir,
+    environment: scroll.environment,
     run,
   });
   if (parity) {
@@ -245,6 +251,7 @@ export async function buildBox(name, options = {}) {
     version: scroll.version,
   };
   const execution = scroll.execution ? { execution: scroll.execution } : {};
+  const environment = scroll.environment === undefined ? {} : { environment: scroll.environment };
   // box.json travels *inside* the archive. A consumer compares it field by field against the signed
   // release, which is what binds the archive's contents to its signed metadata.
   await writeFile(join(payloadDir, 'box.json'), `${JSON.stringify({
@@ -254,6 +261,7 @@ export async function buildBox(name, options = {}) {
     pythonEntryPoint: scroll.pythonEntryPoint,
     modelCacheSubdir: scroll.modelCacheSubdir,
     selfTest,
+    ...environment,
     ...execution,
     ...deferred,
     provenance,
@@ -303,6 +311,7 @@ export async function buildBox(name, options = {}) {
     pythonEntryPoint: scroll.pythonEntryPoint,
     modelCacheSubdir: scroll.modelCacheSubdir,
     selfTest,
+    ...environment,
     ...execution,
     ...deferred,
     provenance,

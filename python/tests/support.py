@@ -140,6 +140,7 @@ def create_fixture(
     interpreter: bytes = b"test interpreter placeholder",
     script: bytes = b'print("consumer fixture")\n',
     payload_digest: bool = True,
+    environment: dict[str, str] | None = None,
 ) -> ConsumerFixture:
     root = Path(tempfile.mkdtemp(prefix="scrollcase-python-consumer-fixture-"))
     resolved_target = native_target() if target is None else target
@@ -177,6 +178,8 @@ def create_fixture(
     }
     if resolved_execution is not None:
         shared["execution"] = resolved_execution
+    if environment is not None:
+        shared["environment"] = environment
     if required_asset is not None:
         shared["weights"] = "on-demand"
         shared["assets"] = [required_asset]

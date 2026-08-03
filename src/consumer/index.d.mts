@@ -6,4 +6,8 @@ export type RequiredAsset = import("./verify-and-extract.mjs").RequiredAsset;
 export type BoxRunResult = import("./run-extracted.mjs").BoxRunResult;
 export type RunExtractedBoxOptions = import("./run-extracted.mjs").RunExtractedBoxOptions;
 export type RunBoxOptions = import("./run-box.mjs").RunBoxOptions;
+export type EnvironmentSource = import("../environment.mjs").EnvironmentSource;
+export type EnvironmentSourceValue = import("../environment.mjs").EnvironmentSourceValue;
+export type EnvironmentVariableReport = import("../environment.mjs").EnvironmentVariableReport;
+export type EnvironmentReport = import("../environment.mjs").EnvironmentReport;
 export { attachExtractedBox, verifyAndExtractBox, verifyExtractedPayload } from "./verify-and-extract.mjs";

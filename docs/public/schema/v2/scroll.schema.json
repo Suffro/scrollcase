@@ -124,6 +124,18 @@
       "type": "string",
       "minLength": 1
     },
+    "environment": {
+      "type": "object",
+      "description": "Environment variables the box requires when its interpreter runs. The declaration is copied into box.json and the signed release; its values override both the inherited host environment and caller-supplied values.",
+      "propertyNames": {
+        "minLength": 1,
+        "pattern": "^[^=\\u0000]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[^\\u0000]*$"
+      }
+    },
     "assetBaseUrl": {
       "type": "string",
       "minLength": 1,

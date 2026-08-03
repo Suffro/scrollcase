@@ -48,6 +48,18 @@
       "type": "string",
       "minLength": 1
     },
+    "environment": {
+      "type": "object",
+      "description": "Environment variables repeated from the signed release. Scrollcase consumers compare this declaration before execution and apply it over inherited and caller-supplied values.",
+      "propertyNames": {
+        "minLength": 1,
+        "pattern": "^[^=\\u0000]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[^\\u0000]*$"
+      }
+    },
     "selfTest": {
       "type": "object",
       "additionalProperties": false,

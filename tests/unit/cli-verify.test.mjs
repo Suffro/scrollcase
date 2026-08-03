@@ -38,6 +38,37 @@ function verifyExtracted(fixture, root, extra = []) {
 }
 
 describe('the verify CLI edge', () => {
+  it('reports a masked environment without requiring a self-test, and reveals values only explicitly', async () => {
+    const fixture = await createConsumerBoxFixture({
+      environment: { SCROLLCASE_VERIFY_REPORT: 'release-value' },
+    });
+    created.push(fixture.root);
+    const base = [
+      cli,
+      'verify',
+      fixture.releasePath,
+      '--archive', fixture.archivePath,
+      '--public-key', fixture.publicPath,
+      '--project-root', fixture.root,
+    ];
+    const env = { ...process.env, SCROLLCASE_VERIFY_REPORT: 'host-secret' };
+    const masked = spawnSync(process.execPath, [...base, '--env-report'], {
+      encoding: 'utf8',
+      env,
+    });
+    expect(masked.status, masked.stderr).toBe(0);
+    expect(masked.stderr).toContain('SCROLLCASE_VERIFY_REPORT=release-value');
+    expect(masked.stderr).not.toContain('host-secret');
+
+    const revealed = spawnSync(process.execPath, [...base, '--env-report-values'], {
+      encoding: 'utf8',
+      env,
+    });
+    expect(revealed.status, revealed.stderr).toBe(0);
+    expect(revealed.stderr).toContain('SCROLLCASE_VERIFY_REPORT=release-value');
+    expect(revealed.stderr).toContain('host=host-secret');
+  });
+
   it('delegates extracted payload verification to the consumer', async () => {
     const { fixture, root } = await installedFixture();
     const result = verifyExtracted(fixture, root);

@@ -9,6 +9,42 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
+EnvironmentSource: TypeAlias = Literal["host", "caller", "validation", "release"]
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentSourceValue:
+    """One value supplied for an environment variable, before precedence is applied."""
+
+    source: EnvironmentSource
+    name: str
+    value: str
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentVariableReport:
+    """The winning value and every source that participated in its resolution."""
+
+    name: str
+    source: EnvironmentSource
+    value: str
+    execution_affecting: bool
+    conflict: bool
+    sources: tuple[EnvironmentSourceValue, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentReport:
+    """A masked diagnostic snapshot, not a guarantee of the box format."""
+
+    mode: Literal["summary", "full"]
+    host_values_revealed: bool
+    release_variable_count: int
+    conflict_count: int
+    dangerous_host_variables: tuple[str, ...]
+    remaining_variable_count: int
+    variables: tuple[EnvironmentVariableReport, ...]
+
 
 @dataclass(frozen=True, slots=True)
 class BoxTarget:
@@ -83,6 +119,7 @@ class PreparedBox:
     archive_sha256: str
     archive_size_bytes: int
     installed_size_bytes: int
+    environment_report: EnvironmentReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +128,7 @@ class BoxRunResult:
 
     exit_code: int | None
     signal: str | None
+    environment_report: EnvironmentReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,3 +141,4 @@ class PayloadVerification:
     version: str
     target_id: str
     entry_count: int
+    environment_report: EnvironmentReport

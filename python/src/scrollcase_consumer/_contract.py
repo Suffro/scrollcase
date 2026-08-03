@@ -50,6 +50,7 @@ class TargetAdapter:
     host_arch: str
     python_entry_point: str
     standard_library: str
+    execution_affecting_environment_variables: tuple[str, ...]
 
 
 _ADAPTERS = {
@@ -60,6 +61,13 @@ _ADAPTERS = {
         host_arch="aarch64",
         python_entry_point="venv/bin/python",
         standard_library="venv/lib",
+        execution_affecting_environment_variables=(
+            "PYTHONPATH",
+            "PYTHONHOME",
+            "PYTHONSTARTUP",
+            "PYTHONBREAKPOINT",
+            "DYLD_INSERT_LIBRARIES",
+        ),
     ),
     ("linux", "x86_64"): TargetAdapter(
         platform="linux",
@@ -68,6 +76,13 @@ _ADAPTERS = {
         host_arch="x86_64",
         python_entry_point="venv/bin/python",
         standard_library="venv/lib",
+        execution_affecting_environment_variables=(
+            "PYTHONPATH",
+            "PYTHONHOME",
+            "PYTHONSTARTUP",
+            "PYTHONBREAKPOINT",
+            "LD_PRELOAD",
+        ),
     ),
     ("windows", "x86_64"): TargetAdapter(
         platform="windows",
@@ -76,6 +91,12 @@ _ADAPTERS = {
         host_arch="x86_64",
         python_entry_point="venv/python.exe",
         standard_library="venv/Lib",
+        execution_affecting_environment_variables=(
+            "PYTHONPATH",
+            "PYTHONHOME",
+            "PYTHONSTARTUP",
+            "PYTHONBREAKPOINT",
+        ),
     ),
 }
 _ACCELERATORS = {

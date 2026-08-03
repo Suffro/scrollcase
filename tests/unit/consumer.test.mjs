@@ -31,6 +31,7 @@ import {
 
 const created = [];
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(created.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
@@ -225,7 +226,7 @@ describe('Node consumer re-attachment', () => {
 
     // The load-bearing case: a box installed by one process is executable by the next, with the
     // same argument ordering and the same working directory as a freshly prepared one.
-    expect(result).toEqual({ exitCode: 0, signal: null });
+    expect(result).toMatchObject({ exitCode: 0, signal: null });
     expect(calls[0].args).toEqual([
       join(root, 'app', 'main.py'),
       ...fixture.release.execution.defaultArgs,
@@ -395,6 +396,68 @@ describe('Node consumer payload verification', () => {
 });
 
 describe('Node consumer execution', () => {
+  it('returns one masked provenance report from verify, attach, and execution', async () => {
+    const name = 'SCROLLCASE_ENV_REPORT_TEST';
+    vi.stubEnv(name, 'host-secret');
+    vi.stubEnv('PYTHONPATH', '/host/code');
+    const fixture = await boxFixture({
+      environment: {
+        [name]: 'release-value',
+        SCROLLCASE_RELEASE_ONLY: 'public-value',
+      },
+    });
+    const prepared = await verifyAndExtractBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      archive: fixture.archivePath,
+      destination: join(fixture.root, 'prepared-environment'),
+    });
+    expect(prepared.environmentReport).toMatchObject({
+      mode: 'summary',
+      hostValuesRevealed: false,
+      releaseVariableCount: 2,
+      dangerousHostVariables: ['PYTHONPATH'],
+    });
+    expect(prepared.environmentReport.variables.find((entry) => entry.name === name))
+      .toMatchObject({ source: 'release', value: 'release-value', conflict: true });
+    expect(prepared.environmentReport.variables
+      .find((entry) => entry.name === name).sources[0].value).toBe('<masked>');
+
+    const attached = await attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root: prepared.root,
+      envReport: true,
+    });
+    expect(attached.environmentReport.mode).toBe('full');
+
+    const verified = await verifyExtractedPayload(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root: prepared.root,
+      envReport: true,
+    });
+    expect(verified.environmentReport.mode).toBe('full');
+
+    const callback = vi.fn();
+    const fake = fakeSpawn();
+    const result = await runExtractedBox(attached, {
+      env: { [name]: 'caller-value' },
+      envReportValues: true,
+      onEnvironmentReport: callback,
+      spawn: fake.spawn,
+    });
+    expect(fake.calls[0].options.env[name]).toBe('release-value');
+    expect(result.environmentReport).toMatchObject({
+      mode: 'full',
+      hostValuesRevealed: true,
+      releaseVariableCount: 2,
+    });
+    const resolved = result.environmentReport.variables.find((entry) => entry.name === name);
+    expect(resolved).toMatchObject({ source: 'release', value: 'release-value', conflict: true });
+    expect(resolved.sources.map((source) => source.source))
+      .toEqual(['host', 'caller', 'release']);
+    expect(resolved.sources[0].value).toBe('host-secret');
+    expect(callback).toHaveBeenCalledWith(result.environmentReport);
+  });
+
   it('accepts only an authentic prepared receipt and preserves shell-free argument ordering', async () => {
     const fixture = await boxFixture();
     const prepared = await verifyAndExtractBox(fixture.releasePath, {
@@ -421,7 +484,7 @@ describe('Node consumer execution', () => {
       spawn: fake.spawn,
     });
 
-    expect(result).toEqual({ exitCode: 17, signal: null });
+    expect(result).toMatchObject({ exitCode: 17, signal: null });
     expect(fake.calls).toHaveLength(1);
     expect(fake.calls[0].command).toBe(join(prepared.root, ...prepared.pythonEntryPoint.split('/')));
     expect(fake.calls[0].args).toEqual([
@@ -458,7 +521,7 @@ describe('Node consumer execution', () => {
     await expect(runExtractedBox(prepared, {
       args: ['--caller'],
       spawn: fake.spawn,
-    })).resolves.toEqual({ exitCode: 0, signal: null });
+    })).resolves.toMatchObject({ exitCode: 0, signal: null });
     expect(fake.calls[0].args).toEqual([
       '-m',
       'example.application',
@@ -502,7 +565,7 @@ describe('Node consumer execution', () => {
         stdin: 'ignore',
         stdout: 'ignore',
         stderr: 'ignore',
-      })).resolves.toEqual({ exitCode: 7, signal: null });
+      })).resolves.toMatchObject({ exitCode: 7, signal: null });
       await expect(readFile(join(prepared.root, marker), 'utf8'))
         .resolves.toBe(JSON.stringify([
           '--default',
@@ -556,7 +619,7 @@ describe('Node consumer execution', () => {
       .rejects.toThrow(/asset SHA-256 mismatch/);
     await writeFile(assetPath, bytes);
     await expect(runExtractedBox(prepared, { spawn: fake.spawn }))
-      .resolves.toEqual({ exitCode: 0, signal: null });
+      .resolves.toMatchObject({ exitCode: 0, signal: null });
     expect(fake.spawn).toHaveBeenCalledTimes(1);
   });
 
@@ -578,7 +641,7 @@ describe('Node consumer execution', () => {
     }
     signalSource.emit('SIGTERM');
 
-    await expect(running).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' });
+    await expect(running).resolves.toMatchObject({ exitCode: null, signal: 'SIGTERM' });
     expect(fake.children[0].kill).toHaveBeenCalledWith('SIGTERM');
     for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
       expect(signalSource.listenerCount(signal)).toBe(0);
@@ -608,7 +671,7 @@ describe('one-shot Node consumer execution', () => {
       temporaryDirectory,
       spawn: fake.spawn,
       args: ['--one-shot'],
-    })).resolves.toEqual({ exitCode: 23, signal: null });
+    })).resolves.toMatchObject({ exitCode: 23, signal: null });
     await expect(readdir(temporaryDirectory)).resolves.toEqual([]);
   });
 
@@ -643,7 +706,7 @@ describe('one-shot Node consumer execution', () => {
     }
     signalSource.emit('SIGINT');
 
-    await expect(running).resolves.toEqual({ exitCode: null, signal: 'SIGINT' });
+    await expect(running).resolves.toMatchObject({ exitCode: null, signal: 'SIGINT' });
     await expect(readdir(temporaryDirectory)).resolves.toEqual([]);
   });
 });

@@ -101,6 +101,53 @@ describe('the run CLI edge', () => {
     expect(log).toHaveBeenCalledWith('Extracted to a temporary directory, deleted on exit.');
   });
 
+  it('passes report flags through and prints the consumer report on stderr', async () => {
+    const log = vi.fn();
+    const report = {
+      mode: 'full',
+      hostValuesRevealed: false,
+      releaseVariableCount: 1,
+      conflictCount: 1,
+      dangerousHostVariables: [],
+      remainingVariableCount: 0,
+      variables: [{
+        name: 'MODEL_ROOT',
+        source: 'release',
+        value: 'models',
+        executionAffecting: false,
+        conflict: true,
+        sources: [
+          { source: 'host', name: 'MODEL_ROOT', value: '<masked>' },
+          { source: 'release', name: 'MODEL_ROOT', value: 'models' },
+        ],
+      }],
+    };
+    const run = vi.fn(async (_releasePath, options) => {
+      await options.onEnvironmentReport(report);
+      return { exitCode: 0, signal: null, environmentReport: report };
+    });
+
+    await runCliBox('release.json', {
+      publicPath: 'trusted.json',
+      envReport: true,
+      envReportValues: false,
+      run,
+      log,
+      setExitCode: vi.fn(),
+    });
+
+    expect(run).toHaveBeenCalledWith('release.json', expect.objectContaining({
+      envReport: true,
+      envReportValues: false,
+      onEnvironmentReport: expect.any(Function),
+    }));
+    expect(log).toHaveBeenCalledWith('Environment:');
+    expect(log).toHaveBeenCalledWith(
+      '  MODEL_ROOT=models [release; release wins over host; '
+      + 'sources: host=<masked>, release=models]',
+    );
+  });
+
   it('re-raises the child termination signal after runBox has cleaned up', async () => {
     const setExitCode = vi.fn();
     const terminate = vi.fn();

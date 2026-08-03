@@ -11,6 +11,10 @@
  */
 
 import { runBox } from './consumer/index.mjs';
+import {
+  formatEnvironmentReport,
+  shouldReportEnvironment,
+} from './environment.mjs';
 
 /** Formats a byte count for one short status line, never for a decision. */
 function readableSize(bytes) {
@@ -28,6 +32,8 @@ function readableSize(bytes) {
  *   publicPath: string,
  *   archive?: string | null,
  *   args?: readonly string[],
+ *   envReport?: boolean,
+ *   envReportValues?: boolean,
  *   run?: typeof runBox,
  *   log?: (message: string) => void,
  *   setExitCode?: (code: number) => void,
@@ -39,6 +45,8 @@ export async function runCliBox(releaseDocumentPath, {
   publicPath,
   archive = null,
   args = [],
+  envReport = false,
+  envReportValues = false,
   run = runBox,
   log = console.error,
   setExitCode = (code) => {
@@ -52,6 +60,8 @@ export async function runCliBox(releaseDocumentPath, {
     publicPath,
     archive,
     args,
+    envReport,
+    envReportValues,
     stdin: 'inherit',
     stdout: 'inherit',
     stderr: 'inherit',
@@ -65,6 +75,10 @@ export async function runCliBox(releaseDocumentPath, {
       // One line, always the same shape, so it stays skippable once it has been read.
       const size = readableSize(prepared.installedSizeBytes);
       log(`${size ? `${size} extracted` : 'Extracted'} to a temporary directory, deleted on exit.`);
+    },
+    onEnvironmentReport: (report) => {
+      if (!shouldReportEnvironment(report)) return;
+      for (const line of formatEnvironmentReport(report)) log(line);
     },
   });
   if (result.signal) terminate(result.signal);

@@ -34,6 +34,7 @@ import {
 } from "scrollcase/consumer";
 import type {
   BoxRunResult,
+  EnvironmentReport,
   PayloadVerification,
   PreparedBox,
 } from "scrollcase/consumer";
@@ -79,6 +80,7 @@ const payloadVerified: Promise<Readonly<PayloadVerification>> = verifyExtractedP
 );
 // A receipt no longer narrows to one producer, and a caller must handle both.
 const receiptStatus: "prepared" | "attached" = preparedBox.status;
+const verificationEnvironment: EnvironmentReport = preparedBox.environmentReport;
 const extractedResult: Promise<BoxRunResult> = runExtractedBox(preparedBox, {
   args: ["--model", "example"],
   env: { SCROLLCASE_TEST_VALUE: "1" },
@@ -135,5 +137,6 @@ void [
   attached,
   payloadVerified,
   receiptStatus,
+  verificationEnvironment,
   onlyPrepared,
 ];

@@ -13,6 +13,7 @@
   "condaDependencyLicenseAudit": "examples/hello-box/linux-x86_64-cpu/conda-licenses.json",
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/hello",
+  "environment": {},
   "assetBaseUrl": "https://assets.example.org/boxes",
   "assets": [],
   "localFiles": [

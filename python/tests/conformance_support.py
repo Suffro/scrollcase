@@ -143,6 +143,8 @@ def _fixture_options(spec: dict[str, Any]) -> dict[str, Any]:
             "sizeBytes": len(ASSET_BYTES),
             "sha256": hashlib.sha256(ASSET_BYTES).hexdigest(),
         }
+    if "environment" in spec:
+        options["environment"] = spec["environment"]
     # A consumer cannot observe key custody. The external-signer case therefore uses the same
     # signed-envelope wire contract with an independently generated caller trust anchor.
     return options
@@ -208,6 +210,10 @@ def _mutate_fixture(
             **fixture.release["execution"],
             "defaultArgs": ["--altered"],
         }
+        fixture.sign()
+        return
+    if mutation == "alter-release-environment":
+        fixture.release["environment"] = {"SCROLLCASE_CHANGED_AFTER_BUILD": "1"}
         fixture.sign()
         return
     if mutation == "create-destination":
@@ -390,6 +396,35 @@ def _materialize_asset(prepared: Any, state: str | None) -> None:
         path.write_bytes(ASSET_BYTES)
 
 
+def _environment_report(report: Any, names: list[str]) -> dict[str, Any]:
+    selected = set(names)
+    return {
+        "mode": report.mode,
+        "hostValuesRevealed": report.host_values_revealed,
+        "releaseVariableCount": report.release_variable_count,
+        "conflictCount": report.conflict_count,
+        "variables": [
+            {
+                "name": variable.name,
+                "source": variable.source,
+                "value": variable.value,
+                "executionAffecting": variable.execution_affecting,
+                "conflict": variable.conflict,
+                "sources": [
+                    {
+                        "source": source.source,
+                        "name": source.name,
+                        "value": source.value,
+                    }
+                    for source in variable.sources
+                ],
+            }
+            for variable in report.variables
+            if variable.name in selected
+        ],
+    }
+
+
 def run_python_conformance_case(
     test_case: dict[str, Any],
     suite: dict[str, Any],
@@ -402,6 +437,12 @@ def run_python_conformance_case(
     prepared: Any = None
     streams: dict[str, IO[Any]] | None = None
     actual: dict[str, Any]
+    runtime = test_case.get("runtime", {})
+    previous_host_environment = {
+        name: os.environ.get(name)
+        for name in runtime.get("hostEnvironment", {})
+    }
+    os.environ.update(runtime.get("hostEnvironment", {}))
     try:
         action = test_case["action"]
         mutation = test_case.get("mutation")
@@ -419,18 +460,26 @@ def run_python_conformance_case(
                 public_key_path=fixture.public_key_path,
                 archive=fixture.archive_path,
                 destination=destination,
+                env_report=bool(runtime.get("envReport")),
+                env_report_values=bool(runtime.get("envReportValues")),
             )
             execution = prepared.execution
+            receipt = {
+                "status": prepared.status,
+                "boxId": prepared.box_id,
+                "executionKind": execution.kind if execution is not None else None,
+                "requiredAssetCount": len(prepared.required_assets),
+                "pythonEntryPoint": prepared.python_entry_point,
+                "targetId": prepared.target_id,
+            }
+            if test_case["expected"].get("receipt", {}).get("environmentReport"):
+                receipt["environmentReport"] = _environment_report(
+                    prepared.environment_report,
+                    runtime.get("reportVariables", []),
+                )
             actual = {
                 "outcome": "prepared",
-                "receipt": {
-                    "status": prepared.status,
-                    "boxId": prepared.box_id,
-                    "executionKind": execution.kind if execution is not None else None,
-                    "requiredAssetCount": len(prepared.required_assets),
-                    "pythonEntryPoint": prepared.python_entry_point,
-                    "targetId": prepared.target_id,
-                },
+                "receipt": receipt,
             }
             return actual, expected, fixture.root
 
@@ -440,8 +489,9 @@ def run_python_conformance_case(
                 public_key_path=fixture.public_key_path,
                 archive=fixture.archive_path,
                 destination=destination,
+                env_report=bool(runtime.get("envReport")),
+                env_report_values=bool(runtime.get("envReportValues")),
             )
-            runtime = test_case.get("runtime", {})
             _materialize_asset(prepared, runtime.get("assetState"))
             root = _mutate_extracted_root(
                 fixture,
@@ -453,39 +503,54 @@ def run_python_conformance_case(
                     fixture.release_path,
                     public_key_path=fixture.public_key_path,
                     root=root,
+                    env_report=bool(runtime.get("envReport")),
+                    env_report_values=bool(runtime.get("envReportValues")),
                 )
                 execution = attached.execution
+                receipt = {
+                    "status": attached.status,
+                    "boxId": attached.box_id,
+                    "executionKind": (
+                        execution.kind if execution is not None else None
+                    ),
+                    "requiredAssetCount": len(attached.required_assets),
+                    "pythonEntryPoint": attached.python_entry_point,
+                    "targetId": attached.target_id,
+                }
+                if test_case["expected"].get("receipt", {}).get("environmentReport"):
+                    receipt["environmentReport"] = _environment_report(
+                        attached.environment_report,
+                        runtime.get("reportVariables", []),
+                    )
                 actual = {
                     "outcome": "attached",
-                    "receipt": {
-                        "status": attached.status,
-                        "boxId": attached.box_id,
-                        "executionKind": (
-                            execution.kind if execution is not None else None
-                        ),
-                        "requiredAssetCount": len(attached.required_assets),
-                        "pythonEntryPoint": attached.python_entry_point,
-                        "targetId": attached.target_id,
-                    },
+                    "receipt": receipt,
                 }
                 return actual, expected, fixture.root
             verified = verify_extracted_payload(
                 fixture.release_path,
                 public_key_path=fixture.public_key_path,
                 root=root,
+                env_report=bool(runtime.get("envReport")),
+                env_report_values=bool(runtime.get("envReportValues")),
             )
+            verification_result = {
+                "status": verified.status,
+                "boxId": verified.box_id,
+                "targetId": verified.target_id,
+                "entryCount": verified.entry_count,
+            }
+            if test_case["expected"].get("result", {}).get("environmentReport"):
+                verification_result["environmentReport"] = _environment_report(
+                    verified.environment_report,
+                    runtime.get("reportVariables", []),
+                )
             actual = {
                 "outcome": "verified",
-                "result": {
-                    "status": verified.status,
-                    "boxId": verified.box_id,
-                    "targetId": verified.target_id,
-                    "entryCount": verified.entry_count,
-                },
+                "result": verification_result,
             }
             return actual, expected, fixture.root
 
-        runtime = test_case.get("runtime", {})
         fake = FakePopen(runtime)
         if runtime.get("streams"):
             streams = {
@@ -513,6 +578,9 @@ def run_python_conformance_case(
             result = run_extracted_box(
                 prepared,
                 args=runtime.get("args", ()),
+                env=runtime.get("env"),
+                env_report=bool(runtime.get("envReport")),
+                env_report_values=bool(runtime.get("envReportValues")),
                 stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
@@ -526,6 +594,9 @@ def run_python_conformance_case(
                 archive=fixture.archive_path,
                 temporary_directory=temporary_directory,
                 args=runtime.get("args", ()),
+                env=runtime.get("env"),
+                env_report=bool(runtime.get("envReport")),
+                env_report_values=bool(runtime.get("envReportValues")),
                 stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
@@ -540,6 +611,16 @@ def run_python_conformance_case(
                 "signal": result.signal,
             },
         }
+        if expected.get("result", {}).get("environmentReport"):
+            actual["result"]["environmentReport"] = _environment_report(
+                result.environment_report,
+                runtime.get("reportVariables", []),
+            )
+        if "effectiveEnvironment" in expected:
+            actual["effectiveEnvironment"] = {
+                name: fake.calls[0][1]["env"].get(name)
+                for name in expected["effectiveEnvironment"]
+            }
         if "persistentRootExists" in expected:
             actual["persistentRootExists"] = Path(prepared.root).exists()
         if "spawned" in expected:
@@ -579,6 +660,12 @@ def run_python_conformance_case(
                 and not any(temporary_directory.iterdir())
             )
         return actual, expected, fixture.root
+    finally:
+        for name, value in previous_host_environment.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def remove_conformance_root(root: Path) -> None:
