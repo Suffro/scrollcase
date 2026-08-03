@@ -15,10 +15,6 @@ Nine verbs: `init`, `new`, `doctor`, `keygen`, `lock`, `audit`, `build`, `verify
 `scrollcase -v` and `scrollcase --version` print only the installed package version and do not
 require a workspace.
 
-Human-facing status lines use a small set of symbols (`✓`, `→`, `·`, `⚠`, `✗`). Their symbols are
-coloured only in an interactive terminal; redirected output remains free of ANSI escapes, and
-setting `NO_COLOR` disables colour explicitly.
-
 **Flag syntax.** Flags accept `--name value` or `--name=value`; a bare `--name` means `true`.
 
 **Exit convention.** Every failure, anywhere in the pipeline, exits non-zero with a single
