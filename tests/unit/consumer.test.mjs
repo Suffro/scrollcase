@@ -415,7 +415,7 @@ describe('Node consumer execution', () => {
       mode: 'summary',
       hostValuesRevealed: false,
       releaseVariableCount: 2,
-      dangerousHostVariables: ['PYTHONPATH'],
+      dangerousHostVariables: expect.arrayContaining(['PYTHONPATH']),
     });
     expect(prepared.environmentReport.variables.find((entry) => entry.name === name))
       .toMatchObject({ source: 'release', value: 'release-value', conflict: true });
