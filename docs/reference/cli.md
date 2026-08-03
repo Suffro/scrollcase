@@ -330,12 +330,14 @@ before anything is published.
 
 ```sh
 scrollcase verify <release.json> [--archive <path>] [--self-test] [--public-key <path>]
+scrollcase verify <release.json> --extracted <dir> [--public-key <path>]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--archive` | `<archive.sha256>.zip` next to the release document | The archive to check |
 | `--self-test` | off | Extract to a temporary directory and import the declared modules with the box's own interpreter. Only runs on a matching native host |
+| `--extracted` | off | Verify an existing extracted payload against the signed payload digest. Cannot be combined with `--archive` or `--self-test` |
 | `--public-key` | `<keys>/signing-public.json` | Trusted key file (a single key, or a `{ "keys": [...] }` bundle) |
 
 Checks, in order: envelope payload hash and at least one trusted signature; release kind; coherent
@@ -345,6 +347,15 @@ self-test, weights/assets, and provenance); and the declared interpreter. `--sel
 additionally requires a matching native host, extracts to a temporary directory, checks logical
 payload size, and runs the signed import check. It does not repeat scroll-only `pythonCode` or file
 assertions, which are builder-only checks.
+
+`--extracted` takes the archive path out of this flow and delegates to the Node consumer's payload
+verification operation. It verifies the signed release document and the payload list carried by
+`<dir>`, then checks every file and symbolic link named by that list. Files added after installation
+are ignored. This is an explicit integrity check at one moment; it does not attach or execute the
+box, and it does not protect the directory from later changes.
+Modes and modification times are outside the commitment. The build collector also excludes
+`__pycache__` directories and `*.pyc` files, so this command makes no assertion about compiled
+Python caches.
 
 ## `run`
 

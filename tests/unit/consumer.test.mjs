@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -8,16 +9,21 @@ import {
   rename,
   rm,
   stat,
+  symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  attachExtractedBox,
   runBox,
   runExtractedBox,
   verifyAndExtractBox,
+  verifyExtractedPayload,
 } from '../../src/consumer/index.mjs';
+import { PAYLOAD_DIGEST_FILE } from '../../src/contract/payload-digest.mjs';
 import {
   createConsumerBoxFixture,
   writeSignedRelease,
@@ -109,6 +115,22 @@ describe('Node consumer preparation', () => {
     await expect(readFile(join(destination, 'marker'), 'utf8')).resolves.toBe('keep');
   });
 
+  it('refuses a destination that is a dangling symbolic link', async () => {
+    // A caller-supplied path is made absolute lexically, never resolved. Resolving would follow
+    // this broken link to a name the caller never asked for and install into it — the Python
+    // consumer once did exactly that, and the two implementations may not disagree.
+    const fixture = await boxFixture();
+    const destination = join(fixture.root, 'dangling');
+    await symlink(join(fixture.root, 'nowhere'), destination);
+
+    await expect(verifyAndExtractBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      archive: fixture.archivePath,
+      destination,
+    })).rejects.toThrow(/Destination already exists/);
+    await expect(stat(join(fixture.root, 'nowhere'))).rejects.toThrow();
+  });
+
   it('removes staging and publishes no destination when logical size disagrees', async () => {
     const fixture = await boxFixture();
     await writeSignedRelease(fixture, {
@@ -157,6 +179,218 @@ describe('Node consumer preparation', () => {
       archive: fixture.archivePath,
       destination: join(fixture.root, 'invalid-envelope'),
     })).rejects.toThrow(/Invalid signed document/);
+  });
+});
+
+describe('Node consumer re-attachment', () => {
+  async function installed(options = {}) {
+    const fixture = await boxFixture(options);
+    const root = join(fixture.root, 'installed');
+    await verifyAndExtractBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      archive: fixture.archivePath,
+      destination: root,
+    });
+    return { fixture, root };
+  }
+
+  it('mints a receipt from an existing directory, marked for what it did not check', async () => {
+    const { fixture, root } = await installed();
+    const attached = await attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    });
+
+    // Everything the release states is carried over; only the status differs, because attaching
+    // proved the document and the shape of the directory, never the bytes inside it.
+    expect(attached).toMatchObject({
+      status: 'attached',
+      root,
+      boxId: 'consumer-fixture',
+      version: '2.0.0',
+      execution: fixture.release.execution,
+      archiveSha256: fixture.release.archive.sha256,
+    });
+    expect(Object.isFrozen(attached)).toBe(true);
+  });
+
+  it('produces a receipt execution accepts on equal terms', async () => {
+    const { fixture, root } = await installed();
+    const attached = await attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    });
+    const { spawn, calls } = fakeSpawn();
+    const result = await runExtractedBox(attached, { args: ['--once'], spawn });
+
+    // The load-bearing case: a box installed by one process is executable by the next, with the
+    // same argument ordering and the same working directory as a freshly prepared one.
+    expect(result).toEqual({ exitCode: 0, signal: null });
+    expect(calls[0].args).toEqual([
+      join(root, 'app', 'main.py'),
+      ...fixture.release.execution.defaultArgs,
+      '--once',
+    ]);
+    expect(calls[0].options.cwd).toBe(root);
+    expect(calls[0].options.shell).toBe(false);
+  });
+
+  it('ignores whatever appeared in the box root after installation', async () => {
+    const { fixture, root } = await installed();
+    await writeFile(join(root, 'output.log'), 'the application wrote this');
+    await mkdir(join(root, '__pycache__'));
+    await writeFile(join(root, '__pycache__', 'x.pyc'), 'compiled');
+
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    })).resolves.toMatchObject({ status: 'attached' });
+  });
+
+  it('refuses a root that is missing, a file, or a symbolic link', async () => {
+    const { fixture, root } = await installed();
+    const options = (target) => ({ publicPath: fixture.publicPath, root: target });
+
+    await expect(attachExtractedBox(fixture.releasePath, options(join(fixture.root, 'nope'))))
+      .rejects.toThrow(/is not an extracted box directory/);
+    await expect(attachExtractedBox(fixture.releasePath, options(fixture.archivePath)))
+      .rejects.toThrow(/is not an extracted box directory/);
+
+    // A link would satisfy a naive directory check and then be refused by execution, leaving the
+    // caller holding a receipt that can never run.
+    const link = join(fixture.root, 'linked');
+    await symlink(root, link);
+    await expect(attachExtractedBox(fixture.releasePath, options(link)))
+      .rejects.toThrow(/is not an extracted box directory/);
+  });
+
+  it('refuses a directory that is not the box the release describes', async () => {
+    const { fixture, root } = await installed();
+    await rm(join(root, 'app', 'main.py'));
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    })).rejects.toThrow(/Execution script is missing/);
+
+    const bare = await scratch('bare');
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root: bare,
+    })).rejects.toThrow(/Attached box is missing/);
+  });
+
+  it('re-checks on-demand assets a caller was told to materialize', async () => {
+    const assetBytes = Buffer.from('signed weights');
+    const requiredAsset = {
+      url: 'https://assets.example.org/weights.bin',
+      relativePath: 'model-cache/weights.bin',
+      sizeBytes: assetBytes.length,
+      sha256: createHash('sha256').update(assetBytes).digest('hex'),
+    };
+    const { fixture, root } = await installed({ requiredAsset });
+    const assetPath = join(root, 'model-cache', 'weights.bin');
+    await mkdir(dirname(assetPath), { recursive: true });
+
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    })).rejects.toThrow(/Required on-demand asset is missing/);
+
+    await writeFile(assetPath, 'wrong bytes entirely');
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    })).rejects.toThrow(/Required on-demand asset size mismatch/);
+
+    await writeFile(assetPath, assetBytes);
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      root,
+    })).resolves.toMatchObject({ status: 'attached', requiredAssets: [requiredAsset] });
+  });
+});
+
+describe('Node consumer payload verification', () => {
+  async function installed(options = {}) {
+    const fixture = await boxFixture(options);
+    const root = join(fixture.root, 'installed');
+    await verifyAndExtractBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      archive: fixture.archivePath,
+      destination: root,
+    });
+    return { fixture, root };
+  }
+
+  const verify = (fixture, root) => verifyExtractedPayload(fixture.releasePath, {
+    publicPath: fixture.publicPath,
+    root,
+  });
+
+  it('walks the signed list and reports what it checked', async () => {
+    const { fixture, root } = await installed();
+    const verified = await verify(fixture, root);
+    expect(verified).toMatchObject({
+      status: 'verified',
+      root,
+      boxId: 'consumer-fixture',
+      version: '2.0.0',
+    });
+    expect(verified.entryCount).toBeGreaterThan(0);
+  });
+
+  it('walks the list and not the directory, so later files are invisible', async () => {
+    const { fixture, root } = await installed();
+    // Everything an installed box legitimately grows: the app's own output in its working
+    // directory, Python's caches, and a model cache filled after extraction.
+    await writeFile(join(root, 'output.log'), 'the application wrote this');
+    await mkdir(join(root, 'model-cache'), { recursive: true });
+    await writeFile(join(root, 'model-cache', 'weights.bin'), 'downloaded later');
+    await mkdir(join(root, '__pycache__'));
+    await writeFile(join(root, '__pycache__', 'x.pyc'), 'compiled');
+
+    await expect(verify(fixture, root)).resolves.toMatchObject({ status: 'verified' });
+  });
+
+  it('ignores a changed mode and a changed timestamp', async () => {
+    const { fixture, root } = await installed();
+    const script = join(root, 'app', 'main.py');
+    // Modes are synthesised by the archive writer and never restored on Windows; timestamps are
+    // stamped at build and restored by no extractor. Covering either would fail honest boxes.
+    await chmod(script, 0o600);
+    await utimes(script, new Date(0), new Date(0));
+    await expect(verify(fixture, root)).resolves.toMatchObject({ status: 'verified' });
+  });
+
+  it('names the entry that no longer matches', async () => {
+    const { fixture, root } = await installed();
+    const script = join(root, 'app', 'main.py');
+    await writeFile(script, `${await readFile(script, 'utf8')} `);
+    await expect(verify(fixture, root))
+      .rejects.toThrow(/Payload does not match the signed release: app\/main\.py/);
+
+    await rm(script);
+    await expect(verify(fixture, root))
+      .rejects.toThrow(/app\/main\.py is missing/);
+  });
+
+  it('refuses a list that is absent, altered, or unsigned by this release', async () => {
+    const { fixture, root } = await installed();
+    const listPath = join(root, PAYLOAD_DIGEST_FILE);
+
+    await writeFile(listPath, `${await readFile(listPath, 'utf8')}`.replace('box.json', 'box.jsoX'));
+    await expect(verify(fixture, root))
+      .rejects.toThrow(/Payload digest list does not match the signed release/);
+
+    await rm(listPath);
+    await expect(verify(fixture, root))
+      .rejects.toThrow(/missing its payload digest list/);
+  });
+
+  it('refuses a release that commits to nothing rather than reporting success', async () => {
+    const { fixture, root } = await installed({ payloadDigest: false });
+    await expect(verify(fixture, root))
+      .rejects.toThrow(/does not commit to a payload digest/);
   });
 });
 

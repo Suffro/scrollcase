@@ -1858,7 +1858,63 @@ Reference: `tests/unit/contract-links.test.mjs`, `tests/unit/archive-security.te
 
 <div class="h3-section-initial-part">
 
-### 5.5 The eight schemas
+### 5.5 The payload digest — `payload-digest.mjs`
+
+A release commits to `archive.sha256`, which proves every payload byte — for as long as the archive
+exists. An application that installs a box once and runs it for months has deleted it, and
+`installedSizeBytes` is a free-space figure rather than an identity. So a box also carries a list.
+
+</div>
+
+<div class="h4-section">
+
+#### A list, not a snapshot
+
+The payload holds one file, `payload-digest.v1`, with one record per entry: its path, whether it is a
+file or a [link](#symbolic-link), and the SHA-256 of its content. The release signs the SHA-256 of
+that list, so the signed document grows by one field rather than by the megabytes a per-file table
+would add to a prefix holding twenty thousand files.
+
+That indirection is also what makes verification a closed question. A verifier walks the **list**,
+never the directory, so anything the list does not name is never visited: the `__pycache__` Python
+writes on first import, the model cache a caller fills after extraction, a file an application writes
+into its own working directory. Those are invisible by construction, not by an exclusion list that
+would have to be guessed at and kept in step.
+
+**Rejected:** hashing a walk of the installed tree into a single root value, with no list at all. It
+reads as the same guarantee for a smaller format, but the directory is then the input, so every one
+of those legitimate extra files makes an honest box fail.
+
+</div>
+
+<div class="h4-section">
+
+#### What a record leaves out
+
+| Omitted | Why |
+| --- | --- |
+| Mode | `archiveFileMode` synthesises `0o755`/`0o644` from the target and the path instead of preserving what the packed prefix carried, so observed modes could never match an extracted tree and canonical ones would hash what the release already states. Windows extraction skips `chmod` entirely |
+| Modification time | The payload is stamped with one fixed instant before archiving, but no extractor restores it; installed files carry the wall-clock of their install |
+| Directories | Neither the entry collector nor the archive writer represents one, so an empty directory is already lost between build and install |
+
+A link is hashed by its target string rather than opened. Following it would record the target's
+bytes a second time under the link's name, and would make a link indistinguishable from a copy —
+which is the distinction the record's kind byte exists to keep.
+
+Records are sorted by their own bytes rather than by their paths compared as strings. The two are
+the same ordering, because a path cannot contain NUL and NUL sorts below every byte a path can hold.
+Only one of them is unambiguous across languages: comparing strings asks each implementation to agree
+on what a string is, and this repository's own two already disagree above the Basic Multilingual
+Plane, where JavaScript orders by UTF-16 code unit and Python by code point.
+
+Reference: `tests/unit/contract-payload-digest.test.mjs`, and the shared vectors at
+`src/contract/fixtures/payload-digest-contract.json`.
+
+</div>
+
+<div class="h3-section-initial-part">
+
+### 5.6 The eight schemas
 
 
 The schemas are the machine-readable specification, written against JSON Schema draft 2020-12.
@@ -2029,8 +2085,12 @@ file assertions and that those are builder-only, rather than implying the signed
 `dependencyLockSha256` and `builtAt`. `sourceTreeDirty` is a required boolean rather than an
 optional flag, so "clean" is always an assertion somebody made and never the absence of one.
 
-`installedSizeBytes` is optional and exists for one purpose: it lets a consumer check free space
-*before* downloading.
+`installedSizeBytes` is optional and is a free-space estimate, not an integrity identity. At build
+it is the sum of the logical sizes of every payload file and link, including `payload-digest.v1`;
+preparation compares an extracted tree with it, while an attached receipt reports a fresh
+measurement of the directory and deliberately does not compare that measurement with the signed
+figure. A caller still needs headroom for the archive, temporary copies, allocation units and
+filesystem metadata.
 
 </div>
 
@@ -2091,7 +2151,7 @@ Reference: `tests/unit/contract-schema.test.mjs`, `tests/unit/docs-contract.test
 
 <div class="h3-section-initial-part">
 
-### 5.6 The golden fixtures
+### 5.7 The golden fixtures
 
 
 Fixtures are the contract's answer to a question specifications cannot answer on their own: *does
@@ -2120,11 +2180,12 @@ agreeing about what must fail is where independent implementations drift.
 
 #### `consumer-conformance.json`
 
-Thirty-four language-neutral semantic cases shared by the Node and Python consumers, plus a table of
+Fifty-nine language-neutral semantic cases shared by the Node and Python consumers, plus twenty-six
 error patterns each case's failure message must match. The cases cover valid preparation under both
 signing paths, every tampering scenario, unsafe archive entries, extraction collisions, per-platform
-entry points, argument ordering, stream forwarding, exit codes and signals, temporary-directory
-cleanup, and on-demand asset failures.
+entry points, attachment across process restarts, installed-payload verification, argument ordering,
+stream forwarding, exit codes and signals, temporary-directory cleanup, and on-demand asset
+failures.
 
 Error *patterns* rather than exact strings, deliberately: two languages should agree on what went
 wrong without being forced to phrase it identically. Section 8 covers the cases in detail — they
@@ -2150,7 +2211,7 @@ signature scheme, the payload encoding or the key format ever changes underneath
 
 <div class="h3-section-initial-part">
 
-### 5.7 Generated types
+### 5.8 Generated types
 
 
 Two surfaces are generated, both by `npm run types`, and neither is ever hand-edited.
@@ -2200,7 +2261,7 @@ Reference: `tests/unit/package-surface.test.mjs`.
 
 <div class="h3-section-initial-part">
 
-### 5.8 What the contract deliberately does not contain
+### 5.9 What the contract deliberately does not contain
 
 
 The absences are as designed as the contents:
@@ -2263,7 +2324,7 @@ interpreter first runs should be able to see it without following a call graph.
 | 9 | Post-prune integrity | `box.mjs`, `execution.mjs` | Every `selfTest.files` entry still exists, except an asset deferred by `on-demand`; execution names a real script or discoverable module |
 | 10 | Self-test | `box.mjs` | Runs the adapter's own entry point — `payload/venv/bin/python -c …`, or `venv/python.exe` on Windows — with the target's validation environment |
 | 11 | Parity | `parity.mjs` | Runs the declared check once per accelerator and enforces the tolerances |
-| 12 | Describe, normalise, measure | `box.mjs`, `filesystem.mjs` | Writes `payload/box.json`; stamps every entry with the fixed mtime; sums the installed size |
+| 12 | Describe, commit, normalise, measure | `box.mjs`, `filesystem.mjs` | Writes `payload/box.json`, writes `payload-digest.v1` without listing the list itself, records its hash for the release, stamps every entry with the fixed mtime, and sums the installed size |
 | 13 | Archive | `archive.mjs` | Writes `<buildDir>/<stem>.zip` deterministically; hashes and measures it |
 | 14 | Sign | `sign/index.mjs` | Signs the release, hashes the signed document, signs a channel pointer at 100% |
 | 15 | Publish-ready move | `assets.mjs` | Moves archive and release into `dist/boxes/<boxId>/<version>/<targetId>/`, writes `dist/channels/<boxId>/<channel>/<targetId>.json` |
@@ -3150,7 +3211,13 @@ is that a box which would fail on a user's machine fails here instead.
 
 </div>
 
-`inspectBoxArchive()` performs the complete read-only trust chain, in a fixed order:
+The trust chain is split without being duplicated. `inspectReleaseDocument()` performs the part
+that needs only a release document and trust key; `inspectBoxArchive()` calls it and continues with
+the archive. Attachment and installed-payload verification therefore reuse the same interpretation
+of signature, schema, kind and target without inventing an option that makes one function's return
+shape conditional.
+
+The two functions perform the complete read-only chain in this fixed order:
 
 1. Refuse `schemaVersion: 1` explicitly.
 2. Validate the **signed envelope** against its schema.
@@ -3159,9 +3226,12 @@ is that a box which would fail on a user's machine fails here instead.
 5. Validate the **release manifest** against its schema.
 6. Confirm the document's `kind` parses as a *release*.
 7. Resolve the target adapter and check the entry point against it.
-8. Locate the archive — beside the release document, under the hash that document commits to.
-9. Check the archive's **size**, then its **SHA-256**.
-10. Sanity-check `installedSizeBytes` if present.
+8. Sanity-check `installedSizeBytes` if present.
+
+Those eight steps are `inspectReleaseDocument()`. `inspectBoxArchive()` then continues:
+
+9. Locate the archive — beside the release document, under the hash that document commits to.
+10. Check the archive's **size**, then its **SHA-256**.
 11. List and validate **every archive entry**.
 12. Read `box.json` out of the archive and validate it against its schema.
 13. Assert **agreement** between `box.json` and the signed release.
@@ -3190,8 +3260,10 @@ present. This is what binds the archive's contents to its signed metadata: the r
 the archive by hash, and the archive's own description of itself must match the release.
 
 Only fields that exist in *both* schema-version-2 documents belong in that list. Release-only
-transport data — `kind`, `archive`, `compatibility`, `installedSizeBytes` — has no counterpart in
-`box.json`, and demanding one would be demanding agreement about a field that does not exist.
+transport data — `kind`, `archive`, `compatibility`, `installedSizeBytes`, `payloadDigest` — has no
+counterpart in `box.json`, and demanding one would be demanding agreement about a field that does
+not exist. The list itself already names and hashes `box.json`; placing its commitment inside that
+file would create a recursive value.
 
 </div>
 
@@ -3219,9 +3291,11 @@ would either reject a legitimate interpreter alias or accept a manifest that was
 #### Verifying with `--self-test`
 
 With `--self-test`, verification extracts the archive into a temporary directory, checks that the
-extracted payload size matches the signed `installedSizeBytes`, and runs the box's own interpreter
-against the signed import subset. The temporary directory is removed in a `finally` block whether or
-not the check passed.
+extracted payload size matches the signed `installedSizeBytes`, recomputes the payload digest when
+the release carries one, and only then runs the box's own interpreter against the signed import
+subset. This is the pre-publication point that proves the build's list describes what its archive
+actually extracts to. The temporary directory is removed in a `finally` block whether or not the
+check passed.
 
 It requires a matching native host, through `assertNativeHost`. That is a deliberate limitation
 rather than an oversight: running a Linux box's interpreter on macOS proves nothing, and pretending
@@ -3858,8 +3932,8 @@ The absences here are the same boundary the rest of the tool draws, applied to c
 ## 8. The consumers
 
 Everything up to here produces a box. This section is about the other end: a machine that holds a
-signed [release](#release) document, an archive, a trusted public key and a destination, and wants a
-working Python environment it can prove it received intact.
+signed [release](#release) document, a trusted public key, and either an archive plus destination or
+an already-extracted root, and wants a working Python environment whose identity it can establish.
 
 Scrollcase ships **two** implementations of that, in Node and in Python, because the code that
 consumes a box usually is not the code that built it. They are not a port and an original; they are
@@ -3876,6 +3950,8 @@ two mirrors of one contract, and they are held to it by the same fixtures.
 | Concern | Node — `scrollcase/consumer` | Python — `scrollcase_consumer` |
 | --- | --- | --- |
 | Verify and prepare | `verifyAndExtractBox()` | `verify_and_extract_box()` |
+| Re-attach an extracted box | `attachExtractedBox()` | `attach_extracted_box()` |
+| Verify an installed payload | `verifyExtractedPayload()` | `verify_extracted_payload()` |
 | Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` |
 | One-shot run | `runBox()` | `run_box()` |
 | Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass |
@@ -3944,8 +4020,10 @@ staging directory until every property of the archive has been established from 
 
 #### Why the Node consumer reuses the builder's inspection
 
-The Node consumer calls `inspectBoxArchive()` from `src/build/verify.mjs` — the same function
-`scrollcase verify` uses, described step by step in section 6.15. That is a deliberate coupling.
+The Node consumer calls `inspectReleaseDocument()` and `inspectBoxArchive()` from
+`src/build/verify.mjs` — the same functions `scrollcase verify` uses, described step by step in
+section 6.15. Attachment and payload verification stop after the document half; preparation
+continues through the archive half. That is a deliberate coupling.
 Adding an execution API must not create a second, subtly different interpretation of a signed
 release: the moment there are two, they drift, and the difference between them is a security bug
 nobody is looking for.
@@ -3960,8 +4038,9 @@ exist to prevent.
 
 #### The Python mirror — `_contract.py`
 
-Python cannot import `inspectBoxArchive`, so `_inspect_box_archive` mirrors it step for step, and
-`_contract.py` mirrors the behaviour schemas cannot express: the three
+Python cannot import those functions, so `_inspect_release_document` and `_inspect_box_archive`
+mirror the same split step for step, and `_contract.py` mirrors the behaviour schemas cannot
+express: the three
 [target adapters](#target-adapter), the [target ID](#target-id) rule, `safe_relative_path`, static
 execution discovery, and the [symbolic link](#symbolic-link) rule with the same
 `MAX_PAYLOAD_LINK_DEPTH = 8`.
@@ -4044,10 +4123,13 @@ A prepared box is represented by a receipt that is deliberately *not* reconstruc
 const preparedBoxes = new WeakMap();
 ```
 
-The receipt itself is public and useful — identity, version, [target](#target), target ID,
-interpreter path, execution metadata, required assets, signing key IDs, the release payload digest,
-the archive digest and size, the installed size. It is frozen recursively, so a caller cannot mutate
-what was verified.
+The receipt itself is public and useful — status, identity, version, [target](#target), target ID,
+interpreter path, execution metadata, required assets, signing key IDs, the signed-document payload
+digest, the archive digest and size, the measured installed size. It is frozen recursively, so a
+caller cannot mutate what was verified. `status: 'prepared'` says the directory came from an archive
+whose signed hash was checked in this process; `status: 'attached'` says an existing directory was
+re-identified without proving its payload bytes. The type carries both values because the two
+producers do not make the same assertion.
 
 What the receipt does *not* contain is the verified release and the identity of the extracted root.
 Those live in a `WeakMap` keyed by the exact receipt object, reachable only through
@@ -4056,8 +4138,9 @@ package surface. The consequence is the point:
 
 ::: warning A hand-built object cannot be executed
 Passing `{ status: 'prepared', root: '/somewhere/else' }` to `runExtractedBox` fails with *Expected
-a PreparedBox returned by verifyAndExtractBox()*. Execution authority comes from having gone through
-verification, not from having an object that looks like the result of it.
+a PreparedBox returned by verifyAndExtractBox() or attachExtractedBox()*. Execution authority comes
+from having gone through one of those checked producers, not from having an object that looks like
+their result.
 :::
 
 Python reaches the same property differently, and the difference is instructive:
@@ -4242,7 +4325,7 @@ diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that 
 
 #### What is in the file
 
-Thirty-five cases and nineteen error patterns, in a language-neutral JSON document. Each case is a
+Fifty-nine cases and twenty-six error patterns, in a language-neutral JSON document. Each case is a
 small declarative record:
 
 ```json
@@ -4260,13 +4343,15 @@ small declarative record:
 }
 ```
 
-`action` is one of `prepare`, `run-prepared` or `run-box`. `fixture` selects the box to build
-(signer, target, execution kind, whether an on-demand asset is declared), `mutation` names a single
-named corruption to apply, and `runtime` supplies arguments, an exit code, a signal, stream
-handling, a spawn failure or an asset state.
+`action` is one of `prepare`, `attach`, `verify-payload`, `run-prepared` or `run-box`. `fixture`
+selects the box to build (signer, target, execution kind, whether an on-demand asset or payload
+digest is declared), `mutation` names a single named corruption to apply, and `runtime` supplies
+arguments, an exit code, a signal, stream handling, a spawn failure, an asset state, or the request
+to re-attach before a prepared run. Both harnesses reject an unknown action explicitly; it cannot
+fall through into `run-box` and pass as the wrong operation.
 
 `requiresSymlinks` marks the one thing a host may be unable to do: Windows boxes are link-free and
-creating a link there needs elevation, so a case that depends on one is skipped rather than
+creating a link there needs elevation, so cases that depend on one are skipped rather than
 weakened.
 
 The three tokens keep a case both exact and portable: `$NATIVE_PYTHON` and `$NATIVE_TARGET` expand
@@ -4294,10 +4379,14 @@ the box format's `schemaVersion: 2`.
 | Execution semantics | 6 | Persistent root survives, argument ordering, shell metacharacters, stream forwarding, non-zero exit, signal forwarding |
 | Temporary cleanup | 3 | Empty afterwards on success, on spawn failure, on signal |
 | On-demand assets | 3 | Missing, wrong size, wrong digest — each refused before spawning |
+| Valid attachment | 5 | Existing roots, attach-then-run, a linked interpreter, materialised assets, and unrelated extra files |
+| Attachment refusal | 8 | Missing/file/link roots, missing interpreter or script, foreign target, and missing or wrong-hash assets |
+| Installed-payload verification | 11 | Match; extra files, mode and mtime ignored; tampered, deleted or retargeted entries refused; on-demand assets ignored; absent, missing or altered digest commitments refused |
 
-The per-target cases run on any host because preparation has no native-host requirement; only
-*execution* does. That is what allows a single machine to prove all three interpreter layouts,
-covering one of the paths that otherwise breaks silently.
+The three per-target **preparation** cases run on any host because preparation has no native-host
+requirement. Attachment and execution do: the foreign-target attachment case pins that distinction.
+Keeping those questions separate lets a single machine prove all three interpreter layouts without
+pretending it can mint an executable receipt for all three.
 
 </div>
 
@@ -4322,6 +4411,11 @@ A case asserts *which* failure occurred, not how it was phrased. Each harness ma
 message case-insensitively against the patterns and reports the matching code; a message that
 matches nothing becomes `unclassified: <the message>`, which fails the comparison and prints the
 text, so an unexpected failure is loud rather than silently mapped onto the wrong code.
+
+Classification is first-match-wins, so new expressions are checked against the messages all older
+cases already produce. The payload-entry expression is anchored at the start, for example, and
+therefore cannot steal *Extracted payload size does not match the signed release* from its existing
+classification.
 
 **Rejected:** requiring byte-identical messages in both languages. It would force one language's
 phrasing on the other, make any wording improvement a cross-language breaking change, and prove
@@ -4371,7 +4465,7 @@ whatever file or process the caller piped that output into, with the box unable 
 line states what `run` is — a one-shot extraction, deleted on exit — and prints on every run rather
 than above a size threshold, because a caller who does not know that reads a repeated
 multi-gigabyte extraction as the tool being slow. A box kept across runs is `verifyAndExtractBox`
-and `runExtractedBox` from the library, not this verb.
+once, then `attachExtractedBox` and `runExtractedBox` from the library, not this verb.
 
 Verification, extraction, execution, signal forwarding and cleanup all stay in `runBox`. The
 injectable `run`, `log`, `setExitCode` and `terminate` parameters exist so the translation can be
@@ -4379,7 +4473,78 @@ tested without terminating the test runner.
 
 <div class="h3-section-initial-part">
 
-### 8.9 What the consumers deliberately do not do
+### 8.9 Living past the process that installed the box
+
+A `PreparedBox` is bound to the process that made it, and that binding is the point: a receipt a
+caller could write out and read back would be a forgeable execution capability. But an application
+that installs a box once and runs it for months restarts, and re-extracting gigabytes at each launch
+is not an answer. So the receipt is not serialised — it is *earned again*.
+
+</div>
+
+<div class="h4-section">
+
+#### `attachExtractedBox` — a receipt without an archive
+
+Attachment performs every check that needs no data beyond the signed release: signature and schema,
+a target this host can run, the interpreter and execution files present, the signed hashes of
+on-demand assets, and the root's device and inode captured for `runExtractedBox` to re-check. It
+reads no original payload file contents: it enumerates paths and measures their metadata, so an
+embedded five-gigabyte weight does not add five gigabytes of work. Required on-demand assets are the
+exception and are hashed in full against their separate signed descriptors.
+
+Two asymmetries with preparation are deliberate:
+
+| | `verifyAndExtractBox` | `attachExtractedBox` |
+| --- | --- | --- |
+| Native host | not required — preparation only writes files | **required** — a receipt minted here exists to be executed |
+| Root must | not exist | exist, and be a real directory, never a [symbolic link](#symbolic-link) |
+| `status` | `prepared` | `attached` |
+| `installedSizeBytes` | compared with the signed figure | measured, never compared |
+
+The last row is the receipt refusing to overstate itself. An installed tree legitimately grows —
+on-demand assets, caches, whatever the application writes in its working directory — so holding it
+to the signed figure would fail honest boxes. And `status` distinguishes the two because they do not
+prove the same thing: `prepared` means the bytes came from an archive whose signed hash was checked
+here; `attached` means a directory was re-identified against a release, and no more.
+
+</div>
+
+<div class="h4-section">
+
+#### `verifyExtractedPayload` — the separate, opt-in question
+
+Proving the installed bytes is a different decision with a different cost, so it is a different
+call. Nothing invokes it — not attachment, not execution — and section 5.5 describes the list it
+reads. Its guarantee is worth stating exactly, because it is narrower than it looks:
+
+- **It does** bind a directory to a signed release. Without it, an application handed a stale
+  install, a rollback directory, or a half-deleted tree would get a receipt confidently asserting
+  the wrong `version`. And it detects ordinary corruption — an interrupted extraction, a full disk,
+  a quarantined file.
+- **It does not** defend against a local attacker. The tree can change between this call and any
+  later import, and Python imports lazily for the whole life of a process. No consumer library can
+  close that window; filesystem permissions can, and they belong to the operating system and the
+  embedding application. Scrollcase does not guard the directory afterwards.
+- **It cannot see** `__pycache__` or `*.pyc` at all. The entry collector excludes them by name, so a
+  stale or hostile compiled module shadowing its source is invisible to the digest permanently, not
+  merely between check and use.
+
+A release built before the digest existed is refused by name rather than reported as verified. A
+box that carries no commitment must not be mistaken for one that satisfies it.
+
+The weights mode changes the cost honestly. Embedded weights are payload entries and verification
+reads all of them, which can mean tens of gigabytes. On-demand assets were absent when the list was
+built and appear later as ignored extras; their integrity is covered separately by the signed
+per-file `requiredAssets` descriptors that attachment and execution enforce. Mode and modification
+time are also outside the digest, because archive writing synthesises modes and extraction restores
+neither the build mode consistently across platforms nor the fixed build timestamp.
+
+</div>
+
+<div class="h3-section-initial-part">
+
+### 8.10 What the consumers deliberately do not do
 
 Every input is local and caller-selected. The list of what that rules out is the boundary from
 section 3, restated where it is most tempting to cross.
@@ -4393,15 +4558,17 @@ section 3, restated where it is most tempting to cross.
 - **No revocation lookup.** See section 7.7.
 - **No installation lifecycle.** No update, no rollback, no version comparison, no garbage
   collection of old boxes, no registry of what is installed. `verifyAndExtractBox` produces one
-  directory; what a caller does with it afterwards is the caller's.
+  directory and `attachExtractedBox` re-identifies one it is handed; which directory, and what
+  becomes of it, stays the caller's.
 - **No policy about failure.** A failed verification raises; it does not retry, fall back to a
   cached copy, or continue in a degraded mode. There is no "verify if possible" setting, because a
   check that can be skipped is not a check.
 
 ::: info The consumer's whole promise
-Given a release document, an archive, a trusted key and a destination, either a verified box appears
-at that destination and its own interpreter runs — or nothing runs and the caller is told exactly
-what failed.
+Given caller-supplied local inputs, a consumer either returns the precise prepared, attached, or
+payload-verification result the chosen operation promises, or it refuses with a clear error. Box
+code runs only from an authentic process-bound receipt, after that execution path's trust checks
+have passed.
 :::
 
 ## 9. The command line
@@ -4507,7 +4674,7 @@ minutes are separated from the ones that cost milliseconds so that a failure is 
 | `lock` | Resolve the scroll's pixi manifest | `scroll.json`, `pixi.toml` | `pixi.lock` | Yes — this is where solving happens |
 | `audit` | Dependency licence inventory from the lock | `pixi.lock` | Optionally the reviewed audit | No |
 | `build` | Solve-free install, self-test, archive, sign | The scroll, the lock, the keys | The [payload](#payload), the archive, the signed documents | Yes — package and asset downloads |
-| `verify` | Re-run a consumer's install-time checks | A [release](#release) document, an archive, a [trust key](#trust-key) | Nothing (a temporary tree with `--self-test`) | No |
+| `verify` | Check an archive, or an existing extracted payload | A [release](#release) document, a [trust key](#trust-key), and either an archive or extracted root | Nothing (a temporary tree with `--self-test`) | No |
 | `run` | Verify, extract temporarily, execute | The same three inputs | A temporary extraction, removed afterwards | No |
 
 Two properties of that table matter more than any individual row.
@@ -4676,11 +4843,16 @@ no terminal — the channel a build should land on unless someone deliberately s
 
 #### `verify` and `run` — the consumer at the command line
 
-Both take a signed release document, find the archive beside it or at `--archive`, and trust the key
-set at `--public-key`. `verify` performs the install-time checks and stops; with `--self-test` it
-additionally extracts the box and imports the signed module list with the box's own interpreter.
-`run` performs the same verification, extracts to a temporary directory, executes, forwards signals,
-and removes the extraction on every terminal path.
+Both take a signed release document and trust the key set at `--public-key`. In its archive form,
+`verify` finds the archive beside the document or at `--archive`, performs the install-time checks,
+and stops; with `--self-test` it additionally extracts, recomputes the payload digest when present,
+and imports the signed module list with the box's own interpreter.
+
+`verify --extracted <dir>` is the other form. It delegates directly to
+`verifyExtractedPayload` in `scrollcase/consumer`, needs no archive, and refuses `--archive` or
+`--self-test` rather than combining two operations with different meanings. `run` always takes the
+archive path: it performs verification, extracts to a temporary directory, executes, forwards
+signals, and removes the extraction on every terminal path.
 
 Neither downloads anything. Both are described from the library side in sections 6.15 and 8.
 
@@ -5372,7 +5544,7 @@ seam an integrator can use.
 
 ### 11.3 The Node suite, file by file
 
-Twenty-five test files under `tests/unit/`, plus two shared fixtures under `tests/helpers/`.
+Twenty-seven test files under `tests/unit/`, plus two shared fixtures under `tests/helpers/`.
 
 </div>
 
@@ -5388,10 +5560,12 @@ Twenty-five test files under `tests/unit/`, plus two shared fixtures under `test
 | `cli-signing.test.mjs` | The preflight fails clearly when no local keys exist, refuses to overwrite an incomplete pair, and requires the trust key for an external signer without offering to generate one |
 | `cli-target-choice.test.mjs` | The whole selection policy: sole host target without a terminal, refusal of an ambiguous non-terminal choice, the macOS Metal default and preselection, the navigable menu, explicit `--target` honoured and validated, scroll selection through the menu and its non-terminal refusal, canonical target parsing including the CUDA ABI, example-scroll creation, `--no-example`, non-terminal `new scroll`, and the channel and weights menus |
 | `cli-version.test.mjs` | `-v` and `--version` print exactly the package version, run from an unrelated working directory |
+| `cli-verify.test.mjs` | `verify --extracted` delegates to the consumer, reports signed identity and entry count, names a tampered path through the CLI failure edge, refuses archive/self-test combinations, and requires a directory value |
 | `consumer-conformance.test.mjs` | Every case in the shared fixture, through the Node consumer |
 | `consumer-setup.test.mjs` | Conda detection from the workspace root; npm run through `cmd.exe` on Windows; the PEP 668 user-install fallback; a clear error when conda disappears after selection; an unknown package source rejected before anything runs |
-| `consumer.test.mjs` | Preparation, execution and one-shot: verified extraction through staging with an immutable typed receipt, an existing destination left untouched, staging removed when the logical size disagrees, an unsafe signed asset path refused, an invalid envelope shape refused even when its payload signature verifies, shell-free argument ordering, `-m` invocation, a real child with `cwd`, arguments and exit code intact, a replaced prepared root refused, on-demand assets verified before spawning, signals forwarded and every listener removed, and the temporary extraction removed on all three terminal paths |
+| `consumer.test.mjs` | Preparation, attachment, installed-payload verification, execution and one-shot: immutable process-bound receipts, root and asset checks, list-not-directory semantics, named corruption failures, shell-free invocation, signals, and cleanup on every terminal path |
 | `contract-links.test.mjs` | The link rule: the shapes a real prefix produces are accepted; targets escaping the payload, host-only shapes, cycles, over-long chains, dangling links and directory targets are refused; writing through a directory link is refused while an unused one is fine; and a Windows box is link-free |
+| `contract-payload-digest.test.mjs` | The canonical payload entry stream against shared golden vectors, including byte ordering above the BMP, newline framing, link/file discrimination, parsing refusals, and the collector's self-exclusion |
 | `contract-schema.test.mjs` | The schemas describe what the builder actually emits — real release, channel, box and scroll documents validate, the channel vocabulary is the same in code and schema, every shipped example scroll validates, the execution union is canonical, release and box manifests carry the same optional execution contract; the namespace defaults to `scrollcase.box`, accepts a project's own, and rejects a malformed one; the envelope rejects a payload-hash mismatch and any missing field; and a shipped signed example verifies against its public key |
 | `contract-targets.test.mjs` | Every golden target-ID case; every unsupported target and invalid CUDA combination refused; adapters cover the accepted matrix and describe a layout consumers can rely on; the archive backend names the versions the package actually installs; the conda subdir mapping; the native-host and entry-point assertions |
 | `docs-contract.test.mjs` | The documentation is checked against the code: schemas are published byte-identically on the routes their `$id`s claim, the privacy page exists and is linked, no third-party script is loaded, every CLI verb and option appears in the CLI reference, every public runtime export appears in the API reference, every complete JSON example parses and validates, internal routes resolve — and the three white-paper drift cases in section 11.5 |
@@ -5419,11 +5593,11 @@ Six test files under `python/tests/`, plus two support modules.
 
 | File | What it proves |
 | --- | --- |
-| `test_contract.py` | The mirror is faithful: every canonical target-ID case in the shared fixture, the bundled schemas are exact generated copies, and the payload link rule accepts and refuses exactly what the Node implementation does |
-| `test_verify.py` | Verification and extraction: an immutable typed receipt, an existing destination left untouched, v1 and invalid signatures refused **before** extraction, archive-identity and manifest disagreement refused, missing interpreters and execution files refused, all three interpreter layouts prepared without executing any of them, a wrong installed size refused with staging removed, and hostile ZIP entry types, paths and collisions refused |
+| `test_contract.py` | The mirror is faithful: every canonical target-ID and payload-digest vector in the shared fixtures, bundled schemas are exact generated copies, and the payload link rule accepts and refuses exactly what the Node implementation does |
+| `test_verify.py` | Verification, extraction, attachment and installed-payload checking: immutable typed receipts with honest status, existing/file/link roots handled correctly, native-host and asset checks, list-not-directory semantics, named tampering failures, v1 and invalid signatures refused before extraction, archive/manifest disagreement, installed size, and hostile ZIP entries |
 | `test_run.py` | Execution: signed and caller arguments preserved in order without a shell, `-m` invocation, a **real** child process preserving shell metacharacters, on-demand assets verified before spawning, replaced roots and forged receipts and library-only boxes refused, a non-native target refused before spawning, signals forwarded with parent handlers restored, one-shot execution removing its temporary bytes on every terminal path, and the real standard streams routed through the box interpreter |
 | `test_conformance.py` | Every case in the shared fixture, through the Python consumer |
-| `test_public_api.py` | The package exports exactly the three consumer operations |
+| `test_public_api.py` | The package exports exactly the five consumer operations |
 | `test_release.py` | The release tag check accepts `python-v<version>`, and rejects both the Node tag namespace and a mismatched version — so the two packages cannot be released under each other's tags |
 
 `support.py` and `conformance_support.py` are the Python counterparts of the Node helpers, and
@@ -5507,6 +5681,7 @@ line over all of them.
 | `src/contract/document-shape.mjs` | The platform-neutral parts of the [envelope](#envelope): shape checks and namespacing | 5.3 |
 | `src/contract/documents.mjs` | The envelope reference implementation, including payload decoding | 5.3 |
 | `src/contract/links.mjs` | The rule deciding which [symbolic links](#symbolic-link) a payload may carry | 5.4 |
+| `src/contract/payload-digest.mjs` | The canonical entry list a release commits to, so an extracted install can be re-identified | 5.5 |
 
 </div>
 
@@ -5548,8 +5723,8 @@ line over all of them.
 | --- | --- | --- |
 | `src/sign/index.mjs` | Two signing paths and one envelope: a local key, or an external signer | 7.3, 7.5 |
 | `src/sign/keys.mjs` | Key generation, reading a pair back, and signature verification | 7.2, 7.4 |
-| `src/consumer/index.mjs` | The local execution surface: the three operations and nothing else | 8.1 |
-| `src/consumer/verify-and-extract.mjs` | Verification and durable preparation, returning an opaque receipt | 8.3 |
+| `src/consumer/index.mjs` | The local execution surface: the five operations and nothing else | 8.1 |
+| `src/consumer/verify-and-extract.mjs` | Preparation, attachment and installed-payload verification, with opaque receipts for the executable paths | 8.3, 8.9 |
 | `src/consumer/run-extracted.mjs` | Shell-free execution of a box this process already prepared | 8.4 |
 | `src/consumer/run-box.mjs` | One-shot: prepare into a private temporary root, run, remove every byte | 8.5 |
 
@@ -5595,7 +5770,7 @@ change to the package's contract, not an implementation detail.
 | `scrollcase/contract/fixtures/*.json` | The golden fixtures a mirror implementation proves itself against |
 | `scrollcase/build` | Building, packing, verifying, auditing and workspace resolution |
 | `scrollcase/sign` | Key generation, signing, decoding and verification |
-| `scrollcase/consumer` | The three local execution operations |
+| `scrollcase/consumer` | The five local execution operations |
 
 There is deliberately **no root export**. Importing `scrollcase` gets nothing; every consumer names
 the surface it depends on, which is what lets the browser-safe subset stay browser-safe and lets a
@@ -5646,7 +5821,9 @@ disk beside the installed package rather than something a browser can fetch.
 | `verifySignedDocument` | Verifies an envelope against a [trust key](#trust-key) set |
 | `decodeSignedDocument` | Decodes an envelope **without** verifying it — named for what it does not do |
 | `verifyAndExtractBox` | Verifies a local box and prepares it at a destination, returning a receipt |
-| `runExtractedBox` | Executes a box this process prepared, shell-free, forwarding signals |
+| `attachExtractedBox` | Re-identifies an already-extracted box in a new process, without its archive |
+| `verifyExtractedPayload` | Proves an installed tree against the entry list its release commits to |
+| `runExtractedBox` | Executes a box this process prepared or attached, shell-free, forwarding signals |
 | `runBox` | One-shot: prepare into a temporary root, execute, remove every byte |
 
 </div>
@@ -5667,6 +5844,7 @@ disk beside the installed package rather than something a browser can fetch.
 | `repairPosixLaunchers` | The [shebang](#shebang) trampoline repair |
 | `createDeterministicZip`, `listZipEntries`, `extractZipArchive` | Deterministic writing and defensive reading |
 | `collectFiles`, `fileExists`, `sha256File` | Payload enumeration and streaming hashing |
+| `payloadDigest` | The canonical entry list of an extracted tree, reduced to one hash |
 | `boxReleaseStem`, `boxReleaseObjectPrefix`, `builderVersionFields` | Release naming and builder identity |
 | `lockedCondaDistributions`, `parseCondaPackageReference` | Reading the lock into package identities |
 | `createCondaDependencyLicenseAudit`, `validateCondaDependencyLicenseAudit` | Producing and checking the licence inventory |

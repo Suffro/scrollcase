@@ -115,6 +115,23 @@
       "exclusiveMinimum": 0,
       "description": "Sum of extracted payload file sizes before activation metadata is written, so a consumer can check free space before downloading."
     },
+    "payloadDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "sha256"
+      ],
+      "description": "SHA-256 of the canonical entry list carried at payload-digest.v1 inside the payload, letting a consumer re-identify an extracted installation once the archive is gone. Optional: boxes built before it exists carry no such commitment.",
+      "properties": {
+        "format": {
+          "const": "sha256-path-list-v1"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
     "pythonEntryPoint": {
       "type": "string",
       "minLength": 1,

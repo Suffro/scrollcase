@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import shutil
 import signal
 import stat
@@ -11,9 +12,17 @@ from typing import IO, Any, cast
 
 from scrollcase_consumer import (
     BoxRunResult,
+    attach_extracted_box,
     run_box,
     run_extracted_box,
     verify_and_extract_box,
+    verify_extracted_payload,
+)
+from scrollcase_consumer._contract import (
+    PAYLOAD_DIGEST_FILE,
+    PAYLOAD_DIGEST_FORMAT,
+    PayloadDigestEntry,
+    payload_digest_stream,
 )
 
 from .support import ArchiveEntry, ConsumerFixture, create_fixture, native_target
@@ -35,6 +44,21 @@ TARGETS: dict[str, dict[str, str]] = {
         "arch": "x86_64",
         "accelerator": "cpu",
     },
+}
+
+POST_EXTRACTION_MUTATIONS = {
+    "attach-missing-root",
+    "attach-file-root",
+    "attach-symlink-root",
+    "add-root-files",
+    "chmod-script",
+    "touch-script",
+    "tamper-script",
+    "remove-interpreter",
+    "remove-script",
+    "retarget-interpreter-link",
+    "remove-payload-digest-list",
+    "tamper-payload-digest-list",
 }
 
 
@@ -92,12 +116,19 @@ def load_consumer_conformance_suite() -> dict[str, Any]:
 
 def _fixture_options(spec: dict[str, Any]) -> dict[str, Any]:
     target_name = spec.get("target")
+    if target_name == "foreign":
+        native = native_target()
+        native_id = "-".join(
+            (native["platform"], native["arch"], native["accelerator"])
+        )
+        target = next(target for name, target in TARGETS.items() if name != native_id)
+    elif isinstance(target_name, str):
+        target = TARGETS[target_name]
+    else:
+        target = native_target()
     options: dict[str, Any] = {
-        "target": (
-            TARGETS[target_name]
-            if isinstance(target_name, str)
-            else native_target()
-        ),
+        "target": target,
+        "payload_digest": spec.get("payloadDigest", True),
     }
     if spec.get("execution") == "module":
         options["execution"] = {
@@ -115,6 +146,28 @@ def _fixture_options(spec: dict[str, Any]) -> dict[str, Any]:
     # A consumer cannot observe key custody. The external-signer case therefore uses the same
     # signed-envelope wire contract with an independently generated caller trust anchor.
     return options
+
+
+def _refresh_payload_digest(
+    fixture: ConsumerFixture,
+    entries: list[ArchiveEntry],
+) -> list[ArchiveEntry]:
+    payload_entries = [
+        entry for entry in entries if entry.path != PAYLOAD_DIGEST_FILE
+    ]
+    stream = payload_digest_stream(
+        PayloadDigestEntry(
+            path=entry.path,
+            kind="link" if entry.file_type == stat.S_IFLNK else "file",
+            content_sha256=hashlib.sha256(entry.data).hexdigest(),
+        )
+        for entry in payload_entries
+    )
+    fixture.release["payloadDigest"] = {
+        "format": PAYLOAD_DIGEST_FORMAT,
+        "sha256": hashlib.sha256(stream).hexdigest(),
+    }
+    return [*payload_entries, ArchiveEntry(PAYLOAD_DIGEST_FILE, stream)]
 
 
 def _mutate_fixture(
@@ -194,6 +247,7 @@ def _mutate_fixture(
                 file_type=stat.S_IFLNK,
             )
         )
+        entries = _refresh_payload_digest(fixture, entries)
         # A link is sized by its target string once extracted, which is exactly the entry's own
         # bytes here. Stated rather than copied from the result, so the signed size is still earned.
         fixture.release["installedSizeBytes"] = sum(
@@ -226,6 +280,60 @@ def _mutate_fixture(
         fixture.write_archive(encrypted=True)
         return
     raise AssertionError(f"Unknown conformance mutation: {mutation}")
+
+
+def _mutate_extracted_root(
+    fixture: ConsumerFixture,
+    mutation: str | None,
+    root: Path,
+) -> Path:
+    if mutation is None:
+        return root
+    if mutation == "attach-missing-root":
+        return fixture.root / "missing-root"
+    if mutation == "attach-file-root":
+        return fixture.archive_path
+    if mutation == "attach-symlink-root":
+        linked_root = fixture.root / "linked-root"
+        linked_root.symlink_to(root, target_is_directory=True)
+        return linked_root
+    if mutation == "add-root-files":
+        (root / "output.log").write_bytes(b"application output")
+        (root / "__pycache__").mkdir()
+        (root / "__pycache__" / "cached.pyc").write_bytes(b"compiled")
+        return root
+    script = root / "app" / "main.py"
+    if mutation == "chmod-script":
+        script.chmod(0o600)
+        return root
+    if mutation == "touch-script":
+        os.utime(script, (0, 0))
+        return root
+    if mutation == "tamper-script":
+        script.write_bytes(script.read_bytes() + b" ")
+        return root
+    if mutation == "remove-interpreter":
+        (root / fixture.release["pythonEntryPoint"]).unlink()
+        return root
+    if mutation == "remove-script":
+        (root / fixture.release["execution"]["script"]).unlink()
+        return root
+    if mutation == "retarget-interpreter-link":
+        interpreter = root / fixture.release["pythonEntryPoint"]
+        target = os.readlink(interpreter)
+        interpreter.unlink()
+        interpreter.symlink_to(f"{target}-retargeted")
+        return root
+    list_path = root / PAYLOAD_DIGEST_FILE
+    if mutation == "remove-payload-digest-list":
+        list_path.unlink()
+        return root
+    if mutation == "tamper-payload-digest-list":
+        data = bytearray(list_path.read_bytes())
+        data[-2] ^= 0x01
+        list_path.write_bytes(data)
+        return root
+    raise AssertionError(f"Unknown extracted-root mutation: {mutation}")
 
 
 def _replace_tokens(value: Any, root: str | None = None) -> Any:
@@ -295,7 +403,16 @@ def run_python_conformance_case(
     streams: dict[str, IO[Any]] | None = None
     actual: dict[str, Any]
     try:
-        _mutate_fixture(fixture, test_case.get("mutation"), destination)
+        action = test_case["action"]
+        mutation = test_case.get("mutation")
+        if test_case.get("fixture", {}).get("linkedInterpreter"):
+            _mutate_fixture(fixture, "link-interpreter", destination)
+        post_extraction_mutation = (
+            action in ("attach", "verify-payload")
+            and mutation in POST_EXTRACTION_MUTATIONS
+        )
+        if not post_extraction_mutation:
+            _mutate_fixture(fixture, mutation, destination)
         if test_case["action"] == "prepare":
             prepared = verify_and_extract_box(
                 fixture.release_path,
@@ -317,6 +434,57 @@ def run_python_conformance_case(
             }
             return actual, expected, fixture.root
 
+        if action in ("attach", "verify-payload"):
+            prepared = verify_and_extract_box(
+                fixture.release_path,
+                public_key_path=fixture.public_key_path,
+                archive=fixture.archive_path,
+                destination=destination,
+            )
+            runtime = test_case.get("runtime", {})
+            _materialize_asset(prepared, runtime.get("assetState"))
+            root = _mutate_extracted_root(
+                fixture,
+                mutation if post_extraction_mutation else None,
+                Path(prepared.root),
+            )
+            if action == "attach":
+                attached = attach_extracted_box(
+                    fixture.release_path,
+                    public_key_path=fixture.public_key_path,
+                    root=root,
+                )
+                execution = attached.execution
+                actual = {
+                    "outcome": "attached",
+                    "receipt": {
+                        "status": attached.status,
+                        "boxId": attached.box_id,
+                        "executionKind": (
+                            execution.kind if execution is not None else None
+                        ),
+                        "requiredAssetCount": len(attached.required_assets),
+                        "pythonEntryPoint": attached.python_entry_point,
+                        "targetId": attached.target_id,
+                    },
+                }
+                return actual, expected, fixture.root
+            verified = verify_extracted_payload(
+                fixture.release_path,
+                public_key_path=fixture.public_key_path,
+                root=root,
+            )
+            actual = {
+                "outcome": "verified",
+                "result": {
+                    "status": verified.status,
+                    "boxId": verified.box_id,
+                    "targetId": verified.target_id,
+                    "entryCount": verified.entry_count,
+                },
+            }
+            return actual, expected, fixture.root
+
         runtime = test_case.get("runtime", {})
         fake = FakePopen(runtime)
         if runtime.get("streams"):
@@ -328,7 +496,7 @@ def run_python_conformance_case(
         stdin = streams["stdin"] if streams is not None else None
         stdout = streams["stdout"] if streams is not None else None
         stderr = streams["stderr"] if streams is not None else None
-        if test_case["action"] == "run-prepared":
+        if action == "run-prepared":
             prepared = verify_and_extract_box(
                 fixture.release_path,
                 public_key_path=fixture.public_key_path,
@@ -336,6 +504,12 @@ def run_python_conformance_case(
                 destination=destination,
             )
             _materialize_asset(prepared, runtime.get("assetState"))
+            if runtime.get("attach"):
+                prepared = attach_extracted_box(
+                    fixture.release_path,
+                    public_key_path=fixture.public_key_path,
+                    root=prepared.root,
+                )
             result = run_extracted_box(
                 prepared,
                 args=runtime.get("args", ()),
@@ -344,7 +518,7 @@ def run_python_conformance_case(
                 stderr=stderr,
                 popen_factory=cast(Any, fake),
             )
-        else:
+        elif action == "run-box":
             temporary_directory.mkdir()
             result = run_box(
                 fixture.release_path,
@@ -357,6 +531,8 @@ def run_python_conformance_case(
                 stderr=stderr,
                 popen_factory=cast(Any, fake),
             )
+        else:
+            raise AssertionError(f"Unknown conformance action: {action}")
         actual = {
             "outcome": "completed",
             "result": {

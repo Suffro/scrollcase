@@ -22,15 +22,16 @@ API at `scrollcase/consumer` and the Python package imported as `scrollcase_cons
 flowchart LR
   C["canonical v2 contract<br/>schemas + fixtures"] --> N["Node consumer<br/>scrollcase/consumer"]
   C --> P["Python consumer<br/>scrollcase_consumer"]
-  F["caller-supplied release, archive,<br/>trust keys, destination"] --> N
+  F["caller-supplied release, archive or root,<br/>trust keys, destination"] --> N
   F --> P
   N --> L["verified local box<br/>or child process"]
   P --> L
 ```
 
-Both consumers must agree on verification, safe extraction, execution, receipts, errors, signals,
-cleanup, and on-demand assets by passing the same language-neutral conformance cases. Generated or
-checked schema copies are projections of the canonical contract, never independent definitions.
+Both consumers must agree on verification, safe extraction, attachment across restarts,
+installed-payload checking, execution, receipts, errors, signals, cleanup, and on-demand assets by
+passing the same language-neutral conformance cases. Generated or checked schema copies are
+projections of the canonical contract, never independent definitions.
 
 The security order is fixed: validate the signed document and release shape, verify the archive
 size and hash, validate every archive entry, extract safely, compare `box.json` with the signed
@@ -40,6 +41,12 @@ the interpreter, a script, a module, or an import earlier.
 All inputs are local and caller-selected. Consumer code does not choose a channel, download a box,
 update an installation, promote, revoke, publish, serve, allocate a runner, or own application
 lifecycle policy.
+
+A persistent installation earns a new process-bound receipt through attachment rather than loading
+one from disk. Byte verification stays separate and opt-in: the signed release commits to the
+`payload-digest.v1` list inside the box, and the verifier checks that list instead of treating later
+extra files as corruption. The result is point-in-time integrity; operating-system permissions and
+the embedding application remain responsible for guarding the directory afterwards.
 
 ## The substrate
 
@@ -105,8 +112,9 @@ misrepresented as consumer checks.
 **Parity after the self-test, on the same payload.** There is no point comparing accelerators in
 a box that cannot import its dependencies in the first place.
 
-**Normalise, then archive.** Timestamps are stamped to a fixed instant and files enumerated in
-one stable order, which is what makes the ZIP deterministic.
+**Commit, normalise, then archive.** After `box.json`, the builder writes `payload-digest.v1` and
+places the list's hash in the signed release. Timestamps are then stamped to a fixed instant and
+files enumerated in one stable order, which is what makes the ZIP deterministic.
 
 **Sign last, stage after.** The release commits to the archive by hash; the channel commits to
 the release document by *its* hash. The staging tree is then laid out exactly as a bucket would
@@ -199,6 +207,7 @@ src/
 ├── contract/          the box format itself — the source of truth
 │   ├── targets.mjs      target model, identity rule, per-target adapters
 │   ├── documents.mjs    signed-document envelope, namespacing
+│   ├── payload-digest.mjs canonical extracted-entry list bytes
 │   ├── schema/          eight JSON Schemas
 │   └── fixtures/        golden fixtures other implementations prove themselves against
 ├── build/             solving, packing, staging, auditing, verifying
@@ -215,8 +224,8 @@ src/
 │   ├── audit.mjs        the licence audit verb
 │   ├── project.mjs      init and doctor
 │   └── parity.mjs       the accelerator parity gate
-├── consumer/          verified local preparation and shell-free execution
-│   ├── verify-and-extract.mjs  staged extraction and the opaque prepared receipt
+├── consumer/          verified local preparation, attachment, checking and execution
+│   ├── verify-and-extract.mjs  staged extraction, attachment, payload checking, opaque receipts
 │   ├── run-extracted.mjs       interpreter invocation, assets, stdio, signals
 │   └── run-box.mjs             one-shot temporary execution and cleanup
 ├── sign/              key generation, local signing, external dispatch, verification

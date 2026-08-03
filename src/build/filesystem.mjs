@@ -10,6 +10,11 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, lstat, lutimes, readdir, readlink } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import {
+  PAYLOAD_DIGEST_FILE,
+  PAYLOAD_DIGEST_FORMAT,
+  payloadDigestStream,
+} from '../contract/payload-digest.mjs';
 import { fail } from './process.mjs';
 
 /**
@@ -195,4 +200,48 @@ export async function sha256File(path) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return hash.digest('hex');
+}
+
+/**
+ * Describes every payload entry the way `src/contract/payload-digest.mjs` records it.
+ *
+ * A link is hashed by its target string rather than opened, because `sha256File` would follow it
+ * and record the target's bytes a second time under the link's name — which is also what would make
+ * a link and a copy indistinguishable.
+ *
+ * The list file itself is skipped, and by name rather than by when it happens to exist: the build
+ * computes this before writing it and a verifier computes it after, and the two must produce one
+ * answer. It could not be listed anyway, since a file cannot carry its own hash.
+ *
+ * @param {string} root
+ * @returns {Promise<import('../contract/payload-digest.mjs').PayloadDigestEntry[]>}
+ */
+export async function payloadDigestEntries(root) {
+  const described = [];
+  for (const entry of await collectEntries(root)) {
+    if (entry.path === PAYLOAD_DIGEST_FILE) continue;
+    described.push({
+      path: entry.path,
+      kind: entry.kind,
+      contentSha256: entry.kind === 'link'
+        ? createHash('sha256').update(entry.linkTarget ?? '', 'utf8').digest('hex')
+        : await sha256File(join(root, ...entry.path.split('/'))),
+    });
+  }
+  return described;
+}
+
+/**
+ * Computes what a release commits to about one extracted tree.
+ *
+ * This reads every payload byte, which on a box carrying embedded weights is tens of gigabytes. The
+ * cost is deliberate and paid in three places only — once per build, once per `--self-test`, and
+ * once per explicit payload verification — never on the path that merely prepares or runs a box.
+ *
+ * @param {string} root
+ * @returns {Promise<{ format: string, sha256: string }>}
+ */
+export async function payloadDigest(root) {
+  const stream = payloadDigestStream(await payloadDigestEntries(root));
+  return { format: PAYLOAD_DIGEST_FORMAT, sha256: createHash('sha256').update(stream).digest('hex') };
 }

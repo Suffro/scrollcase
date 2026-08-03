@@ -8,6 +8,23 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ### Added
 
+- Commit new boxes to their extracted payload through the optional signed `payloadDigest` release
+  field and the canonical `payload-digest.v1` list inside the archive. Node and Python share golden
+  byte vectors for the list format and 59 language-neutral consumer cases. `schemaVersion` remains
+  2 because the field is additive: existing v2 releases still verify normally, while an explicit
+  installed-payload check refuses a release that carries no digest rather than claiming success.
+
+  Add `attachExtractedBox` / `attach_extracted_box` so an application can install once, restart, and
+  mint a fresh process-bound `PreparedBox` without retaining or re-extracting the archive. Attached
+  receipts are marked `attached`, assert the native host, re-check execution files and on-demand
+  assets, and deliberately do not claim the payload bytes were proved.
+
+  Add the separate `verifyExtractedPayload` / `verify_extracted_payload` integrity operation and
+  `scrollcase verify --extracted <dir>`. Verification walks the authenticated list rather than the
+  directory, so later extra files are ignored; embedded assets are read, while on-demand assets keep
+  their signed per-file checks. The result detects corruption at that moment, not later mutation or
+  a live local attacker, and excludes Python bytecode caches by design.
+
 - Store already-compressed payload paths in the box archive instead of deflating them. Every path a
   scroll declares in `assets` is stored automatically, and the new optional `uncompressedPaths`
   names anything else the project knows to be compressed already — the tree an `assetArchives` entry

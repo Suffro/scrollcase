@@ -51,15 +51,23 @@ class RequiredAsset:
     sha256: str
 
 
+# Deliberately without ``slots=True``, unlike every other model here: the instance must keep
+# ``__weakref__`` to be a WeakKeyDictionary key, which is how execution authority is bound. And
+# ``eq=False`` keeps identity comparison, so a field-identical forgery cannot collide with a real
+# entry. Adding slots, or restoring equality, breaks both producers at the binding step.
 @dataclass(frozen=True, eq=False)
 class PreparedBox:
     """The immutable result of verifying and durably extracting one local box.
 
     Construction alone does not grant execution authority. ``run_extracted_box`` also requires the
-    private verification state bound to the exact instance returned by ``verify_and_extract_box``.
+    private verification state bound to the exact instance returned by ``verify_and_extract_box``
+    or ``attach_extracted_box``.
     """
 
-    status: Literal["prepared"]
+    # Which producer minted it, because they do not prove the same thing. ``prepared`` means the
+    # bytes came from an archive whose signed hash was checked in this process; ``attached`` means
+    # an existing directory was re-identified against a signed release, with no archive to check.
+    status: Literal["prepared", "attached"]
     root: str
     box_id: str
     model_id: str
@@ -83,3 +91,15 @@ class BoxRunResult:
 
     exit_code: int | None
     signal: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PayloadVerification:
+    """The result of comparing an extracted tree against the list its release commits to."""
+
+    status: Literal["verified"]
+    root: str
+    box_id: str
+    version: str
+    target_id: str
+    entry_count: int

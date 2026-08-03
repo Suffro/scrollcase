@@ -7,19 +7,28 @@
  * chain before execution.
  */
 
+import { createHash } from 'node:crypto';
 import {
   lstat,
   mkdir,
   mkdtemp,
+  readFile,
+  readlink,
   rename,
   rm,
 } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { extractZipArchive } from '../build/archive.mjs';
-import { payloadSize, safeRelativePath, sha256File } from '../build/filesystem.mjs';
+import { collectFiles, payloadSize, safeRelativePath, sha256File } from '../build/filesystem.mjs';
+import { assertExecutionFiles } from '../build/execution.mjs';
 import { fail } from '../build/process.mjs';
-import { inspectBoxArchive } from '../build/verify.mjs';
-import { boxTargetId } from '../contract/targets.mjs';
+import { inspectBoxArchive, inspectReleaseDocument } from '../build/verify.mjs';
+import {
+  MAX_PAYLOAD_DIGEST_BYTES,
+  PAYLOAD_DIGEST_FILE,
+  parsePayloadDigestStream,
+} from '../contract/payload-digest.mjs';
+import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
 
 /**
  * An on-demand asset whose signed bytes the caller must place under `root` before execution.
@@ -34,8 +43,13 @@ import { boxTargetId } from '../contract/targets.mjs';
 /**
  * The immutable result of a successfully verified and atomically prepared local box.
  *
+ * `status` says which of the two producers minted it, because they do not prove the same thing.
+ * `prepared` means the bytes came from an archive whose signed hash was checked in this process.
+ * `attached` means an existing directory was re-identified against a signed release without any
+ * archive to check it against — the receipt must not claim more than that.
+ *
  * @typedef {object} PreparedBox
- * @property {'prepared'} status
+ * @property {'prepared' | 'attached'} status
  * @property {string} root absolute extracted box root
  * @property {string} boxId
  * @property {string} modelId
@@ -51,7 +65,8 @@ import { boxTargetId } from '../contract/targets.mjs';
  * @property {string} releasePayloadSha256
  * @property {string} archiveSha256
  * @property {number} archiveSizeBytes
- * @property {number} installedSizeBytes logical size of the verified extracted payload
+ * @property {number} installedSizeBytes logical size of the box root, measured when this receipt was
+ *   produced — on an attached receipt it is a current measurement, not an agreement with the release
  */
 
 /** @type {WeakMap<object, {
@@ -83,8 +98,71 @@ async function pathExists(path) {
  */
 export function preparedBoxState(/** @type {unknown} */ prepared) {
   const state = preparedBoxes.get(prepared);
-  if (!state) fail('Expected a PreparedBox returned by verifyAndExtractBox().');
+  if (!state) fail('Expected a PreparedBox returned by verifyAndExtractBox() or attachExtractedBox().');
   return state;
+}
+
+/**
+ * Checks the on-demand assets a caller was told to place, against their signed descriptors.
+ *
+ * This lives here rather than beside execution because both producers of a receipt need it before
+ * one exists, and importing it the other way would close a cycle with `run-extracted.mjs`.
+ *
+ * @param {string} root
+ * @param {readonly RequiredAsset[]} assets
+ */
+export async function verifyRequiredAssets(root, assets) {
+  for (const asset of assets) {
+    const path = join(root, ...safeRelativePath(asset.relativePath).split('/'));
+    let metadata;
+    try {
+      metadata = await lstat(path);
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        fail(`Required on-demand asset is missing: ${asset.relativePath}.`);
+      }
+      throw error;
+    }
+    if (!metadata.isFile()) fail(`Required on-demand asset is not a regular file: ${asset.relativePath}.`);
+    if (metadata.size !== asset.sizeBytes) {
+      fail(`Required on-demand asset size mismatch: ${asset.relativePath}.`);
+    }
+    if (await sha256File(path) !== asset.sha256) {
+      fail(`Required on-demand asset SHA-256 mismatch: ${asset.relativePath}.`);
+    }
+  }
+}
+
+/** The on-demand descriptors a release requires a caller to have materialised, screened for safety. */
+function requiredAssetsOf(release) {
+  const assets = release.weights === 'on-demand' ? release.assets : [];
+  for (const asset of assets) safeRelativePath(asset.relativePath);
+  return assets;
+}
+
+/** Builds the public receipt and binds the private state that authorises execution. */
+function mintReceipt(status, { root, release, signed, installedSizeBytes, identity }) {
+  const frozenRelease = freezeValue(release);
+  const receipt = freezeValue({
+    status,
+    root,
+    boxId: release.boxId,
+    modelId: release.modelId,
+    runtimeId: release.runtimeId,
+    version: release.version,
+    target: release.target,
+    targetId: boxTargetId(release.target),
+    pythonEntryPoint: release.pythonEntryPoint,
+    execution: release.execution ?? null,
+    requiredAssets: requiredAssetsOf(release),
+    signingKeyIds: signed.signatures.map((signature) => signature.keyId),
+    releasePayloadSha256: signed.payloadSha256,
+    archiveSha256: release.archive.sha256,
+    archiveSizeBytes: release.archive.sizeBytes,
+    installedSizeBytes,
+  });
+  preparedBoxes.set(receipt, { release: frozenRelease, rootIdentity: identity });
+  return receipt;
 }
 
 /**
@@ -112,8 +190,7 @@ export async function verifyAndExtractBox(releaseDocumentPath, {
     signed,
     release,
   } = inspected;
-  const requiredAssets = release.weights === 'on-demand' ? release.assets : [];
-  for (const asset of requiredAssets) safeRelativePath(asset.relativePath);
+  requiredAssetsOf(release);
 
   const parent = dirname(finalRoot);
   await mkdir(parent, { recursive: true });
@@ -142,34 +219,175 @@ export async function verifyAndExtractBox(releaseDocumentPath, {
       fail('Prepared destination identity changed during installation.');
     }
 
-    const frozenRelease = freezeValue(release);
-    const receipt = freezeValue({
-      status: 'prepared',
+    return mintReceipt('prepared', {
       root: finalRoot,
-      boxId: release.boxId,
-      modelId: release.modelId,
-      runtimeId: release.runtimeId,
-      version: release.version,
-      target: release.target,
-      targetId: boxTargetId(release.target),
-      pythonEntryPoint: release.pythonEntryPoint,
-      execution: release.execution ?? null,
-      requiredAssets,
-      signingKeyIds: signed.signatures.map((signature) => signature.keyId),
-      releasePayloadSha256: signed.payloadSha256,
-      archiveSha256: release.archive.sha256,
-      archiveSizeBytes: release.archive.sizeBytes,
+      release,
+      signed,
       installedSizeBytes: extractedSize,
+      identity: { device: installedMetadata.dev, inode: installedMetadata.ino },
     });
-    preparedBoxes.set(receipt, {
-      release: frozenRelease,
-      rootIdentity: {
-        device: installedMetadata.dev,
-        inode: installedMetadata.ino,
-      },
-    });
-    return receipt;
   } finally {
     await rm(stageRoot, { recursive: true, force: true });
   }
+}
+
+/** Resolves a directory a caller claims holds an extracted box, refusing anything that is not one. */
+async function resolveExtractedRoot(root) {
+  if (!root) fail('A root is required to attach an extracted box.');
+  const resolved = resolve(root);
+  let metadata;
+  try {
+    metadata = await lstat(resolved);
+  } catch (error) {
+    if (error?.code === 'ENOENT') fail(`${resolved} is not an extracted box directory.`);
+    throw error;
+  }
+  // `lstat`, so a symbolic link reports false here. That is deliberate: `runExtractedBox` requires
+  // a real directory, and accepting a link would mint a receipt that can never be executed.
+  if (!metadata.isDirectory()) fail(`${resolved} is not an extracted box directory.`);
+  return { root: resolved, metadata };
+}
+
+/**
+ * Re-identifies a box that is already extracted, without its archive.
+ *
+ * This is what lets an application install a box once and run it across restarts. It performs every
+ * check that needs no data beyond the signed release — signature and schema, a target this host can
+ * run, the interpreter and execution files present, the signed hashes of on-demand assets — and
+ * deliberately does not read the payload. Proving the installed bytes is `verifyExtractedPayload`,
+ * a separate decision with a separate cost, which the caller makes when it wants to.
+ *
+ * Unlike preparation, this asserts the native host: preparation only writes files, but a receipt
+ * minted here exists to be executed.
+ *
+ * @param {string} releaseDocumentPath
+ * @param {{ publicPath: string, root: string }} options
+ * @returns {Promise<Readonly<PreparedBox>>}
+ */
+export async function attachExtractedBox(releaseDocumentPath, { publicPath, root }) {
+  const { root: boxRoot, metadata } = await resolveExtractedRoot(root);
+  const { signed, release, adapter } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
+  try {
+    assertNativeHost(adapter);
+  } catch {
+    fail(
+      `Box target ${boxTargetId(release.target)} cannot run on ${process.platform}/${process.arch}; `
+      + `requires ${adapter.host.platform}/${adapter.host.arch}.`,
+    );
+  }
+
+  const files = new Set(await collectFiles(boxRoot));
+  if (!files.has(release.pythonEntryPoint)) {
+    fail(`Attached box is missing ${release.pythonEntryPoint}.`);
+  }
+  assertExecutionFiles({
+    execution: release.execution,
+    adapter,
+    pythonVersion: release.provenance.pythonVersion,
+    files,
+  });
+  await verifyRequiredAssets(boxRoot, requiredAssetsOf(release));
+
+  // Measured, never compared: an installed tree legitimately grows after extraction — on-demand
+  // assets, caches, whatever the application writes in its own working directory — so holding it
+  // to the signed figure would fail honest boxes.
+  const installedSizeBytes = await payloadSize(boxRoot);
+  const settled = await lstat(boxRoot);
+  if (settled.dev !== metadata.dev || settled.ino !== metadata.ino) {
+    fail('Attached box root changed while it was being checked.');
+  }
+  return mintReceipt('attached', {
+    root: boxRoot,
+    release,
+    signed,
+    installedSizeBytes,
+    identity: { device: settled.dev, inode: settled.ino },
+  });
+}
+
+/**
+ * The result of comparing an extracted tree against the entry list its release commits to.
+ *
+ * @typedef {object} PayloadVerification
+ * @property {'verified'} status
+ * @property {string} root
+ * @property {string} boxId
+ * @property {string} version
+ * @property {string} targetId
+ * @property {number} entryCount how many payload entries were checked
+ */
+
+/**
+ * Proves an extracted tree is the one a signed release describes.
+ *
+ * Deliberately standalone. Nothing calls it — not preparation, not attachment, not execution —
+ * because it reads every byte the box carries, and because a check that passed at one moment says
+ * nothing about the next: between here and a later import the tree can change, and no library can
+ * close that window. Filesystem permissions do, and they belong to the operating system and the
+ * application. What this answers is narrower and worth answering: is this directory the box that
+ * release describes, and is it still whole.
+ *
+ * @param {string} releaseDocumentPath
+ * @param {{ publicPath: string, root: string }} options
+ * @returns {Promise<Readonly<PayloadVerification>>}
+ */
+export async function verifyExtractedPayload(releaseDocumentPath, { publicPath, root }) {
+  const { root: boxRoot } = await resolveExtractedRoot(root);
+  const { release } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
+  if (release.payloadDigest === undefined) {
+    fail('This release does not commit to a payload digest; it was built before payload verification existed.');
+  }
+
+  const listPath = join(boxRoot, PAYLOAD_DIGEST_FILE);
+  let listSize;
+  try {
+    listSize = (await lstat(listPath)).size;
+  } catch (error) {
+    if (error?.code === 'ENOENT') fail(`Attached box is missing its payload digest list: ${PAYLOAD_DIGEST_FILE}.`);
+    throw error;
+  }
+  if (listSize > MAX_PAYLOAD_DIGEST_BYTES) fail('Payload digest list is larger than this consumer will read.');
+  // Hash the bytes before parsing them. The list arrives with the untrusted tree it describes, so
+  // until it matches the signed value it is not a list — it is input.
+  if (await sha256File(listPath) !== release.payloadDigest.sha256) {
+    fail('Payload digest list does not match the signed release.');
+  }
+
+  let entries;
+  try {
+    entries = parsePayloadDigestStream(await readFile(listPath));
+  } catch (error) {
+    fail(`Invalid payload digest list: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(boxRoot, ...safeRelativePath(entry.path).split('/'));
+    let metadata;
+    try {
+      metadata = await lstat(path);
+    } catch (error) {
+      if (error?.code === 'ENOENT') fail(`Payload does not match the signed release: ${entry.path} is missing.`);
+      throw error;
+    }
+    const kind = metadata.isSymbolicLink() ? 'link' : metadata.isFile() ? 'file' : null;
+    if (kind !== entry.kind) {
+      fail(`Payload does not match the signed release: ${entry.path} is not a ${entry.kind}.`);
+    }
+    // A link is compared by its target string, never opened — following it would compare the
+    // target's bytes under two names and make a link indistinguishable from a copy.
+    const actual = kind === 'link'
+      ? createHash('sha256').update(await readlink(path), 'utf8').digest('hex')
+      : await sha256File(path);
+    if (actual !== entry.contentSha256) {
+      fail(`Payload does not match the signed release: ${entry.path}.`);
+    }
+  }
+
+  return freezeValue({
+    status: 'verified',
+    root: boxRoot,
+    boxId: release.boxId,
+    version: release.version,
+    targetId: boxTargetId(release.target),
+    entryCount: entries.length,
+  });
 }

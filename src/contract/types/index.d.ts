@@ -336,6 +336,13 @@ export interface BoxReleaseManifest {
    */
   installedSizeBytes?: number;
   /**
+   * SHA-256 of the canonical entry list carried at payload-digest.v1 inside the payload, letting a consumer re-identify an extracted installation once the archive is gone. Optional: boxes built before it exists carry no such commitment.
+   */
+  payloadDigest?: {
+    format: 'sha256-path-list-v1';
+    sha256: Sha256;
+  };
+  /**
    * Interpreter path relative to the extracted box root, for example venv/bin/python. Fixed per target by the adapter.
    */
   pythonEntryPoint: string;

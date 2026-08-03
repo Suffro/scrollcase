@@ -168,6 +168,62 @@ Whatever installs your boxes should do exactly what `scrollcase verify` does, in
 Running `scrollcase verify --self-test` on the build machine covers the archive and temporary
 extraction checks, not final installation, compatibility policy, rollout, or activation.
 
+## Keeping an extracted box across restarts
+
+The archive proves the payload while it exists. A persistent installation usually discards that
+archive, and a `PreparedBox` receipt cannot be serialised across process restarts: doing so would
+turn a writable file into a forgeable execution capability. A new process earns a fresh receipt by
+re-checking the signed release and the directory's execution prerequisites:
+
+```js
+import {
+  attachExtractedBox,
+  runExtractedBox,
+  verifyExtractedPayload,
+} from 'scrollcase/consumer';
+
+// Optional and potentially expensive: proves the installed bytes at this moment.
+await verifyExtractedPayload('release.json', {
+  publicPath: 'trusted-key.json',
+  root: '/srv/boxes/my-model/1.0.0/macos-aarch64-metal',
+});
+
+// Does not re-read original payload bytes; on-demand assets are hashed separately.
+const attached = await attachExtractedBox('release.json', {
+  publicPath: 'trusted-key.json',
+  root: '/srv/boxes/my-model/1.0.0/macos-aarch64-metal',
+});
+await runExtractedBox(attached);
+```
+
+Python exposes the same sequence as `verify_extracted_payload`, `attach_extracted_box`, and
+`run_extracted_box`. Attachment deliberately does not verify every payload byte: it enumerates the
+tree and measures metadata, but the full content read is a separate decision so launch does not
+silently become a multi-gigabyte integrity scan.
+
+For a manual or maintenance check, the CLI reaches the same Node consumer operation:
+
+```sh
+scrollcase verify release.json \
+  --extracted /srv/boxes/my-model/1.0.0/macos-aarch64-metal \
+  --public-key trusted-key.json
+```
+
+`--extracted` needs no archive and cannot be combined with `--archive` or `--self-test`. It checks
+the signed `payload-digest.v1` entry list rather than walking the directory, so unrelated files that
+appeared after installation do not fail an honest box. Embedded assets are original entries and are
+read in full; on-demand assets are later extras, ignored by this digest and checked separately by
+their signed descriptors during attachment and execution.
+
+::: warning Integrity is a point-in-time result
+Payload verification detects ordinary corruption and identifies a directory against a signed
+release. It does not stop the directory changing after the check. Protect persistent installations
+with operating-system permissions and the embedding application's ownership policy.
+
+`__pycache__` directories and `*.pyc` files are excluded when the build collects payload entries,
+so the digest can never see them. Do not treat the check as proof about compiled Python caches.
+:::
+
 ## Namespaces for existing publishers
 
 If you already have boxes installed in the field under your own document kinds, keep emitting

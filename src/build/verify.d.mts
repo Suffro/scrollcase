@@ -7,6 +7,32 @@
  */
 export function assertBoxManifestAgreement(box: any, release: any): void;
 /**
+ * Performs the half of the trust chain that needs no archive.
+ *
+ * Everything here answers questions about the signed document alone — is the signature good, is the
+ * payload a schema-version-2 release, does it describe a target this build understands. It is split
+ * out because a box that is already extracted has no archive to check, and re-deriving these steps
+ * beside the ones that do would create the second interpretation of a signed release that
+ * `inspectBoxArchive` exists to prevent.
+ *
+ * @param {string} releaseDocumentPath
+ * @param {{ publicPath: string }} options
+ */
+export function inspectReleaseDocument(releaseDocumentPath: string, { publicPath }: {
+    publicPath: string;
+}): Promise<{
+    releasePath: string;
+    signed: any;
+    release: unknown;
+    adapter: import("../contract/targets.mjs").BoxTargetAdapter;
+    schemas: {
+        releaseSchema: any;
+        boxSchema: any;
+        targetSchema: any;
+        executionSchema: any;
+    };
+}>;
+/**
  * Performs the complete read-only trust chain shared by `verify` and the local consumer.
  *
  * Keeping this as one operation matters: adding an execution API must not create a second,

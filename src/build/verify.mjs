@@ -47,7 +47,7 @@ export function assertBoxManifestAgreement(box, release) {
 }
 import { extractZipArchive, listZipEntries, readZipEntry } from './archive.mjs';
 import { assertExecutionFiles } from './execution.mjs';
-import { fileExists, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
+import { fileExists, payloadDigest, payloadSize, safeRelativePath, sha256File } from './filesystem.mjs';
 import { fail, run as runProcess } from './process.mjs';
 import { schemaValidationError } from './schema-validation.mjs';
 
@@ -66,14 +66,18 @@ async function loadManifestSchemas() {
 }
 
 /**
- * Performs the complete read-only trust chain shared by `verify` and the local consumer.
+ * Performs the half of the trust chain that needs no archive.
  *
- * Keeping this as one operation matters: adding an execution API must not create a second,
- * subtly different interpretation of a signed release. The caller receives the validated
- * in-memory objects and exact archive path, but extraction and execution remain separate steps.
+ * Everything here answers questions about the signed document alone — is the signature good, is the
+ * payload a schema-version-2 release, does it describe a target this build understands. It is split
+ * out because a box that is already extracted has no archive to check, and re-deriving these steps
+ * beside the ones that do would create the second interpretation of a signed release that
+ * `inspectBoxArchive` exists to prevent.
+ *
+ * @param {string} releaseDocumentPath
+ * @param {{ publicPath: string }} options
  */
-export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
-  const { publicPath, archive: archiveOverride = null } = options;
+export async function inspectReleaseDocument(releaseDocumentPath, { publicPath }) {
   const releasePath = resolve(releaseDocumentPath);
   const signed = JSON.parse(await readFile(releasePath, 'utf8'));
   if (signed?.schemaVersion === 1) {
@@ -99,6 +103,33 @@ export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
   if (parseDocumentKind(release.kind)?.type !== 'release') fail('Document is not a box release.');
   const adapter = boxTargetAdapter(release.target);
   assertPythonEntryPoint(adapter, release.pythonEntryPoint);
+  // Describes the extracted tree rather than the archive, so it belongs on this side of the split.
+  // `payloadDigest` needs no companion check: its `format` is a schema `const`, so a release naming
+  // a format this build cannot read is already refused above, by name, as an invalid manifest.
+  if (release.installedSizeBytes !== undefined
+    && (!Number.isSafeInteger(release.installedSizeBytes) || release.installedSizeBytes <= 0)) {
+    fail('Invalid installed size.');
+  }
+
+  return { releasePath, signed, release, adapter, schemas: { releaseSchema, boxSchema, targetSchema, executionSchema } };
+}
+
+/**
+ * Performs the complete read-only trust chain shared by `verify` and the local consumer.
+ *
+ * Keeping this as one operation matters: adding an execution API must not create a second,
+ * subtly different interpretation of a signed release. The caller receives the validated
+ * in-memory objects and exact archive path, but extraction and execution remain separate steps.
+ */
+export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
+  const { publicPath, archive: archiveOverride = null } = options;
+  const {
+    releasePath,
+    signed,
+    release,
+    adapter,
+    schemas: { releaseSchema, boxSchema, targetSchema, executionSchema },
+  } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
 
   // The archive sits next to its release document under the hash that document commits to — the
   // same name it is published under, so this resolves identically against a local dist tree and a
@@ -109,10 +140,6 @@ export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
   if (!await fileExists(archivePath)) fail(`Archive not found: ${archivePath}`);
   if ((await stat(archivePath)).size !== release.archive.sizeBytes) fail('Archive size mismatch.');
   if (await sha256File(archivePath) !== release.archive.sha256) fail('Archive SHA-256 mismatch.');
-  if (release.installedSizeBytes !== undefined
-    && (!Number.isSafeInteger(release.installedSizeBytes) || release.installedSizeBytes <= 0)) {
-    fail('Invalid installed size.');
-  }
 
   const entries = await listZipEntries(archivePath);
   // Two questions, deliberately not the same set. `box.json` is read out of the archive, so it must
@@ -180,6 +207,14 @@ export async function verifyBox(releaseDocumentPath, options = {}) {
       if (release.installedSizeBytes !== undefined
         && await payloadSize(extracted) !== release.installedSizeBytes) {
         fail('Extracted payload size does not match the signed release.');
+      }
+      // This is the one place that proves the entry list a build produced actually describes what
+      // the archive extracts to, and it runs before the box is published rather than after. It
+      // costs a second full read of the tree, which is proportionate only to a verb that already
+      // extracts everything and runs an interpreter — no other path pays it.
+      if (release.payloadDigest !== undefined
+        && (await payloadDigest(extracted)).sha256 !== release.payloadDigest.sha256) {
+        fail('Extracted payload does not match the signed release.');
       }
       const python = join(extracted, safeRelativePath(release.pythonEntryPoint));
       run(python, ['-c', `${adapter.selfTestPython}\nimport ${release.selfTest.pythonImports.join(', ')}`], {

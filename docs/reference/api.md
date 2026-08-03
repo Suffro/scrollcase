@@ -13,7 +13,9 @@ derive a target ID, check a signature, resolve a workspace, or run a verified ap
 import { boxTargetId, documentKinds } from 'scrollcase/contract';
 import { isSignedBoxDocument } from 'scrollcase/contract/browser';
 import { sha256File, resolveWorkspace } from 'scrollcase/build';
-import { verifyAndExtractBox, runExtractedBox, runBox } from 'scrollcase/consumer';
+import {
+  verifyAndExtractBox, attachExtractedBox, verifyExtractedPayload, runExtractedBox, runBox,
+} from 'scrollcase/consumer';
 import { verifySignedDocument } from 'scrollcase/sign';
 ```
 
@@ -71,7 +73,9 @@ lifecycle policy.
 
 ```js
 import {
+  attachExtractedBox,
   verifyAndExtractBox,
+  verifyExtractedPayload,
   runExtractedBox,
   runBox,
 } from 'scrollcase/consumer';
@@ -108,10 +112,53 @@ For `on-demand` weights, `prepared.requiredAssets` contains the signed URL, rela
 SHA-256 descriptors. Scrollcase does not fetch them. The caller may materialize those files under
 `prepared.root`; execution refuses a missing, non-regular, wrong-size, or wrong-hash asset.
 
+### Re-attaching across restarts
+
+A `PreparedBox` is bound to the process that produced it, so a long-lived application cannot keep
+one across a restart — and re-extracting gigabytes at every launch is not an answer.
+`attachExtractedBox(releaseDocumentPath, { publicPath, root })` mints a fresh receipt from a
+directory that is already extracted, without the archive.
+
+It verifies the signed document, requires a target this host can run, checks that the interpreter
+and execution files are present, and re-checks on-demand assets against their signed hashes. It does
+not read original payload file contents, though it enumerates paths and measures their metadata, so
+its original-payload work scales with entry count rather than byte size. Required on-demand assets
+are hashed in full. The receipt it returns carries
+`status: 'attached'` rather than `'prepared'`, because the bytes on disk were not proved — only the
+release, and the shape of the directory. `runExtractedBox` accepts either.
+
+`root` must be a real directory; a symbolic link is refused, since execution requires a real one.
+
+### Verifying an installation
+
+`verifyExtractedPayload(releaseDocumentPath, { publicPath, root })` proves the tree on disk is the
+one the release describes. New boxes carry `payload-digest.v1`, an entry list naming each original
+payload path with the SHA-256 of its content, and the signed release commits to that list's own hash.
+Verification hashes the list, compares it with the release, parses it only then, and checks each
+listed path — walking the list, never the directory, so files that appear after installation
+(`__pycache__`, the model cache, anything the application writes in its working directory) are
+simply never visited.
+
+It is standalone and opt-in: no other operation calls it, because it reads every listed byte. Call
+it after installing, on a user's request, or in a maintenance job. Embedded weights are listed and
+can make the check read tens of gigabytes; on-demand assets are later extras and keep their separate
+signed per-file verification. File mode and modification time are deliberately not committed. A
+release built before this field existed is refused rather than silently treated as verified.
+
+::: warning What it does and does not prove
+It binds a directory to a signed release and detects corruption. It is not a defence against a local
+attacker: the tree can change between this call and any later import, and no library can close that
+window — filesystem permissions can, and they belong to the operating system and to your
+application. Scrollcase does not guard the directory afterwards.
+
+The build collector excludes `__pycache__` directories and `*.pyc` files, so the digest cannot make
+any assertion about them. That is a permanent blind spot, not only a timing window.
+:::
+
 ### Execution
 
 `runExtractedBox(prepared, options)` runs only a receipt returned by
-`verifyAndExtractBox` in the current process. It rechecks the prepared tree and required assets,
+`verifyAndExtractBox` or `attachExtractedBox` in the current process. It rechecks the prepared tree and required assets,
 enforces the native target, starts the declared script or `-m` module with the box's own Python,
 uses the box root as `cwd`, and appends caller `args` after signed `defaultArgs`. It never invokes a
 shell.
@@ -148,9 +195,11 @@ python -m pip install scrollcase-consumer
 
 ```python
 from scrollcase_consumer import (
+    attach_extracted_box,
     run_box,
     run_extracted_box,
     verify_and_extract_box,
+    verify_extracted_payload,
 )
 
 prepared = verify_and_extract_box(
@@ -168,7 +217,10 @@ result = run_extracted_box(
 ```
 
 The receipt fields use idiomatic snake case (`box_id`, `target_id`, `required_assets`,
-`archive_sha256`). `run_box` performs the same one-shot prepare/run/cleanup composition. Stream
+`archive_sha256`). `attach_extracted_box(release, public_key_path=…, root=…)` and
+`verify_extracted_payload(release, public_key_path=…, root=…)` mirror their Node counterparts
+exactly, including the `attached` status and the refusal of a release that commits to no payload
+digest. `run_box` performs the same one-shot prepare/run/cleanup composition. Stream
 arguments accept Python file objects or `subprocess` constants; the default inherits the parent's
 streams. On the main Python thread, `SIGINT`, `SIGTERM`, and `SIGHUP` are forwarded and then the
 previous handlers are restored.
@@ -308,6 +360,7 @@ Details in [Workspace Configuration](/reference/configuration).
 | `listZipEntries(archivePath)` | Enumerate entries without extracting |
 | `collectFiles(root)` | Enumerate files in the one stable order hashing and archiving rely on |
 | `sha256File(path)`, `fileExists(path)` | Hashing and existence checks |
+| `payloadDigest(root)` | Reduce an extracted tree to the `{ format, sha256 }` a release commits to |
 
 ### Identity and toolchain
 

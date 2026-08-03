@@ -8,6 +8,7 @@ safe filesystem joins, and static module discovery.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import re
 import sys
@@ -15,7 +16,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Collection, Mapping, cast
+from typing import Any, Collection, Iterable, Mapping, cast
 
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
@@ -103,6 +104,28 @@ def path_under(root: Path, relative_path: str) -> Path:
     """Join a path only after applying the shared traversal rule."""
 
     return root.joinpath(*safe_relative_path(relative_path).split("/"))
+
+
+def absolute_path(value: str | os.PathLike[str]) -> Path:
+    """Make a caller's path absolute without consulting the filesystem.
+
+    ``Path.resolve()`` is not this: it walks the disk and replaces every symbolic link with its
+    destination, which silently turns a path the caller named into a different one. That is a
+    behaviour, not a formatting step, and it is not the behaviour the Node consumer has — its
+    ``resolve()`` is purely lexical. Two implementations of one contract may not disagree about
+    which directory a caller meant, so every caller-supplied path goes through here.
+
+    The leading-slash case is the one place ``abspath`` still parts company with Node. POSIX leaves
+    a path beginning with *exactly* two slashes implementation-defined; Python keeps it and Node
+    collapses it, so ``base + "/" + name`` with ``base = "/"`` would be reported two different ways.
+    Three or more slashes already agree, and the rule is skipped on Windows, where a leading ``\\\\``
+    is a UNC path both implementations preserve on purpose.
+    """
+
+    absolute = os.path.abspath(value)
+    if os.name != "nt" and absolute.startswith("//") and not absolute.startswith("///"):
+        absolute = absolute[1:]
+    return Path(absolute)
 
 
 def target_from_json(value: Mapping[str, Any]) -> BoxTarget:
@@ -280,6 +303,142 @@ def validate_schema(value: object, schema_name: str, label: str) -> None:
     if location == "/":
         location = "document"
     raise ScrollcaseConsumerError(f"Invalid {label}: {location} {error.message}.")
+
+
+# What a release commits to about its own extracted tree, mirroring
+# ``src/contract/payload-digest.mjs``. The archive's SHA-256 proves every payload byte only while
+# the archive still exists; a box installed once and run for months has none. So the payload also
+# carries an entry list, and the release signs that list's SHA-256 — one field rather than the
+# megabytes a per-file table would add to a prefix holding twenty thousand files.
+PAYLOAD_DIGEST_FORMAT = "sha256-path-list-v1"
+PAYLOAD_DIGEST_FILE = "payload-digest.v1"
+
+# How far a reader will go before refusing: the list arrives with the untrusted tree it describes,
+# and reading it must not be what exhausts memory. At roughly a hundred bytes per record this is
+# some two million entries, an order of magnitude past the densest real prefix.
+MAX_PAYLOAD_DIGEST_BYTES = 256 * 1024 * 1024
+
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+_SHA256_HEX_LENGTH = 64
+_KIND_BYTE = {"file": b"f", "link": b"l"}
+_BYTE_KIND = {ord("f"): "file", ord("l"): "link"}
+
+
+@dataclass(frozen=True, slots=True)
+class PayloadDigestEntry:
+    """One payload entry as the digest records it.
+
+    ``content_sha256`` hashes the file's bytes for a regular file, and the UTF-8 bytes of the link
+    body for a link. A link is never opened: hashing what it points at would record the target's
+    content twice, once under its own name and once under the link's, and would make a link
+    indistinguishable from a copy — which is the distinction ``kind`` exists to keep.
+    """
+
+    path: str
+    kind: str
+    content_sha256: str
+
+
+def payload_digest_stream(entries: Iterable[PayloadDigestEntry]) -> bytes:
+    """Serialise payload entries into the canonical bytes a release commits to.
+
+    The format name is inside the stream rather than only beside it in the manifest, so a later
+    revision cannot produce the same bytes for different rules.
+
+    Records are sorted by their own bytes rather than by their paths compared as strings. The two
+    are the same ordering — a path cannot contain NUL, and NUL sorts below every byte a path can
+    hold — but only one of them is unambiguous across languages, where JavaScript orders by UTF-16
+    code unit and Python by code point.
+    """
+
+    records: list[bytes] = []
+    seen: set[str] = set()
+    for entry in entries:
+        kind_byte = _KIND_BYTE.get(entry.kind)
+        if kind_byte is None:
+            raise ScrollcaseConsumerError(f"Unsupported payload entry kind: {entry.kind}")
+        # Asserted rather than assumed: a NUL would end the path field early and let two different
+        # trees produce one stream.
+        if entry.path == "" or "\0" in entry.path:
+            raise ScrollcaseConsumerError(f"Unsupported payload entry path: {entry.path!r}")
+        if entry.path in seen:
+            raise ScrollcaseConsumerError(f"Duplicate payload entry: {entry.path}")
+        seen.add(entry.path)
+        if not _SHA256_HEX.match(entry.content_sha256):
+            raise ScrollcaseConsumerError(
+                f"Invalid payload entry digest for {entry.path}: {entry.content_sha256}"
+            )
+        records.append(
+            entry.path.encode("utf-8")
+            + b"\0"
+            + kind_byte
+            + b"\0"
+            + entry.content_sha256.encode("ascii")
+            + b"\n"
+        )
+    # Bytewise. In Python this happens to coincide with sorting the decoded strings, because UTF-8
+    # preserves code-point order — but the JavaScript mirror has no such luck, and the format is
+    # defined on the bytes so that neither implementation has to know that.
+    records.sort()
+    return PAYLOAD_DIGEST_FORMAT.encode("utf-8") + b"\n" + b"".join(records)
+
+
+def parse_payload_digest_stream(data: bytes) -> list[PayloadDigestEntry]:
+    """Read a list back, refusing anything a serialiser could not have produced.
+
+    Written as a scanner over a fixed frame rather than a split on separators: a newline is legal
+    inside a filename, and only the NUL delimiter and the fixed-width hash field make the framing
+    unambiguous. A caller must already have compared the stream's hash against the signed release —
+    parsing is not a trust decision, and nothing here makes untrusted bytes safe.
+    """
+
+    header = PAYLOAD_DIGEST_FORMAT.encode("utf-8") + b"\n"
+    if not data.startswith(header):
+        raise ScrollcaseConsumerError(
+            "Payload digest list does not carry the expected format header."
+        )
+
+    entries: list[PayloadDigestEntry] = []
+    seen: set[str] = set()
+    cursor = len(header)
+    previous: bytes | None = None
+    while cursor < len(data):
+        path_end = data.find(b"\0", cursor)
+        if path_end < 0:
+            raise ScrollcaseConsumerError("Payload digest list ends inside a record.")
+        end = path_end + _SHA256_HEX_LENGTH + 4
+        if end > len(data):
+            raise ScrollcaseConsumerError("Payload digest list ends inside a record.")
+        kind = _BYTE_KIND.get(data[path_end + 1])
+        if kind is None or data[path_end + 2] != 0 or data[end - 1] != 0x0A:
+            raise ScrollcaseConsumerError("Payload digest list holds a malformed record.")
+        try:
+            path = data[cursor:path_end].decode("utf-8")
+            content_sha256 = data[path_end + 3 : end - 1].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ScrollcaseConsumerError(
+                "Payload digest list holds bytes that are not valid UTF-8."
+            ) from error
+        if not _SHA256_HEX.match(content_sha256):
+            raise ScrollcaseConsumerError(
+                f"Payload digest list holds an invalid digest for {path}."
+            )
+        if path in seen:
+            raise ScrollcaseConsumerError(f"Payload digest list names {path} twice.")
+        seen.add(path)
+
+        # Order is part of the format, not a convenience: a reader that accepted any order would
+        # accept streams the builder cannot emit, and two trees could then share one hash.
+        record = data[cursor:end]
+        if previous is not None and previous >= record:
+            raise ScrollcaseConsumerError("Payload digest list is not in canonical order.")
+        previous = record
+
+        entries.append(
+            PayloadDigestEntry(path=path, kind=kind, content_sha256=content_sha256)
+        )
+        cursor = end
+    return entries
 
 
 # The rule deciding which symbolic links a box payload may carry, mirroring

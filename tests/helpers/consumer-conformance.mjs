@@ -2,23 +2,39 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { createWriteStream } from 'node:fs';
 import {
+  chmod,
   mkdir,
   readFile,
+  readlink,
   readdir,
   rename,
   rm,
   stat,
+  symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import yazl from 'yazl';
-import { collectFiles, payloadSize, sha256File } from '../../src/build/filesystem.mjs';
+import {
+  collectFiles,
+  payloadDigestEntries,
+  payloadSize,
+  sha256File,
+} from '../../src/build/filesystem.mjs';
+import {
+  PAYLOAD_DIGEST_FILE,
+  PAYLOAD_DIGEST_FORMAT,
+  payloadDigestStream,
+} from '../../src/contract/payload-digest.mjs';
 import { boxTargetAdapter, boxTargetId } from '../../src/contract/targets.mjs';
 import {
+  attachExtractedBox,
   runBox,
   runExtractedBox,
   verifyAndExtractBox,
+  verifyExtractedPayload,
 } from '../../src/consumer/index.mjs';
 import {
   createConsumerBoxFixture,
@@ -32,6 +48,21 @@ const TARGETS = {
   'linux-x86_64-cpu': { platform: 'linux', arch: 'x86_64', accelerator: 'cpu' },
   'windows-x86_64-cpu': { platform: 'windows', arch: 'x86_64', accelerator: 'cpu' },
 };
+
+const POST_EXTRACTION_MUTATIONS = new Set([
+  'attach-missing-root',
+  'attach-file-root',
+  'attach-symlink-root',
+  'add-root-files',
+  'chmod-script',
+  'touch-script',
+  'tamper-script',
+  'remove-interpreter',
+  'remove-script',
+  'retarget-interpreter-link',
+  'remove-payload-digest-list',
+  'tamper-payload-digest-list',
+]);
 
 export async function loadConsumerConformanceSuite() {
   return JSON.parse(await readFile(
@@ -83,6 +114,18 @@ async function refreshArchiveIdentity(fixture) {
   fixture.release.archive.sha256 = await sha256File(fixture.archivePath);
   fixture.release.archive.sizeBytes = metadata.size;
   await writeSignedRelease(fixture, fixture.release);
+}
+
+async function refreshPayloadDigest(fixture, extraEntries = []) {
+  const stream = payloadDigestStream([
+    ...await payloadDigestEntries(fixture.payload),
+    ...extraEntries,
+  ]);
+  await writeFile(join(fixture.payload, PAYLOAD_DIGEST_FILE), stream);
+  fixture.release.payloadDigest = {
+    format: PAYLOAD_DIGEST_FORMAT,
+    sha256: createHash('sha256').update(stream).digest('hex'),
+  };
 }
 
 async function replaceZipEntryName(path, from, to) {
@@ -157,6 +200,11 @@ async function mutateFixture(fixture, mutation, destination) {
     const linkTarget = `${parts[parts.length - 1]}-real`;
     const directory = join(fixture.payload, ...parts.slice(0, -1));
     await rename(join(fixture.payload, ...parts), join(directory, linkTarget));
+    await refreshPayloadDigest(fixture, [{
+      path: fixture.release.pythonEntryPoint,
+      kind: 'link',
+      contentSha256: createHash('sha256').update(linkTarget, 'utf8').digest('hex'),
+    }]);
     await writeZip(fixture.archivePath, fixture.payload, {
       path: fixture.release.pythonEntryPoint,
       contents: linkTarget,
@@ -202,8 +250,74 @@ async function mutateFixture(fixture, mutation, destination) {
   throw new Error(`Unknown conformance mutation: ${mutation}`);
 }
 
+async function mutateExtractedRoot(fixture, mutation, root) {
+  if (!mutation) return root;
+  if (mutation === 'attach-missing-root') return join(fixture.root, 'missing-root');
+  if (mutation === 'attach-file-root') return fixture.archivePath;
+  if (mutation === 'attach-symlink-root') {
+    const linkedRoot = join(fixture.root, 'linked-root');
+    await symlink(root, linkedRoot);
+    return linkedRoot;
+  }
+  if (mutation === 'add-root-files') {
+    await writeFile(join(root, 'output.log'), 'application output');
+    await mkdir(join(root, '__pycache__'));
+    await writeFile(join(root, '__pycache__', 'cached.pyc'), 'compiled');
+    return root;
+  }
+  const script = join(root, 'app', 'main.py');
+  if (mutation === 'chmod-script') {
+    await chmod(script, 0o600);
+    return root;
+  }
+  if (mutation === 'touch-script') {
+    await utimes(script, new Date(0), new Date(0));
+    return root;
+  }
+  if (mutation === 'tamper-script') {
+    await writeFile(script, `${await readFile(script, 'utf8')} `);
+    return root;
+  }
+  if (mutation === 'remove-interpreter') {
+    await rm(join(root, ...fixture.release.pythonEntryPoint.split('/')));
+    return root;
+  }
+  if (mutation === 'remove-script') {
+    await rm(join(root, ...fixture.release.execution.script.split('/')));
+    return root;
+  }
+  if (mutation === 'retarget-interpreter-link') {
+    const interpreter = join(root, ...fixture.release.pythonEntryPoint.split('/'));
+    const target = await readlink(interpreter);
+    await rm(interpreter);
+    await symlink(`${target}-retargeted`, interpreter);
+    return root;
+  }
+  const listPath = join(root, PAYLOAD_DIGEST_FILE);
+  if (mutation === 'remove-payload-digest-list') {
+    await rm(listPath);
+    return root;
+  }
+  if (mutation === 'tamper-payload-digest-list') {
+    const bytes = await readFile(listPath);
+    bytes[bytes.length - 2] ^= 0x01;
+    await writeFile(listPath, bytes);
+    return root;
+  }
+  throw new Error(`Unknown extracted-root mutation: ${mutation}`);
+}
+
+function foreignTarget() {
+  const nativeId = boxTargetId(nativeTarget());
+  const target = Object.entries(TARGETS).find(([id]) => id !== nativeId)?.[1];
+  if (!target) throw new Error('Conformance fixture has no foreign target.');
+  return target;
+}
+
 function fixtureOptions(spec = {}) {
-  const target = spec.target ? TARGETS[spec.target] : nativeTarget();
+  const target = spec.target === 'foreign'
+    ? foreignTarget()
+    : spec.target ? TARGETS[spec.target] : nativeTarget();
   const execution = spec.execution === 'module'
     ? { kind: 'python-module', module: 'example.application', defaultArgs: ['--default'] }
     : undefined;
@@ -218,6 +332,7 @@ function fixtureOptions(spec = {}) {
     signer: spec.signer ?? 'local',
     ...(execution ? { execution } : {}),
     requiredAsset,
+    payloadDigest: spec.payloadDigest !== false,
   };
 }
 
@@ -268,7 +383,15 @@ export async function runNodeConformanceCase(testCase) {
   let fake;
   let streams;
   try {
-    await mutateFixture(fixture, testCase.mutation, destination);
+    if (testCase.fixture?.linkedInterpreter) {
+      await mutateFixture(fixture, 'link-interpreter', destination);
+    }
+    const postExtractionMutation = (
+      testCase.action === 'attach' || testCase.action === 'verify-payload'
+    ) && POST_EXTRACTION_MUTATIONS.has(testCase.mutation);
+    if (!postExtractionMutation) {
+      await mutateFixture(fixture, testCase.mutation, destination);
+    }
     if (testCase.action === 'prepare') {
       prepared = await verifyAndExtractBox(fixture.releasePath, {
         publicPath: fixture.publicPath,
@@ -285,6 +408,58 @@ export async function runNodeConformanceCase(testCase) {
             requiredAssetCount: prepared.requiredAssets.length,
             pythonEntryPoint: prepared.pythonEntryPoint,
             targetId: prepared.targetId,
+          },
+        },
+        expected,
+        root: fixture.root,
+      };
+    }
+
+    if (testCase.action === 'attach' || testCase.action === 'verify-payload') {
+      prepared = await verifyAndExtractBox(fixture.releasePath, {
+        publicPath: fixture.publicPath,
+        archive: fixture.archivePath,
+        destination,
+      });
+      await materializeAsset(prepared, testCase.runtime?.assetState);
+      const root = await mutateExtractedRoot(
+        fixture,
+        postExtractionMutation ? testCase.mutation : null,
+        prepared.root,
+      );
+      if (testCase.action === 'attach') {
+        const attached = await attachExtractedBox(fixture.releasePath, {
+          publicPath: fixture.publicPath,
+          root,
+        });
+        return {
+          actual: {
+            outcome: 'attached',
+            receipt: {
+              status: attached.status,
+              boxId: attached.boxId,
+              executionKind: attached.execution?.kind ?? null,
+              requiredAssetCount: attached.requiredAssets.length,
+              pythonEntryPoint: attached.pythonEntryPoint,
+              targetId: attached.targetId,
+            },
+          },
+          expected,
+          root: fixture.root,
+        };
+      }
+      const verified = await verifyExtractedPayload(fixture.releasePath, {
+        publicPath: fixture.publicPath,
+        root,
+      });
+      return {
+        actual: {
+          outcome: 'verified',
+          result: {
+            status: verified.status,
+            boxId: verified.boxId,
+            targetId: verified.targetId,
+            entryCount: verified.entryCount,
           },
         },
         expected,
@@ -310,6 +485,12 @@ export async function runNodeConformanceCase(testCase) {
         destination,
       });
       await materializeAsset(prepared, runtime.assetState);
+      if (runtime.attach) {
+        prepared = await attachExtractedBox(fixture.releasePath, {
+          publicPath: fixture.publicPath,
+          root: prepared.root,
+        });
+      }
       const running = runExtractedBox(prepared, {
         args: runtime.args ?? [],
         spawn: fake.spawn,
@@ -321,7 +502,7 @@ export async function runNodeConformanceCase(testCase) {
         signalSource.emit(runtime.signal);
       }
       result = await running;
-    } else {
+    } else if (testCase.action === 'run-box') {
       await mkdir(temporaryDirectory);
       const running = runBox(fixture.releasePath, {
         publicPath: fixture.publicPath,
@@ -337,6 +518,8 @@ export async function runNodeConformanceCase(testCase) {
         signalSource.emit(runtime.signal);
       }
       result = await running;
+    } else {
+      throw new Error(`Unknown conformance action: ${testCase.action}`);
     }
     const actual = {
       outcome: 'completed',

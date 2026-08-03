@@ -18,8 +18,9 @@ The normative artefacts ship inside the npm package:
 | Golden fixtures | `scrollcase/contract/fixtures/*.json` | What "agreeing" means, concretely |
 
 A client written in another language **does not import the code** — it mirrors the rules and
-proves the mirror against `fixtures/target-id-contract.json`. That is how implementations stay
-honest without sharing a runtime.
+proves the mirror against `fixtures/target-id-contract.json`,
+`fixtures/payload-digest-contract.json`, and the shared consumer conformance matrix. That is how
+implementations stay honest without sharing a runtime.
 
 ## Targets
 
@@ -67,6 +68,7 @@ A box ships as a ZIP (ZIP64-capable) whose bytes depend only on its contents:
 ```text
 example-model-1.0.0-macos-aarch64-metal.zip
 ├── box.json                                 # the self-describing manifest
+├── payload-digest.v1                        # canonical hashes of every original payload entry
 ├── venv/                                    # the packed, relocated conda-forge environment
 │   ├── bin/python                           # (venv/python.exe on Windows)
 │   ├── lib/…
@@ -197,6 +199,10 @@ lives and what it hashes to, the consumer import check to repeat, and provenance
     "sizeBytes": 49812054
   },
   "installedSizeBytes": 132145920,
+  "payloadDigest": {
+    "format": "sha256-path-list-v1",
+    "sha256": "6b8f…4c"
+  },
   "pythonEntryPoint": "venv/bin/python",
   "modelCacheSubdir": "model-cache/example",
   "selfTest": { "pythonImports": ["json", "sqlite3"], "timeoutSeconds": 180 },
@@ -204,11 +210,42 @@ lives and what it hashes to, the consumer import check to repeat, and provenance
 }
 ```
 
-`installedSizeBytes` is the sum of logical extracted payload file sizes. It is an estimate and
-lower bound, not a free-space guarantee: consumers need headroom for the archive, extracted files,
-temporary copies, allocation units, and filesystem metadata. `weights: "on-demand"` and an
-`assets` array appear together only when assets were deliberately left out; their absence means
-the box is self-contained.
+`installedSizeBytes` is the sum of logical extracted payload file and link sizes, including the
+digest list. It is an estimate and lower bound, not an identity or free-space guarantee: consumers
+need headroom for the archive, extracted files, temporary copies, allocation units, and filesystem
+metadata. A prepared receipt reports the matching extracted measurement; an attached receipt
+reports the directory's current measurement without comparing it with this signed build-time value.
+
+`weights: "on-demand"` and an `assets` array appear together only when assets were deliberately
+left out; their absence means the box is self-contained.
+
+#### Extracted-payload commitment
+
+`payloadDigest` signs the SHA-256 of `payload-digest.v1`, which travels inside the payload and names
+every original file and symbolic link except itself. It is optional so schema version 2 releases
+built before this capability remain valid; an operation specifically asked to verify an extracted
+payload refuses a release without the commitment.
+
+The canonical byte stream starts with `sha256-path-list-v1` and LF. Each following record is:
+
+```text
+utf8(path) NUL ('f' | 'l') NUL lowercase-sha256 LF
+```
+
+Whole records are sorted bytewise. A file digest covers its bytes; a link digest covers the UTF-8
+bytes of its target string without following it. The list deliberately omits modes, modification
+times, and directories: archive modes are synthesised, extraction does not restore build mtimes,
+and empty directories do not survive the archive model.
+
+A verifier hashes the bounded list before parsing it, then checks only the paths it names. Files
+added later are therefore ignored, including on-demand assets and application output. Embedded
+assets are named and can make verification read tens of gigabytes; on-demand assets are absent from
+the list and retain their separate signed per-file hashes.
+
+This commitment detects ordinary corruption and binds a directory to a signed release at the
+moment it is checked. It is not protection against later modification or a live local attacker.
+The collector also excludes `__pycache__` directories and `*.pyc` files, so those paths are a
+permanent blind spot rather than merely part of the check-to-use timing window.
 
 ### Channel manifest
 

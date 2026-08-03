@@ -18,6 +18,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
 )
 
+from scrollcase_consumer._contract import (
+    PAYLOAD_DIGEST_FILE,
+    PAYLOAD_DIGEST_FORMAT,
+    PayloadDigestEntry,
+    payload_digest_stream,
+)
+
 
 def native_target() -> dict[str, str]:
     machine = platform.machine().lower()
@@ -132,6 +139,7 @@ def create_fixture(
     required_asset: dict[str, Any] | None = None,
     interpreter: bytes = b"test interpreter placeholder",
     script: bytes = b'print("consumer fixture")\n',
+    payload_digest: bool = True,
 ) -> ConsumerFixture:
     root = Path(tempfile.mkdtemp(prefix="scrollcase-python-consumer-fixture-"))
     resolved_target = native_target() if target is None else target
@@ -187,6 +195,24 @@ def create_fixture(
             )
     box_json = (json.dumps(shared, indent=2) + "\n").encode("utf-8")
     entries.append(ArchiveEntry("box.json", box_json))
+    # Written last and never listed in itself, exactly as the build does it. This fixture has no
+    # payload directory at all, so the list is derived from the entries — which is why the shared
+    # golden vectors exist: they are what proves this derivation agrees with the Node one.
+    payload_digest_value = None
+    if payload_digest:
+        stream = payload_digest_stream(
+            PayloadDigestEntry(
+                path=entry.path,
+                kind="link" if entry.file_type == stat.S_IFLNK else "file",
+                content_sha256=hashlib.sha256(entry.data).hexdigest(),
+            )
+            for entry in entries
+        )
+        entries.append(ArchiveEntry(PAYLOAD_DIGEST_FILE, stream))
+        payload_digest_value = {
+            "format": PAYLOAD_DIGEST_FORMAT,
+            "sha256": hashlib.sha256(stream).hexdigest(),
+        }
     installed_size = sum(len(entry.data) for entry in entries)
     archive_path = root / "box.zip"
     write_zip(archive_path, entries)
@@ -202,6 +228,8 @@ def create_fixture(
         },
         "installedSizeBytes": installed_size,
     }
+    if payload_digest_value is not None:
+        release["payloadDigest"] = payload_digest_value
     private_key = Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
     raw_public_key = public_key.public_bytes(
