@@ -20,6 +20,11 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { assertNativeHost, boxTargetId } from '../contract/targets.mjs';
 import { CHANNELS, documentKinds } from '../contract/documents.mjs';
+import {
+  PAYLOAD_DIGEST_FILE,
+  PAYLOAD_DIGEST_FORMAT,
+  payloadDigestStream,
+} from '../contract/payload-digest.mjs';
 import { signDocument } from '../sign/index.mjs';
 import { copyVerifiedLocalFile, downloadVerified, expandAssetArchive, moveIntoPlace } from './assets.mjs';
 import { createDeterministicZip } from './archive.mjs';
@@ -27,6 +32,7 @@ import {
   collectFiles,
   fileExists,
   normalizeTree,
+  payloadDigestEntries,
   payloadSize,
   safeRelativePath,
   sha256File,
@@ -252,10 +258,28 @@ export async function buildBox(name, options = {}) {
     ...deferred,
     provenance,
   }, null, 2)}\n`);
+  // The entry list is the last thing written, because it describes everything already there and
+  // cannot describe itself. It goes in before `normalizeTree` so it carries the same fixed mtime as
+  // the rest, and before `payloadSize` so the size a consumer checks free space against is honest.
+  // This costs one full sequential read of the payload — real minutes on a box carrying embedded
+  // weights — and it is paid here rather than folded into the archive writer, which has no business
+  // knowing a format rule that is not about archiving.
+  const digestStream = payloadDigestStream(await payloadDigestEntries(payloadDir));
+  await writeFile(join(payloadDir, PAYLOAD_DIGEST_FILE), digestStream);
+  const payloadDigestValue = { format: PAYLOAD_DIGEST_FORMAT, sha256: sha256Hex(digestStream) };
   await normalizeTree(payloadDir);
   const installedSizeBytes = await payloadSize(payloadDir);
   await mkdir(workspace.distDir, { recursive: true });
-  await createDeterministicZip(payloadDir, archivePath, adapter);
+  // Declared assets are the one thing a box carries that arrives already compressed, so they are
+  // stored rather than deflated without the project having to say so. `uncompressedPaths` covers
+  // what only the project can know: the tree an expanded archive left behind, a bundled corpus.
+  // Under `on-demand` the assets are not in the payload at all and the first list simply matches
+  // nothing.
+  const uncompressedPaths = [
+    ...scroll.assets.map((asset) => safeRelativePath(asset.relativePath)),
+    ...(scroll.uncompressedPaths ?? []).map((path) => safeRelativePath(path)),
+  ];
+  await createDeterministicZip(payloadDir, archivePath, adapter, uncompressedPaths);
 
   const archiveSha = await sha256File(archivePath);
   const archiveSize = (await stat(archivePath)).size;
@@ -275,6 +299,7 @@ export async function buildBox(name, options = {}) {
     compatibility: scroll.compatibility,
     archive: { format: 'zip', url: `${assetBaseUrl}/${archiveObject}`, sha256: archiveSha, sizeBytes: archiveSize },
     installedSizeBytes,
+    payloadDigest: payloadDigestValue,
     pythonEntryPoint: scroll.pythonEntryPoint,
     modelCacheSubdir: scroll.modelCacheSubdir,
     selfTest,

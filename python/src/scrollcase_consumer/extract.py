@@ -15,9 +15,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
 from ._contract import (
+    PAYLOAD_DIGEST_FILE,
+    PAYLOAD_DIGEST_FORMAT,
+    PayloadDigestEntry,
     find_entry_through_link,
     find_unresolvable_link,
     path_under,
+    payload_digest_stream,
     safe_relative_path,
 )
 from .errors import ScrollcaseConsumerError
@@ -227,15 +231,24 @@ def extract_zip_archive(archive_path: Path, destination: Path) -> None:
     validate_extracted_tree(destination)
 
 
-def collect_files(root: Path, current: Path | None = None) -> list[str]:
-    """Return every payload path backed by a file or a link, in stable code-point order.
+@dataclass(frozen=True, slots=True)
+class PayloadEntry:
+    """One entry of an extracted payload, classified before anything reads it."""
 
-    Links are listed beside regular files because a payload link resolves to a regular file inside
-    the same payload — a box reaches its interpreter through one — while special nodes are refused.
+    path: str
+    kind: str
+    link_target: str | None = None
+
+
+def collect_entries(root: Path, current: Path | None = None) -> list[PayloadEntry]:
+    """Return every payload entry in stable code-point order, links classified as such.
+
+    One walk, one exclusion list, one refusal of special nodes — ``collect_files`` and the payload
+    digest both read this, so there is no second place where the two could drift apart.
     """
 
     directory = root if current is None else current
-    files: list[str] = []
+    collected: list[PayloadEntry] = []
     try:
         with os.scandir(directory) as iterator:
             entries = sorted(iterator, key=lambda entry: entry.name)
@@ -249,16 +262,70 @@ def collect_files(root: Path, current: Path | None = None) -> list[str]:
         ):
             continue
         path = Path(entry.path)
-        if entry.is_dir(follow_symlinks=False):
-            files.extend(collect_files(root, path))
-        elif entry.is_file(follow_symlinks=False) or entry.is_symlink():
-            files.append(path.relative_to(root).as_posix())
+        relative = path.relative_to(root).as_posix()
+        # Order matters: a symlink to a directory reports is_dir(follow_symlinks=False) as false,
+        # but classifying links first keeps that from ever depending on the check order.
+        if entry.is_symlink():
+            # Normalised to forward slashes for the same reason archive paths are: the digest is
+            # computed on one host and checked on another. No Windows box carries links at all, so
+            # this is a no-op there rather than a guess about what it would mean.
+            target = os.readlink(entry.path).replace(os.sep, "/")
+            collected.append(PayloadEntry(path=relative, kind="link", link_target=target))
+        elif entry.is_dir(follow_symlinks=False):
+            collected.extend(collect_entries(root, path))
+        elif entry.is_file(follow_symlinks=False):
+            collected.append(PayloadEntry(path=relative, kind="file"))
         else:
-            relative = path.relative_to(root).as_posix()
             raise ScrollcaseConsumerError(
                 f"box special entries are not allowed: {relative}"
             )
-    return files
+    return collected
+
+
+def collect_files(root: Path, current: Path | None = None) -> list[str]:
+    """Return every payload path backed by a file or a link, in stable code-point order.
+
+    Links are listed beside regular files because a payload link resolves to a regular file inside
+    the same payload — a box reaches its interpreter through one — while special nodes are refused.
+    """
+
+    return [entry.path for entry in collect_entries(root, current)]
+
+
+def payload_digest_entries(root: Path) -> list[PayloadDigestEntry]:
+    """Describe every payload entry the way the digest records it.
+
+    The list file itself is skipped, and by name rather than by whether it happens to exist: a build
+    computes this before writing it and a verifier after, and the two must produce one answer.
+    """
+
+    described: list[PayloadDigestEntry] = []
+    for entry in collect_entries(root):
+        if entry.path == PAYLOAD_DIGEST_FILE:
+            continue
+        if entry.kind == "link":
+            content = hashlib.sha256((entry.link_target or "").encode("utf-8")).hexdigest()
+        else:
+            content = sha256_file(path_under(root, entry.path))
+        described.append(
+            PayloadDigestEntry(path=entry.path, kind=entry.kind, content_sha256=content)
+        )
+    return described
+
+
+def payload_digest(root: Path) -> dict[str, str]:
+    """Compute what a release commits to about one extracted tree.
+
+    This reads every payload byte, which on a box carrying embedded weights is tens of gigabytes.
+    The cost is deliberate and paid only where a caller asked for it — never on the path that
+    merely prepares, attaches, or runs a box.
+    """
+
+    stream = payload_digest_stream(payload_digest_entries(root))
+    return {
+        "format": PAYLOAD_DIGEST_FORMAT,
+        "sha256": hashlib.sha256(stream).hexdigest(),
+    }
 
 
 def validate_extracted_tree(root: Path) -> None:

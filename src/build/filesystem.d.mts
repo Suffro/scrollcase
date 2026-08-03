@@ -106,6 +106,35 @@ export function normalizeTree(root: string): Promise<void>;
  */
 export function sha256File(path: string): Promise<string>;
 /**
+ * Describes every payload entry the way `src/contract/payload-digest.mjs` records it.
+ *
+ * A link is hashed by its target string rather than opened, because `sha256File` would follow it
+ * and record the target's bytes a second time under the link's name — which is also what would make
+ * a link and a copy indistinguishable.
+ *
+ * The list file itself is skipped, and by name rather than by when it happens to exist: the build
+ * computes this before writing it and a verifier computes it after, and the two must produce one
+ * answer. It could not be listed anyway, since a file cannot carry its own hash.
+ *
+ * @param {string} root
+ * @returns {Promise<import('../contract/payload-digest.mjs').PayloadDigestEntry[]>}
+ */
+export function payloadDigestEntries(root: string): Promise<import("../contract/payload-digest.mjs").PayloadDigestEntry[]>;
+/**
+ * Computes what a release commits to about one extracted tree.
+ *
+ * This reads every payload byte, which on a box carrying embedded weights is tens of gigabytes. The
+ * cost is deliberate and paid in three places only — once per build, once per `--self-test`, and
+ * once per explicit payload verification — never on the path that merely prepares or runs a box.
+ *
+ * @param {string} root
+ * @returns {Promise<{ format: string, sha256: string }>}
+ */
+export function payloadDigest(root: string): Promise<{
+    format: string;
+    sha256: string;
+}>;
+/**
  * The single mtime every archived file carries. Any fixed instant works — what matters is that it
  * never varies between builds; this one is simply a recognisable round date safely past the 1980
  * floor of DOS/ZIP timestamps.

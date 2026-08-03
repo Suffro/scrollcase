@@ -15,6 +15,7 @@ const prepared = {
   boxId: 'example-box',
   version: '1.2.3',
   targetId: 'linux-x86_64-cpu',
+  installedSizeBytes: 3 * 1024 ** 3,
   execution: {
     kind: 'python-script',
     script: 'app.py',
@@ -77,7 +78,27 @@ describe('the run CLI edge', () => {
     expect(log).toHaveBeenCalledWith(
       'Running example-box 1.2.3 (linux-x86_64-cpu, python-script)',
     );
+    expect(log).toHaveBeenCalledWith(
+      '3.0 GB extracted to a temporary directory, deleted on exit.',
+    );
     expect(setExitCode).toHaveBeenCalledWith(23);
+  });
+
+  it('announces the one-shot extraction even when the box carries no measured size', async () => {
+    const log = vi.fn();
+    const run = vi.fn(async (releasePath, options) => {
+      await options.onPrepared({ ...prepared, installedSizeBytes: undefined });
+      return { exitCode: 0, signal: null };
+    });
+
+    await runCliBox('release.json', {
+      publicPath: 'trusted.json',
+      run,
+      log,
+      setExitCode: vi.fn(),
+    });
+
+    expect(log).toHaveBeenCalledWith('Extracted to a temporary directory, deleted on exit.');
   });
 
   it('re-raises the child termination signal after runBox has cleaned up', async () => {
@@ -137,9 +158,11 @@ describe('the run CLI edge', () => {
       ], { encoding: 'utf8' });
 
       expect(result.status, result.stderr).toBe(7);
-      expect(result.stdout).toContain(
-        'Running consumer-fixture 2.0.0',
-      );
+      // Scrollcase's own lines go to stderr and the box owns stdout, so a caller redirecting
+      // stdout to a file receives the application's bytes and nothing else.
+      expect(result.stderr).toContain('Running consumer-fixture 2.0.0');
+      expect(result.stderr).toMatch(/extracted to a temporary directory, deleted on exit\./i);
+      expect(result.stdout).not.toMatch(/Running consumer-fixture/);
       expect(result.stdout).toContain(`APP_ARGS=${JSON.stringify([
         '--default',
         'value with spaces',

@@ -225,6 +225,13 @@
         "$ref": "#/$defs/payloadPath"
       }
     },
+    "uncompressedPaths": {
+      "type": "array",
+      "description": "Payload paths stored in the archive instead of deflated, because their bytes are already compressed and re-compressing them costs build time while making the archive marginally larger. A path matches itself and everything beneath it, so one entry can name a weights file or the directory an expanded asset archive landed in. Declared assets are stored automatically; this is for anything else the project knows to be already compressed.",
+      "items": {
+        "$ref": "#/$defs/payloadPath"
+      }
+    },
     "selfTest": {
       "type": "object",
       "additionalProperties": false,

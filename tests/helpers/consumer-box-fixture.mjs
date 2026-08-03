@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
@@ -7,7 +8,12 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createDeterministicZip } from '../../src/build/archive.mjs';
-import { payloadSize, sha256File } from '../../src/build/filesystem.mjs';
+import { payloadDigestEntries, payloadSize, sha256File } from '../../src/build/filesystem.mjs';
+import {
+  PAYLOAD_DIGEST_FILE,
+  PAYLOAD_DIGEST_FORMAT,
+  payloadDigestStream,
+} from '../../src/contract/payload-digest.mjs';
 import { documentKinds } from '../../src/contract/documents.mjs';
 import { boxTargetAdapter } from '../../src/contract/targets.mjs';
 import { generateSigningKey, signDocument } from '../../src/sign/index.mjs';
@@ -62,6 +68,7 @@ export async function createConsumerBoxFixture({
   requiredAsset = null,
   interpreterContents = 'test interpreter placeholder',
   scriptContents = 'print("consumer fixture")\n',
+  payloadDigest = true,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'scrollcase-consumer-fixture-'));
   const payload = join(root, 'payload');
@@ -112,6 +119,17 @@ export async function createConsumerBoxFixture({
     } : {}),
   };
   await writeFile(join(payload, 'box.json'), `${JSON.stringify(shared, null, 2)}\n`);
+  // Written last and never listed in itself, exactly as the build does it — a fixture that skipped
+  // the list would let a consumer test pass against a payload no builder could produce.
+  let payloadDigestValue;
+  if (payloadDigest) {
+    const stream = payloadDigestStream(await payloadDigestEntries(payload));
+    await writeFile(join(payload, PAYLOAD_DIGEST_FILE), stream);
+    payloadDigestValue = {
+      format: PAYLOAD_DIGEST_FORMAT,
+      sha256: createHash('sha256').update(stream).digest('hex'),
+    };
+  }
   const installedSizeBytes = await payloadSize(payload);
   const archivePath = join(root, 'box.zip');
   await createDeterministicZip(payload, archivePath, adapter);
@@ -127,6 +145,7 @@ export async function createConsumerBoxFixture({
       sizeBytes: archiveMetadata.size,
     },
     installedSizeBytes,
+    ...(payloadDigestValue ? { payloadDigest: payloadDigestValue } : {}),
   };
   const privatePath = join(root, 'private.pem');
   const publicPath = join(root, 'public.json');

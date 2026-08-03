@@ -51,6 +51,7 @@ import { buildDistributionSummary, statusLine } from './cli-output.mjs';
 import { runCliBox } from './cli-run.mjs';
 import { ensureBuildSigningKeys } from './cli-signing.mjs';
 import { chooseScroll, chooseTarget, nativeExampleTarget } from './cli-targets.mjs';
+import { verifyExtractedPayload } from './consumer/index.mjs';
 import { CHANNELS } from './contract/index.mjs';
 import { generateSigningKey } from './sign/index.mjs';
 
@@ -323,6 +324,25 @@ async function build(name, flags) {
 }
 
 async function verify(path, flags) {
+  const hasExtracted = flags.has('extracted');
+  if (hasExtracted && (flags.has('archive') || flags.has('self-test'))) {
+    fail('--extracted cannot be combined with --archive or --self-test.');
+  }
+  const extracted = flags.get('extracted');
+  if (hasExtracted && (typeof extracted !== 'string' || extracted.trim() === '')) {
+    fail('--extracted requires a directory path.');
+  }
+  if (typeof extracted === 'string') {
+    const result = await verifyExtractedPayload(path, {
+      publicPath: keyPaths(flags).publicPath,
+      root: extracted,
+    });
+    console.log(
+      `Verified extracted payload ${result.boxId} ${result.version} `
+      + `(${result.targetId}, ${result.entryCount} entries)`,
+    );
+    return;
+  }
   await verifyBox(path, {
     publicPath: keyPaths(flags).publicPath,
     archive: text(flags, 'archive'),
@@ -335,7 +355,9 @@ async function runRelease(path, flags, args) {
     publicPath: keyPaths(flags).publicPath,
     archive: text(flags, 'archive'),
     args,
-    log: step,
+    // Every other command owns stdout; `run` hands it to the box. A status line written there
+    // would land in whatever file or process the caller piped the application's output into.
+    log: (message) => console.error(statusLine('step', message)),
   });
 }
 
@@ -351,7 +373,7 @@ Commands:
   lock [<scroll>]            Resolve the scroll's pixi manifest into pixi.lock
   audit <scroll>             Dependency licence inventory, derived from the lock
   build [<scroll>]           Build, self-test, archive, and sign a box
-  verify <release.json>      Verify signature, archive hash, and layout
+  verify <release.json>      Verify a signed archive or extracted payload
   run <release.json>         Verify, temporarily extract, and run a local box
 
 Init options:
@@ -430,6 +452,8 @@ Scroll targets:
 Verify options:
   --archive <path>           Archive to check, if not beside the release document
   --self-test                Extract and import with the box's own interpreter
+  --extracted <dir>          Verify an existing extracted payload against its signed digest;
+                             cannot be combined with --archive or --self-test
 
 Run:
   scrollcase run <release.json> [--archive <box.zip>] -- [application args]

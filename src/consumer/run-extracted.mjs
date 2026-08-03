@@ -9,11 +9,11 @@
 import { spawn as spawnProcess } from 'node:child_process';
 import { lstat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { collectFiles, safeRelativePath, sha256File } from '../build/filesystem.mjs';
+import { collectFiles, safeRelativePath } from '../build/filesystem.mjs';
 import { assertExecutionFiles } from '../build/execution.mjs';
 import { fail } from '../build/process.mjs';
 import { assertNativeHost, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
-import { preparedBoxState } from './verify-and-extract.mjs';
+import { preparedBoxState, verifyRequiredAssets } from './verify-and-extract.mjs';
 
 /**
  * @typedef {'pipe' | 'overlapped' | 'ignore' | 'inherit' | number |
@@ -44,28 +44,6 @@ function stringArguments(values) {
     fail('Box execution arguments must be an array of strings.');
   }
   return values;
-}
-
-async function verifyRequiredAssets(root, assets) {
-  for (const asset of assets) {
-    const path = join(root, ...safeRelativePath(asset.relativePath).split('/'));
-    let metadata;
-    try {
-      metadata = await lstat(path);
-    } catch (error) {
-      if (error?.code === 'ENOENT') {
-        fail(`Required on-demand asset is missing: ${asset.relativePath}.`);
-      }
-      throw error;
-    }
-    if (!metadata.isFile()) fail(`Required on-demand asset is not a regular file: ${asset.relativePath}.`);
-    if (metadata.size !== asset.sizeBytes) {
-      fail(`Required on-demand asset size mismatch: ${asset.relativePath}.`);
-    }
-    if (await sha256File(path) !== asset.sha256) {
-      fail(`Required on-demand asset SHA-256 mismatch: ${asset.relativePath}.`);
-    }
-  }
 }
 
 function waitForChild(child, signalSource) {

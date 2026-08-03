@@ -51,6 +51,50 @@ checked generated copies of the canonical schemas; it does not hand-maintain a s
 drifts at edge cases — links, traversal, collisions, signals, or argument handling — unless both
 implementations are held to the same observable cases.
 
+## Persistent installations earn a new receipt; payload verification stays separate
+
+A prepared receipt is process-bound execution authority. Serialising it would let anyone who can
+write the receipt file manufacture an object that appears to have passed the trust chain. A process
+that starts later therefore calls `attachExtractedBox` / `attach_extracted_box`: it re-verifies the
+signed release, requires a target the current host can execute, checks the interpreter and execution
+shape, verifies on-demand assets, and binds a fresh receipt to the real directory's device and inode.
+The receipt says `attached`, not `prepared`, because no archive established the payload bytes in that
+process.
+
+Byte verification is an independent, opt-in operation. New builds write `payload-digest.v1` inside
+the payload and add optional `payloadDigest: { format, sha256 }` to the signed release. The list has
+one byte-sorted record per original file or link and is excluded from itself; the release signs its
+hash. `verifyExtractedPayload` / `verify_extracted_payload` authenticates the bounded list before
+parsing it, then visits only the paths it names. The field is additive, so `schemaVersion` stays 2
+and older v2 releases remain valid, while the specific payload-verification operation refuses one
+that carries no commitment.
+
+**Rejected:** storing the whole per-file table in the release. A conda environment routinely holds
+10,000–30,000 files, which would add megabytes to every signed document. One signed digest plus the
+list inside the payload keeps the document small without weakening which bytes it commits to.
+
+**Rejected:** a single root hash recomputed by walking the installed directory. Honest installations
+grow: Python creates caches, applications write in their working directory, and on-demand assets are
+materialised after extraction. If the directory is the input, every legitimate extra file changes
+the answer. Walking the signed list makes extras invisible by construction.
+
+**Rejected:** folding byte verification into attachment or execution, or adding a verification flag
+to attachment. Embedded weights can make the scan read tens of gigabytes, and a result at attach
+time does not guarantee the tree at a later spawn or lazy Python import. Separate operations keep
+both cost and meaning explicit: attachment answers whether a directory can mint a receipt now;
+payload verification answers whether its listed bytes match now.
+
+**Rejected:** committing file mode or modification time. Archive writing synthesises modes from the
+target and path, Windows extraction does not apply `chmod`, and no extractor restores the fixed
+build timestamp. Including either would make an honest extraction disagree with its build.
+
+The limit is stated rather than hidden. Payload verification has a check-to-use window and is not a
+defence against a live local attacker; operating-system permissions and application ownership guard
+the directory. `__pycache__` directories and `*.pyc` files are excluded by the collector and are
+therefore a permanent blind spot, not merely part of that timing window. Embedded assets are listed
+and expensive to re-read; on-demand assets are ignored extras whose separate signed descriptors are
+checked during attachment and execution.
+
 ## One substrate: pixi + conda-pack + conda-forge
 
 Scrollcase supports exactly one dependency backend.

@@ -1,14 +1,21 @@
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
+import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as tar from 'tar';
+import yauzl from 'yauzl';
 import { buildBox } from '../../src/build/box.mjs';
-import { listZipEntries } from '../../src/build/archive.mjs';
-import { collectFiles, fileExists } from '../../src/build/filesystem.mjs';
+import { extractZipArchive, listZipEntries } from '../../src/build/archive.mjs';
+import { collectFiles, fileExists, payloadDigest } from '../../src/build/filesystem.mjs';
+import {
+  PAYLOAD_DIGEST_FILE,
+  PAYLOAD_DIGEST_FORMAT,
+  parsePayloadDigestStream,
+} from '../../src/contract/payload-digest.mjs';
 import { boxReleaseStem } from '../../src/build/identity.mjs';
 import { scrollCandidates, readScroll, sourceBuildState } from '../../src/build/scroll.mjs';
 import { assertBoxManifestAgreement, verifyBox } from '../../src/build/verify.mjs';
@@ -50,6 +57,25 @@ const ENTRY_SEGMENTS = HOST_ADAPTER.python.entryPoint.split('/');
 function writeDeep(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents);
+}
+
+// The two ZIP compression methods a box may use. Read straight from the archive rather than
+// inferred from sizes, because "did this file get deflated" is exactly the claim under test.
+const ZIP_STORED = 0;
+const ZIP_DEFLATED = 8;
+
+/** Maps every archived path to the compression method it was written with. */
+async function zipCompressionMethods(archivePath) {
+  const zip = await yauzl.openPromise(archivePath, { autoClose: false, lazyEntries: true });
+  const methods = new Map();
+  try {
+    for await (const entry of zip.eachEntry()) {
+      methods.set(entry.fileName, entry.compressionMethod);
+    }
+  } finally {
+    await zip.close();
+  }
+  return methods;
 }
 
 /**
@@ -636,6 +662,112 @@ describe('the build pipeline', () => {
     expect(receipt.status).toBe('passed');
   });
 
+  it('stores declared weights instead of deflating them, and still rebuilds identically', async () => {
+    // Incompressible on purpose: deflate makes this *larger*, which is the whole reason the rule
+    // exists. Text elsewhere in the payload still compresses, so one archive proves both halves.
+    const weights = randomBytes(64 * 1024);
+    const corpus = randomBytes(32 * 1024);
+    const asset = {
+      url: 'https://assets.example.org/weights.bin',
+      relativePath: 'model-cache/example-model/weights.bin',
+      sizeBytes: weights.length,
+      sha256: createHash('sha256').update(weights).digest('hex'),
+    };
+    const scroll = {
+      ...SCROLL,
+      assets: [asset],
+      // Declared by path rather than downloaded: this is the half a project has to say out loud,
+      // because Scrollcase cannot know a bundled directory holds compressed bytes.
+      uncompressedPaths: ['corpus'],
+      localFiles: [{
+        sourcePath: 'bundled/corpus.bin',
+        relativePath: 'corpus/data.bin',
+        sha256: createHash('sha256').update(corpus).digest('hex'),
+      }],
+    };
+    const { keys, payloadDir } = await makeProject(scroll, {
+      projectFiles: { 'bundled/corpus.bin': corpus },
+    });
+    const fetchImpl = async () => ({ ok: true, status: 200, body: Readable.from([weights]) });
+    const build = () => buildBox(SCROLL_REF, {
+      ...keys,
+      ...fakeToolchain(payloadDir),
+      fetchImpl,
+      log: () => {},
+    });
+
+    const built = await build();
+    const methods = await zipCompressionMethods(built.archivePath);
+    expect(methods.get(asset.relativePath)).toBe(ZIP_STORED);
+    expect(methods.get('corpus/data.bin')).toBe(ZIP_STORED);
+    // The interpreter and the box's own manifest are ordinary files and must still be compressed;
+    // otherwise this rule would have quietly turned compression off for the whole box.
+    expect(methods.get(HOST_ADAPTER.python.entryPoint)).toBe(ZIP_DEFLATED);
+    expect(methods.get('box.json')).toBe(ZIP_DEFLATED);
+
+    // Stored is only worth anything if the bytes come back exactly, so read them back out.
+    const extracted = join(await mkdtemp(join(tmpdir(), 'scrollcase-stored-')), 'box');
+    created.push(dirname(extracted));
+    await extractZipArchive(built.archivePath, extracted);
+    expect(await readFile(join(extracted, ...asset.relativePath.split('/')))).toEqual(weights);
+    expect(await readFile(join(extracted, 'corpus', 'data.bin'))).toEqual(corpus);
+
+    // The decision is taken from declared paths alone, so determinism survives it.
+    expect((await build()).archiveSha256).toBe(built.archiveSha256);
+  });
+
+  it('commits to an entry list that describes the tree the archive extracts to', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    expect(release.payloadDigest.format).toBe(PAYLOAD_DIGEST_FORMAT);
+
+    // The list ships inside the archive, so an installed box can be re-identified once the archive
+    // is gone. Extract and hold the whole chain to the same standard a consumer would.
+    const extracted = await mkdtemp(join(tmpdir(), 'scrollcase-digest-'));
+    created.push(extracted);
+    await extractZipArchive(built.archivePath, extracted);
+    const listPath = join(extracted, PAYLOAD_DIGEST_FILE);
+    expect(await fileExists(listPath)).toBe(true);
+    expect(createHash('sha256').update(await readFile(listPath)).digest('hex'))
+      .toBe(release.payloadDigest.sha256);
+
+    // Recomputing from the extracted tree must reach the same value, which is the only thing that
+    // proves the build-time walk and the install-time walk agree.
+    expect(await payloadDigest(extracted)).toEqual(release.payloadDigest);
+
+    // A file cannot carry its own hash, so the list names everything except itself — and the
+    // release commits to it directly instead.
+    const listed = parsePayloadDigestStream(await readFile(listPath));
+    const paths = listed.map((entry) => entry.path);
+    expect(paths).not.toContain(PAYLOAD_DIGEST_FILE);
+    expect(paths).toContain('box.json');
+    expect(paths).toContain(HOST_ADAPTER.python.entryPoint);
+  });
+
+  it('notices a payload byte that changed after the box was built', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    const extracted = await mkdtemp(join(tmpdir(), 'scrollcase-digest-'));
+    created.push(extracted);
+    await extractZipArchive(built.archivePath, extracted);
+
+    const boxManifest = join(extracted, 'box.json');
+    await writeFile(boxManifest, `${await readFile(boxManifest, 'utf8')} `);
+    expect((await payloadDigest(extracted)).sha256).not.toBe(release.payloadDigest.sha256);
+  });
+
+  it('produces the same entry list when the same commit is rebuilt', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const first = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const second = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const read = async (built) => decodeDocumentPayload(
+      JSON.parse(await readFile(built.releasePath, 'utf8')),
+    ).payloadDigest;
+    expect(await read(second)).toEqual(await read(first));
+  });
+
   it('produces a byte-identical archive when the same commit is rebuilt', async () => {
     const { keys, payloadDir } = await makeProject();
     const first = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
@@ -725,6 +857,36 @@ describe('the build pipeline', () => {
     await writeFile(built.archivePath, 'tampered');
     await expect(verifyBox(built.releasePath, { publicPath: keys.publicPath, log: () => {} }))
       .rejects.toThrow(/Archive size mismatch|Archive SHA-256 mismatch/);
+  });
+
+  it('re-checks the entry list against what the archive extracts to, under self-test', async () => {
+    const { keys, payloadDir } = await makeProject();
+    const built = await buildBox(SCROLL_REF, { ...keys, ...fakeToolchain(payloadDir), log: () => {} });
+    const invocations = [];
+    const receipt = await verifyBox(built.releasePath, {
+      publicPath: keys.publicPath,
+      selfTest: true,
+      run: (command, args) => invocations.push({ command, args }),
+      log: () => {},
+    });
+    expect(receipt.selfTest).toBe('passed');
+    expect(invocations[0].command).toContain(HOST_ADAPTER.python.entryPoint.split('/').at(-1));
+
+    // Re-sign the same archive under a digest it does not have. Every archive check still passes,
+    // so this isolates the one comparison: the tree the archive extracts to is not the tree the
+    // release commits to. It is the check that would have caught a broken build-time walk before
+    // the box was ever published.
+    const release = decodeDocumentPayload(JSON.parse(await readFile(built.releasePath, 'utf8')));
+    await writeFile(built.releasePath, `${JSON.stringify(await signDocument({
+      ...release,
+      payloadDigest: { ...release.payloadDigest, sha256: 'f'.repeat(64) },
+    }, keys), null, 2)}\n`);
+    await expect(verifyBox(built.releasePath, {
+      publicPath: keys.publicPath,
+      selfTest: true,
+      run: () => {},
+      log: () => {},
+    })).rejects.toThrow(/Extracted payload does not match the signed release/);
   });
 
   it('refuses a release signed by a key outside the trusted set', async () => {

@@ -1,7 +1,7 @@
 export { repairPosixLaunchers } from "./launchers.mjs";
 export { CONDA_PACK_VERSION } from "./toolchain.mjs";
 export { createDeterministicZip, extractZipArchive, listZipEntries } from "./archive.mjs";
-export { collectFiles, fileExists, sha256File } from "./filesystem.mjs";
+export { collectFiles, fileExists, payloadDigest, sha256File } from "./filesystem.mjs";
 export { boxReleaseObjectPrefix, boxReleaseStem, builderVersionFields } from "./identity.mjs";
 export { createCondaDependencyLicenseAudit, lockedCondaDistributions, parseCondaPackageReference, validateCondaDependencyLicenseAudit } from "./licenses.mjs";
 export { condaPackArguments, findCondaPack, findPixi, installAndPackPixiEnvironment, pixiInstallArguments, pixiLockArguments } from "./pixi.mjs";

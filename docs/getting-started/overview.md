@@ -294,8 +294,8 @@ Scrollcase prepares the files, but does not upload them anywhere.
 
 The Node API at `scrollcase/consumer` and the Python package imported as
 `scrollcase_consumer` accept local release documents, archives, trust keys, and destinations.
-They share verification, safe extraction, execution, receipt, signal, cleanup, and on-demand
-asset semantics.
+They share verification, safe extraction, re-attachment to a persistent root, opt-in installed
+payload checking, execution, receipt, signal, cleanup, and on-demand asset semantics.
 
 For a one-shot terminal run, the CLI is a thin wrapper over the Node consumer:
 
@@ -306,6 +306,11 @@ scrollcase run ./release.json --archive ./box.zip -- --help
 It verifies first, runs the signed script or module without a shell, preserves the child result,
 and removes its temporary extraction. See [Library APIs](/reference/api) and
 [CLI Commands](/reference/cli#run).
+
+An application that keeps an extracted box across restarts uses the attachment APIs rather than
+serialising a receipt. It may verify the installed bytes independently through the signed payload
+list, or with `scrollcase verify --extracted <dir>` for a manual check. See
+[Distributing Boxes](/guides/distributing-boxes#keeping-an-extracted-box-across-restarts).
 
 ## What Happens During `build`
 

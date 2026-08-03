@@ -170,6 +170,10 @@ export interface BoxScroll {
    */
   prunePaths?: PayloadPath[];
   /**
+   * Payload paths stored in the archive instead of deflated, because their bytes are already compressed and re-compressing them costs build time while making the archive marginally larger. A path matches itself and everything beneath it, so one entry can name a weights file or the directory an expanded asset archive landed in. Declared assets are stored automatically; this is for anything else the project knows to be already compressed.
+   */
+  uncompressedPaths?: PayloadPath[];
+  /**
    * Builder checks run with the payload's own interpreter before archiving. Schema version 2 signs only the import subset for a consumer to repeat; file and optional Python-code assertions remain builder-only.
    */
   selfTest: {
@@ -331,6 +335,13 @@ export interface BoxReleaseManifest {
    * Sum of extracted payload file sizes before activation metadata is written, so a consumer can check free space before downloading.
    */
   installedSizeBytes?: number;
+  /**
+   * SHA-256 of the canonical entry list carried at payload-digest.v1 inside the payload, letting a consumer re-identify an extracted installation once the archive is gone. Optional: boxes built before it exists carry no such commitment.
+   */
+  payloadDigest?: {
+    format: 'sha256-path-list-v1';
+    sha256: Sha256;
+  };
   /**
    * Interpreter path relative to the extracted box root, for example venv/bin/python. Fixed per target by the adapter.
    */

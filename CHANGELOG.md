@@ -6,7 +6,44 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Commit new boxes to their extracted payload through the optional signed `payloadDigest` release
+  field and the canonical `payload-digest.v1` list inside the archive. Node and Python share golden
+  byte vectors for the list format and 59 language-neutral consumer cases. `schemaVersion` remains
+  2 because the field is additive: existing v2 releases still verify normally, while an explicit
+  installed-payload check refuses a release that carries no digest rather than claiming success.
+
+  Add `attachExtractedBox` / `attach_extracted_box` so an application can install once, restart, and
+  mint a fresh process-bound `PreparedBox` without retaining or re-extracting the archive. Attached
+  receipts are marked `attached`, assert the native host, re-check execution files and on-demand
+  assets, and deliberately do not claim the payload bytes were proved.
+
+  Add the separate `verifyExtractedPayload` / `verify_extracted_payload` integrity operation and
+  `scrollcase verify --extracted <dir>`. Verification walks the authenticated list rather than the
+  directory, so later extra files are ignored; embedded assets are read, while on-demand assets keep
+  their signed per-file checks. The result detects corruption at that moment, not later mutation or
+  a live local attacker, and excludes Python bytecode caches by design.
+
+- Store already-compressed payload paths in the box archive instead of deflating them. Every path a
+  scroll declares in `assets` is stored automatically, and the new optional `uncompressedPaths`
+  names anything else the project knows to be compressed already — the tree an `assetArchives` entry
+  expanded into, a bundled corpus — matching a path itself and everything beneath it.
+
+  Weights arrive compressed, and deflating them again is loss on both sides of the trade: measured
+  on incompressible bytes, level 6 runs at 47 MB/s and produces an archive 0.03% *larger* than its
+  input, and level 1 recovers 4 MB/s because the search fails either way. Lowering the level is not
+  a fix; not compressing is. Nothing opens the file or reads its extension — the decision comes from
+  the scroll and the path alone, so a rebuild of the same commit stays byte-identical.
+
 ### Changed
+
+- Print `run`'s own status lines on stderr, and say on every run that the extraction is temporary.
+  Every other verb owns its standard output; `run` hands stdout to the box, so a caller redirecting
+  it into a file was receiving a Scrollcase status line mixed into the application's bytes, with no
+  way for the box to tell. The second line states what `run` is — one-shot, deleted on exit — rather
+  than leaving a caller to read a repeated multi-gigabyte extraction as the tool being slow. A box
+  kept across runs is `verifyAndExtractBox` plus `runExtractedBox` from the library, not this verb.
 
 - Publish the demo box as one plainly named archive per operating system —
   `hello-box-1.0.0-macos-aarch64-metal.zip` and its two siblings — that unpacks to a folder which

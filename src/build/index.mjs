@@ -7,7 +7,7 @@
  */
 
 export { createDeterministicZip, extractZipArchive, listZipEntries } from './archive.mjs';
-export { collectFiles, fileExists, sha256File } from './filesystem.mjs';
+export { collectFiles, fileExists, payloadDigest, sha256File } from './filesystem.mjs';
 export { boxReleaseObjectPrefix, boxReleaseStem, builderVersionFields } from './identity.mjs';
 export { repairPosixLaunchers } from './launchers.mjs';
 export {

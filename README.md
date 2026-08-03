@@ -122,7 +122,7 @@ then performs the approved installations. If conda-forge is selected but Conda i
 | `lock [<scroll>]` | Resolve the scroll's pixi manifest into `pixi.lock`; omission opens a terminal menu |
 | `audit <scroll>` | Dependency licence inventory, derived from the lock |
 | `build [<scroll>]` | Build, self-test, archive, and sign a box; omission opens a terminal menu |
-| `verify <release.json>` | Verify signature, archive hash, and layout |
+| `verify <release.json>` | Verify a signed archive, or an extracted payload with `--extracted <dir>` |
 | `run <release.json>` | Verify, temporarily extract, and run a local box |
 
 `scrollcase help` documents every option.
@@ -132,8 +132,9 @@ workspace.
 Projects that consume the box contract directly can import the full Node surface from
 `scrollcase/contract`, or its target/document-shape helpers with no Node built-ins from
 `scrollcase/contract/browser`. Generated format types remain under `scrollcase/contract/types`.
-Local preparation and shell-free execution are available from `scrollcase/consumer`; the typed
-Python package under `python/` exposes the same semantics as `scrollcase_consumer`.
+Local preparation, process-restart attachment, opt-in extracted-payload verification, and shell-free
+execution are available from `scrollcase/consumer`; the typed Python package under `python/`
+exposes the same semantics as `scrollcase_consumer`.
 
 ## Workspace
 

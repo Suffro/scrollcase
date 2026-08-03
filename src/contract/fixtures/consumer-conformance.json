@@ -20,7 +20,14 @@
     "asset-missing": "asset is missing",
     "asset-size": "asset size mismatch",
     "asset-hash": "asset SHA-256 mismatch",
-    "spawn-failure": "failed to start|fixture spawn failed"
+    "spawn-failure": "failed to start|fixture spawn failed",
+    "attach-root": "is not an extracted box directory",
+    "attach-missing-interpreter": "Attached box is missing venv/",
+    "foreign-target": "cannot run on",
+    "payload-list-missing": "missing its payload digest list",
+    "payload-list-mismatch": "Payload digest list does not match the signed release",
+    "payload-digest-absent": "does not commit to a payload digest",
+    "payload-mismatch": "^Payload does not match the signed release:"
   },
   "cases": [
     {
@@ -510,6 +517,323 @@
         "outcome": "rejected",
         "error": "asset-hash",
         "spawned": false
+      }
+    },
+    {
+      "id": "attach-existing-root",
+      "action": "attach",
+      "expected": {
+        "outcome": "attached",
+        "receipt": {
+          "status": "attached",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "attached-execution",
+      "action": "run-prepared",
+      "runtime": {
+        "attach": true,
+        "args": [
+          "--caller",
+          "caller value"
+        ],
+        "exitCode": 0
+      },
+      "expected": {
+        "outcome": "completed",
+        "result": {
+          "exitCode": 0,
+          "signal": null
+        },
+        "argv": [
+          "$BOX/$NATIVE_PYTHON",
+          "$BOX/app/main.py",
+          "--default",
+          "value with spaces",
+          "--caller",
+          "caller value"
+        ],
+        "cwd": "$BOX",
+        "shell": false
+      }
+    },
+    {
+      "id": "attach-linked-interpreter",
+      "action": "attach",
+      "mutation": "link-interpreter",
+      "requiresSymlinks": true,
+      "expected": {
+        "outcome": "attached",
+        "receipt": {
+          "status": "attached",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "attach-on-demand-assets-present",
+      "action": "attach",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "present"
+      },
+      "expected": {
+        "outcome": "attached",
+        "receipt": {
+          "status": "attached",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 1,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "attach-ignores-extra-files",
+      "action": "attach",
+      "mutation": "add-root-files",
+      "expected": {
+        "outcome": "attached",
+        "receipt": {
+          "status": "attached",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
+      "id": "attach-missing-root",
+      "action": "attach",
+      "mutation": "attach-missing-root",
+      "expected": {
+        "outcome": "rejected",
+        "error": "attach-root"
+      }
+    },
+    {
+      "id": "attach-file-root",
+      "action": "attach",
+      "mutation": "attach-file-root",
+      "expected": {
+        "outcome": "rejected",
+        "error": "attach-root"
+      }
+    },
+    {
+      "id": "attach-symlink-root",
+      "action": "attach",
+      "mutation": "attach-symlink-root",
+      "requiresSymlinks": true,
+      "expected": {
+        "outcome": "rejected",
+        "error": "attach-root"
+      }
+    },
+    {
+      "id": "attach-missing-interpreter",
+      "action": "attach",
+      "mutation": "remove-interpreter",
+      "expected": {
+        "outcome": "rejected",
+        "error": "attach-missing-interpreter"
+      }
+    },
+    {
+      "id": "attach-missing-script",
+      "action": "attach",
+      "mutation": "remove-script",
+      "expected": {
+        "outcome": "rejected",
+        "error": "missing-script"
+      }
+    },
+    {
+      "id": "attach-foreign-target",
+      "action": "attach",
+      "fixture": {
+        "target": "foreign"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "foreign-target"
+      }
+    },
+    {
+      "id": "attach-on-demand-asset-missing",
+      "action": "attach",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "missing"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-missing"
+      }
+    },
+    {
+      "id": "attach-on-demand-asset-hash-mismatch",
+      "action": "attach",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "wrong-hash"
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "asset-hash"
+      }
+    },
+    {
+      "id": "payload-verification-matches",
+      "action": "verify-payload",
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3
+        }
+      }
+    },
+    {
+      "id": "payload-verification-ignores-extra-files",
+      "action": "verify-payload",
+      "mutation": "add-root-files",
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3
+        }
+      }
+    },
+    {
+      "id": "payload-verification-ignores-chmod",
+      "action": "verify-payload",
+      "mutation": "chmod-script",
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3
+        }
+      }
+    },
+    {
+      "id": "payload-verification-ignores-touch",
+      "action": "verify-payload",
+      "mutation": "touch-script",
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3
+        }
+      }
+    },
+    {
+      "id": "payload-verification-tampered-file",
+      "action": "verify-payload",
+      "mutation": "tamper-script",
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-mismatch"
+      }
+    },
+    {
+      "id": "payload-verification-deleted-file",
+      "action": "verify-payload",
+      "mutation": "remove-script",
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-mismatch"
+      }
+    },
+    {
+      "id": "payload-verification-retargeted-symlink",
+      "action": "verify-payload",
+      "fixture": {
+        "linkedInterpreter": true
+      },
+      "mutation": "retarget-interpreter-link",
+      "requiresSymlinks": true,
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-mismatch"
+      }
+    },
+    {
+      "id": "payload-verification-ignores-on-demand-assets",
+      "action": "verify-payload",
+      "fixture": {
+        "requiredAsset": true
+      },
+      "runtime": {
+        "assetState": "present"
+      },
+      "expected": {
+        "outcome": "verified",
+        "result": {
+          "status": "verified",
+          "boxId": "consumer-fixture",
+          "targetId": "$NATIVE_TARGET",
+          "entryCount": 3
+        }
+      }
+    },
+    {
+      "id": "payload-verification-release-without-digest",
+      "action": "verify-payload",
+      "fixture": {
+        "payloadDigest": false
+      },
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-digest-absent"
+      }
+    },
+    {
+      "id": "payload-verification-missing-list",
+      "action": "verify-payload",
+      "mutation": "remove-payload-digest-list",
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-list-missing"
+      }
+    },
+    {
+      "id": "payload-verification-tampered-list",
+      "action": "verify-payload",
+      "mutation": "tamper-payload-digest-list",
+      "expected": {
+        "outcome": "rejected",
+        "error": "payload-list-mismatch"
       }
     }
   ]

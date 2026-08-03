@@ -26,12 +26,15 @@ import {
   verifySignedDocument,
 } from "scrollcase/sign";
 import {
+  attachExtractedBox,
   runBox,
   runExtractedBox,
   verifyAndExtractBox,
+  verifyExtractedPayload,
 } from "scrollcase/consumer";
 import type {
   BoxRunResult,
+  PayloadVerification,
   PreparedBox,
 } from "scrollcase/consumer";
 
@@ -66,6 +69,16 @@ const prepared: Promise<Readonly<PreparedBox>> = verifyAndExtractBox("release.js
   destination: "prepared-box",
 });
 declare const preparedBox: PreparedBox;
+const attached: Promise<Readonly<PreparedBox>> = attachExtractedBox("release.json", {
+  publicPath: "trusted-key.json",
+  root: "installed-box",
+});
+const payloadVerified: Promise<Readonly<PayloadVerification>> = verifyExtractedPayload(
+  "release.json",
+  { publicPath: "trusted-key.json", root: "installed-box" },
+);
+// A receipt no longer narrows to one producer, and a caller must handle both.
+const receiptStatus: "prepared" | "attached" = preparedBox.status;
 const extractedResult: Promise<BoxRunResult> = runExtractedBox(preparedBox, {
   args: ["--model", "example"],
   env: { SCROLLCASE_TEST_VALUE: "1" },
@@ -93,6 +106,14 @@ void sha256File(42);
 void signDocument(release, {});
 // @ts-expect-error caller arguments must remain a closed array of strings
 void runExtractedBox(preparedBox, { args: [42] });
+// @ts-expect-error a receipt may now be attached, so it no longer narrows to 'prepared' alone
+const onlyPrepared: "prepared" = preparedBox.status;
+void attachExtractedBox("release.json", {
+  publicPath: "trusted-key.json",
+  root: "installed-box",
+  // @ts-expect-error attaching reads no archive, so there is no archive to name
+  archive: "box.zip",
+});
 
 void [
   BOX_SCHEMA_VERSION,
@@ -111,4 +132,8 @@ void [
   prepared,
   extractedResult,
   temporaryResult,
+  attached,
+  payloadVerified,
+  receiptStatus,
+  onlyPrepared,
 ];

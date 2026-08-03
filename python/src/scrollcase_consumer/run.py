@@ -20,6 +20,7 @@ from types import FrameType
 from typing import IO, Any, Protocol, TypeAlias, cast
 
 from ._contract import (
+    absolute_path,
     assert_execution_files,
     assert_native_host,
     path_under,
@@ -32,7 +33,7 @@ from .models import (
     PythonModuleExecution,
     PythonScriptExecution,
 )
-from .verify import prepared_box_state, verify_and_extract_box
+from .verify import prepared_box_state, verify_and_extract_box, verify_required_assets
 
 Stdio: TypeAlias = int | IO[Any] | None
 
@@ -73,30 +74,6 @@ def _environment(values: Mapping[str, str] | None) -> dict[str, str]:
         )
     environment.update(values)
     return environment
-
-
-def _verify_required_assets(prepared: PreparedBox) -> None:
-    root = Path(prepared.root)
-    for asset in prepared.required_assets:
-        path = path_under(root, asset.relative_path)
-        try:
-            metadata = path.lstat()
-        except FileNotFoundError as error:
-            raise ScrollcaseConsumerError(
-                f"Required on-demand asset is missing: {asset.relative_path}."
-            ) from error
-        if not stat.S_ISREG(metadata.st_mode):
-            raise ScrollcaseConsumerError(
-                f"Required on-demand asset is not a regular file: {asset.relative_path}."
-            )
-        if metadata.st_size != asset.size_bytes:
-            raise ScrollcaseConsumerError(
-                f"Required on-demand asset size mismatch: {asset.relative_path}."
-            )
-        if sha256_file(path) != asset.sha256:
-            raise ScrollcaseConsumerError(
-                f"Required on-demand asset SHA-256 mismatch: {asset.relative_path}."
-            )
 
 
 def _forwarded_signals() -> tuple[signal.Signals, ...]:
@@ -184,7 +161,7 @@ def run_extracted_box(
         cast(str, state.release["provenance"]["pythonVersion"]),
         resolvable_paths,
     )
-    _verify_required_assets(prepared)
+    verify_required_assets(Path(prepared.root), prepared.required_assets)
 
     python = path_under(root, prepared.python_entry_point)
     if isinstance(execution, PythonScriptExecution):
@@ -231,9 +208,9 @@ def run_box(
     """Verify, temporarily extract, execute, and remove one local box."""
 
     temporary_parent = (
-        Path(temporary_directory).resolve()
+        absolute_path(temporary_directory)
         if temporary_directory is not None
-        else Path(tempfile.gettempdir()).resolve()
+        else absolute_path(tempfile.gettempdir())
     )
     temporary_root = Path(
         tempfile.mkdtemp(prefix="scrollcase-run-", dir=temporary_parent)

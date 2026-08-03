@@ -77,6 +77,28 @@ When the upstream artefact is a tarball or zip, declare it as an asset and then 
 - `removeAfterExtract` defaults to `true`: the compressed original is dead weight inside the
   payload once unpacked.
 
+## Compression
+
+Weights arrive already compressed, and deflating them again is pure loss. Measured on
+incompressible bytes: level 6 runs at 47 MB/s and the archive comes out **0.03% larger** than the
+input, and dropping to level 1 recovers 4 MB/s because the search fails either way. Lowering the
+level is not the fix — not compressing is.
+
+So every path you declare in `assets` is **stored** in the archive rather than deflated. You do not
+have to ask for this and there is nothing to configure.
+
+For anything else your box carries that is already compressed — the tree an `assetArchives` entry
+expanded into, a bundled corpus of JPEGs — say so:
+
+```jsonc
+"uncompressedPaths": ["model-cache/hello", "corpora/images"]
+```
+
+An entry matches that path and everything beneath it. Nothing is decided by looking at the file or
+its extension: the choice comes from the scroll alone, which is what keeps two builds of the same
+commit byte-identical. The interpreter, `site-packages` and the notices compress genuinely and
+still do.
+
 ## Files from your own repository
 
 Runtime shims, licence notices, a parity check script — anything you maintain yourself — go in

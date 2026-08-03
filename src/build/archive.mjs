@@ -44,14 +44,37 @@ function archiveFileMode(adapter, relativePath) {
 }
 
 /**
+ * Whether a payload path was declared as one whose bytes are already compressed.
+ *
+ * A match is exact or by directory prefix, so one declaration can name a single weights file or
+ * the whole tree an expanded asset archive landed in. Nothing here opens the file or reads its
+ * extension: the answer depends only on the scroll and the path, which is what keeps two builds of
+ * the same commit byte-identical.
+ *
+ * @param {string} path
+ * @param {readonly string[]} declared
+ * @returns {boolean}
+ */
+function isDeclaredUncompressed(path, declared) {
+  return declared.some((entry) => path === entry || path.startsWith(`${entry}/`));
+}
+
+/**
  * Streams a deterministic, Zip64-capable box archive using the pinned Node backend.
+ *
+ * Deflating an already-compressed file is pure loss: measured on incompressible bytes, level 6
+ * runs at 47 MB/s and the result is 0.03% *larger* than the input, and dropping to level 1 buys
+ * 4 MB/s because the search fails either way. Weights are the only thing in a box large enough for
+ * that to matter, so `uncompressedPaths` names them and they are stored instead. Everything else —
+ * the interpreter, the site-packages tree, the notices — compresses genuinely and still does.
  *
  * @param {string} payloadDir
  * @param {string} archivePath
  * @param {import('../contract/targets.mjs').BoxTargetAdapter} adapter
+ * @param {readonly string[]} [uncompressedPaths] payload paths stored rather than deflated
  * @returns {Promise<void>}
  */
-export async function createDeterministicZip(payloadDir, archivePath, adapter) {
+export async function createDeterministicZip(payloadDir, archivePath, adapter, uncompressedPaths = []) {
   const entries = await collectEntries(payloadDir);
   assertPayloadLinksAreCarryable(entries);
   await rm(archivePath, { force: true });
@@ -70,9 +93,12 @@ export async function createDeterministicZip(payloadDir, archivePath, adapter) {
       });
       continue;
     }
+    // yazl rejects a compress/compressionLevel pair that disagrees, so the two are derived from
+    // one decision rather than set independently.
+    const compressionLevel = isDeclaredUncompressed(entry.path, uncompressedPaths) ? 0 : 6;
     zip.addFile(join(payloadDir, ...entry.path.split('/')), entry.path, {
-      compress: true,
-      compressionLevel: 6,
+      compress: compressionLevel !== 0,
+      compressionLevel,
       mtime: FIXED_ARCHIVE_TIME,
       mode: archiveFileMode(adapter, entry.path),
       forceDosTimestamp: true,

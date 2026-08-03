@@ -24,9 +24,13 @@ knowing them first will save you a rejected pull request.
   declared by the project in config, scroll or flags; the tool stays ignorant of who uses it.
 - **One contract, multiple implementations.** `src/contract/` and its schemas are authoritative.
   `scrollcase/consumer` and Python's `scrollcase_consumer` must prove the same observable behavior
-  against shared language-neutral conformance fixtures; neither defines a parallel format.
+  for preparation, attachment, installed-payload verification, and execution against shared
+  language-neutral conformance fixtures; neither defines a parallel format.
 - **Verification precedes execution.** No consumer path may start box code before signature,
   payload-shape, archive size/hash, safe-entry, and manifest-agreement checks succeed.
+- **Attachment and payload verification stay separate.** Attachment may mint a process-bound receipt
+  from a caller-supplied local root without reading every payload byte; installed-payload
+  verification is the explicit, potentially multi-gigabyte check against the signed entry list.
 
 ## Development
 

@@ -99,6 +99,8 @@ describe('the package surface', () => {
     expect(browserContract.isSignedBoxDocument({})).toBe(false);
     expect(typeof build.sha256File).toBe('function');
     expect(typeof consumer.verifyAndExtractBox).toBe('function');
+    expect(typeof consumer.attachExtractedBox).toBe('function');
+    expect(typeof consumer.verifyExtractedPayload).toBe('function');
     expect(typeof consumer.runExtractedBox).toBe('function');
     expect(typeof consumer.runBox).toBe('function');
     expect(typeof sign.verifySignedDocument).toBe('function');
