@@ -6,6 +6,8 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-03
+
 ### Added
 
 - Commit new boxes to their extracted payload through the optional signed `payloadDigest` release
@@ -46,9 +48,10 @@ All notable changes to Scrollcase are documented here. The format follows
   results now carry the same structured environment report. Compact reports include every signed
   declaration, execution-affecting inherited variables, conflicts and their winner, plus the count
   omitted; `envReport` / `env_report` expands all names, and `envReportValues` /
-  `env_report_values` explicitly reveals inherited host values. The CLI exposes the same distinction
-  as `--env-report` and `--env-report-values` on `run` and `verify`. The report is consumer
-  diagnostics, not a signed box guarantee.
+  `env_report_values` explicitly reveals inherited host values. Release-declared and caller-supplied
+  values remain visible; masking applies only to the inherited host layer. The CLI exposes the same
+  distinction as `--env-report` and `--env-report-values` on `run` and `verify`. The report is
+  consumer diagnostics, not a signed box guarantee.
 
 ### Changed
 

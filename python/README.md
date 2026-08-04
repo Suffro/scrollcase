@@ -27,7 +27,8 @@ Every verification, attachment, payload-check, and run result carries `environme
 Release-declared values override inherited host and caller values; no inherited variable is
 filtered. Host values are masked by default. Pass `env_report=True` to include every name and
 `env_report_values=True` only when revealing host values in logs is intentional. The report is a
-local diagnostic snapshot, not a signed guarantee of the box.
+local diagnostic snapshot, not a signed guarantee of the box. Release and caller values are never
+masked, so do not log a report containing caller-supplied secrets.
 
 A receipt is bound to the process that produced it, so an application that installs a box once and
 runs it across restarts calls `attach_extracted_box` on each later launch: it re-identifies the

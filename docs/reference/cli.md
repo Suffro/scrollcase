@@ -325,8 +325,8 @@ Run the format checks a consumer can repeat against a signed release document an
 before anything is published.
 
 ```sh
-scrollcase verify <release.json> [--archive <path>] [--self-test] [--env-report]
-scrollcase verify <release.json> --extracted <dir> [--env-report]
+scrollcase verify <release.json> [--archive <path>] [--self-test] [--env-report] [--env-report-values]
+scrollcase verify <release.json> --extracted <dir> [--env-report] [--env-report-values]
 ```
 
 | Flag | Default | Meaning |
@@ -367,7 +367,7 @@ Python caches.
 Verify and execute one caller-supplied local release through `scrollcase/consumer`:
 
 ```sh
-scrollcase run <release.json> [--archive <box.zip>] [--env-report] -- [application args]
+scrollcase run <release.json> [--archive <box.zip>] [--env-report] [--env-report-values] -- [application args]
 ```
 
 The command performs the same signature, schema, archive, safe-entry, manifest-agreement, installed

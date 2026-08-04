@@ -199,7 +199,26 @@ The compact default contains every release-declared variable, every inherited va
 adapter identifies as capable of changing executed code, and every conflict, plus
 `remainingVariableCount`. A variable records its winning `source`, visible winning `value`, whether
 it is `executionAffecting`, and all `sources` in precedence order. Release values are visible because
-they are already public in the signed document; inherited host values are `"<masked>"` by default.
+they are already public in the signed document; caller values are visible too. Only inherited host
+values are `"<masked>"` by default, so a caller must not log a report containing secrets it supplied
+through `env`.
+
+The Node report fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `mode` | `"summary"` for the compact selection, or `"full"` after expansion |
+| `hostValuesRevealed` | Whether inherited host values are visible |
+| `releaseVariableCount` | Number of names supplied by the signed declaration |
+| `conflictCount` | Number of names whose sources supplied different values |
+| `dangerousHostVariables` | Present inherited names the target adapter identifies as capable of changing executed code |
+| `remainingVariableCount` | Resolved names omitted from `variables` in compact mode |
+| `variables` | Selected variable reports, sorted by winning name |
+
+Each variable has `name`, winning `source`, visible winning `value`, `executionAffecting`,
+`conflict`, and `sources`. Each source entry records its `source`, exact `name` spelling, and visible
+`value`. Sources are `host`, `caller`, `release`, and — during a verification self-test —
+`validation`; later entries have higher precedence. Python exposes the same fields in snake case.
 
 Pass `envReport: true` to any consumer operation to include every resolved variable name. Pass
 `envReportValues: true` to imply the full report and reveal host values deliberately. Python uses

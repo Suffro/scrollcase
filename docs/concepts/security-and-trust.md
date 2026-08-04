@@ -64,10 +64,12 @@ together. Never commit the private key under `.scrollcase/keys/`.
    the logical extracted payload size, and run the signed import check with the box's interpreter
    under the signed environment declaration and target validation controls.
 
-The process still inherits the launching host's environment. `--env-report` reports provenance and
-conflicts, while `--env-report-values` deliberately reveals inherited values; neither is a sandbox
-or a signed guarantee. The declaration is authenticated format data. The report is a local consumer
-diagnostic that changes with the process inspecting or running the box.
+The process still inherits the launching host's environment. `run` and `verify --self-test` print a
+compact report automatically when there is something actionable; `--env-report` expands it to every
+name, while `--env-report-values` deliberately reveals inherited host values. Release-declared and
+caller-supplied values are not masked. None of these diagnostics is a sandbox or a signed guarantee.
+The declaration is authenticated format data. The report is local consumer output that changes with
+the process inspecting or running the box.
 
 The builder's richer scroll checks—optional `pythonCode` and post-prune file assertions—are not
 part of the signed release and therefore cannot be repeated by a consumer. See
