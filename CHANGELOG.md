@@ -11,13 +11,18 @@ All notable changes to Scrollcase are documented here. The format follows
 - A Rust consumer, `scrollcase-consumer`, under `rust/`. It verifies a signed release, prepares or
   re-identifies a local box, checks an extracted payload against the entry list its release commits
   to, and runs the declared entry point — the same surface as `scrollcase/consumer` and
-  `scrollcase_consumer`, proved against the same sixty-five conformance cases. A prepared receipt has
+  `scrollcase_consumer`, proved against the same shared conformance cases. A prepared receipt has
   private fields and no public constructor, so the rule that verification precedes execution is
   carried by the type system rather than by convention. Signals are forwarded through a channel the
   caller owns: a library that installed process-wide handlers would displace those of the application
   embedding it. It is released independently on crates.io as `scrollcase-consumer`, requires Rust
   1.88 or newer, forbids `unsafe`, and is synchronous throughout so an embedding application picks
   its own runtime or none. Nothing in the npm package changed to accommodate it.
+
+- An `unsupported-schema-version` error pattern and case in `consumer-conformance.json`, so the
+  refusal of a `schemaVersion: 1` document is pinned across all three consumers instead of only being
+  asserted per language. Without it, dropping the by-name refusal degrades the message to a schema
+  shape complaint — a v2 consumer would still refuse a v1 release, but stop saying why.
 
 ## [0.7.0] — 2026-08-03
 

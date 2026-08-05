@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Language-neutral semantic cases shared by the Node and Python Scrollcase consumers.",
+  "description": "Language-neutral semantic cases shared by the Node, Python and Rust Scrollcase consumers.",
   "errorPatterns": {
     "invalid-signature": "no valid signature",
     "altered-payload": "Signed payload SHA-256 mismatch",
@@ -28,7 +28,8 @@
     "payload-list-missing": "missing its payload digest list",
     "payload-list-mismatch": "Payload digest list does not match the signed release",
     "payload-digest-absent": "does not commit to a payload digest",
-    "payload-mismatch": "^Payload does not match the signed release:"
+    "payload-mismatch": "^Payload does not match the signed release:",
+    "unsupported-schema-version": "Unsupported schemaVersion 1"
   },
   "cases": [
     {
@@ -338,6 +339,16 @@
       "expected": {
         "outcome": "rejected",
         "error": "environment-disagreement",
+        "destinationExists": false
+      }
+    },
+    {
+      "id": "unsupported-schema-version",
+      "action": "prepare",
+      "mutation": "downgrade-envelope-version",
+      "expected": {
+        "outcome": "rejected",
+        "error": "unsupported-schema-version",
         "destinationExists": false
       }
     },

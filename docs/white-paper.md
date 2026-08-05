@@ -2186,13 +2186,14 @@ agreeing about what must fail is where independent implementations drift.
 
 #### `consumer-conformance.json`
 
-Sixty-five language-neutral semantic cases shared by the Node, Python and Rust consumers, plus twenty-seven
-error patterns each case's failure message must match. The cases cover valid preparation under both
-signing paths, every tampering scenario, unsafe archive entries, extraction collisions, per-platform
-entry points, attachment across process restarts, installed-payload verification, argument ordering,
-stream forwarding, exit codes and signals, temporary-directory cleanup, on-demand asset failures,
-signed environment agreement, precedence, masking, explicit value reveal, and report parity across
-preparation, attachment, payload verification, and execution.
+Sixty-six language-neutral semantic cases shared by the Node, Python and Rust consumers, plus
+twenty-eight error patterns each case's failure message must match. The cases cover valid preparation
+under both signing paths, every tampering scenario, a v1 document refused by name, unsafe archive
+entries, extraction collisions, per-platform entry points, attachment across process restarts,
+installed-payload verification, argument ordering, stream forwarding, exit codes and signals,
+temporary-directory cleanup, on-demand asset failures, signed environment agreement, precedence,
+masking, explicit value reveal, and report parity across preparation, attachment, payload
+verification, and execution.
 
 Error *patterns* rather than exact strings, deliberately: two languages should agree on what went
 wrong without being forced to phrase it identically. Section 8 covers the cases in detail — they
@@ -4363,7 +4364,7 @@ diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that 
 
 #### What is in the file
 
-Sixty-five cases and twenty-seven error patterns, in a language-neutral JSON document. Each case is a
+Sixty-six cases and twenty-eight error patterns, in a language-neutral JSON document. Each case is a
 small declarative record:
 
 ```json

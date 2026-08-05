@@ -192,6 +192,16 @@ def _mutate_fixture(
             encoding="utf-8",
         )
         return
+    if mutation == "downgrade-envelope-version":
+        # The envelope's own version is outside the signed payload, so this is what a genuine v1
+        # document looks like to a v2 consumer: refusable by name before any signature is checked.
+        signed = json.loads(fixture.release_path.read_text(encoding="utf-8"))
+        signed["schemaVersion"] = 1
+        fixture.release_path.write_text(
+            json.dumps(signed, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return
     if mutation == "alter-archive-bytes":
         data = bytearray(fixture.archive_path.read_bytes())
         data[-1] ^= 0x01

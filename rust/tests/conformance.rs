@@ -600,6 +600,19 @@ fn mutate_fixture(fixture: &mut Fixture, mutation: &str, destination: &Path) {
             )
             .unwrap();
         }
+        "downgrade-envelope-version" => {
+            // The envelope's own version is outside the signed payload, so this is what a genuine v1
+            // document looks like to a v2 consumer: refusable by name before any signature is
+            // checked.
+            let mut signed: Value =
+                serde_json::from_slice(&std::fs::read(&fixture.release_path).unwrap()).unwrap();
+            signed["schemaVersion"] = json!(1);
+            std::fs::write(
+                &fixture.release_path,
+                serde_json::to_vec_pretty(&signed).unwrap(),
+            )
+            .unwrap();
+        }
         "alter-archive-bytes" => {
             let mut bytes = std::fs::read(&fixture.archive_path).unwrap();
             let last = bytes.len() - 1;
@@ -1100,7 +1113,7 @@ fn the_shared_consumer_conformance_suite_passes() {
     let suite: Value = serde_json::from_str(SUITE).unwrap();
     let patterns = suite["errorPatterns"].as_object().unwrap();
     let cases = suite["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 65, "the suite changed size");
+    assert_eq!(cases.len(), 66, "the suite changed size");
 
     let mut failures: Vec<String> = Vec::new();
     let mut ran = 0usize;

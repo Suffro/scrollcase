@@ -153,6 +153,14 @@ async function mutateFixture(fixture, mutation, destination) {
     await writeFile(fixture.releasePath, `${JSON.stringify(signed, null, 2)}\n`);
     return;
   }
+  if (mutation === 'downgrade-envelope-version') {
+    // The envelope's own version is outside the signed payload, so this is what a genuine v1
+    // document looks like to a v2 consumer: refusable by name before any signature is checked.
+    const signed = JSON.parse(await readFile(fixture.releasePath, 'utf8'));
+    signed.schemaVersion = 1;
+    await writeFile(fixture.releasePath, `${JSON.stringify(signed, null, 2)}\n`);
+    return;
+  }
   if (mutation === 'alter-archive-bytes') {
     const bytes = await readFile(fixture.archivePath);
     bytes[bytes.length - 1] ^= 0x01;
