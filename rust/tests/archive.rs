@@ -123,7 +123,9 @@ fn an_archive_without_its_declared_interpreter_is_refused() {
         "archive-no-interpreter",
         |_| {},
         |entries| {
-            entries.retain(|entry| !matches!(entry, Entry::File("venv/bin/python", _, _)));
+            // The entry point differs per target, so it is asked for rather than spelled out.
+            let interpreter = support::native_python_entry_point();
+            entries.retain(|entry| !matches!(entry, Entry::File(path, _, _) if *path == interpreter));
         },
         |_| {},
     );
@@ -272,7 +274,9 @@ fn extraction_reproduces_the_payload_and_its_modes() {
     assert_eq!(
         scrollcase_consumer::filesystem::payload_size(&destination).unwrap(),
         std::fs::metadata(destination.join("box.json")).unwrap().len()
-            + std::fs::metadata(destination.join("venv/bin/python")).unwrap().len()
+            + std::fs::metadata(destination.join(support::native_python_entry_point()))
+                .unwrap()
+                .len()
             + std::fs::metadata(destination.join("app/main.py")).unwrap().len()
     );
 }
