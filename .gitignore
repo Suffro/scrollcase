@@ -156,5 +156,6 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# Rust build state
+# Rust build state. The consumer is a library crate, so its lockfile is generated, never committed.
 rust/target/
+rust/Cargo.lock

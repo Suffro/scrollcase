@@ -5488,14 +5488,17 @@ others. They meet at the shared conformance fixture described in section 8.7.
 | --- | --- | --- | --- |
 | Node | Vitest | `npm test` | The contract, the build pipeline, signing, the Node consumer, the CLI, the package surface, the docs |
 | Python | `unittest` | `python -m unittest discover -s tests -t .` from `python/` | The contract mirror, the Python consumer, the packaging surface |
-| Rust | `cargo test` | `cargo test --locked --all-targets` from `rust/` | The contract mirror, the schemas the types stand in for, the Rust consumer |
+| Rust | `cargo test` | `cargo test --all-targets` from `rust/` | The contract mirror, the schemas the types stand in for, the Rust consumer |
 
 The Python suite is also gated by three checks that are not tests but fail the same way: `mypy src`
 for static types, `python scripts/sync_schemas.py --check` for the bundled schema copies, and
 `python scripts/check_distribution.py dist/*` for what the wheel and sdist actually contain. The
-Rust suite is gated the same way by `cargo clippy --locked --all-targets -- -D warnings`, by
-`node scripts/sync-assets.mjs --check` for the copied fixtures and schemas, and by `cargo package
---locked` for what the crate would actually publish. All three run on Linux, macOS and Windows,
+Rust suite is gated the same way by `cargo clippy --all-targets -- -D warnings`, by
+`node scripts/sync-assets.mjs --check` for the copied fixtures and schemas, and by `cargo package`
+for what the crate would actually publish. None of the three passes `--locked`, because the crate is
+a library and ships no committed `Cargo.lock`: a consuming application pins its own versions, and
+here the flag would only forbid writing the lockfile each command needs. All three run on Linux,
+macOS and Windows,
 because the layout differences of section 10.6 are exactly where a consumer breaks.
 
 <div class="h4-section">

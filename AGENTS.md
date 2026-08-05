@@ -213,11 +213,14 @@ The Rust consumer commands, run from `rust/`:
 
 | Purpose | Command |
 | --- | --- |
-| Rust unit and integration suite | `cargo test --locked --all-targets` |
-| Lints, which CI treats as errors | `cargo clippy --locked --all-targets -- -D warnings` |
+| Rust unit and integration suite | `cargo test --all-targets` |
+| Lints, which CI treats as errors | `cargo clippy --all-targets -- -D warnings` |
 | Check the copied fixtures and schemas | `node scripts/sync-assets.mjs --check` |
 | Refresh those copies after a contract change | `node scripts/sync-assets.mjs` |
-| What the crate would publish | `cargo package --locked` |
+| What the crate would publish | `cargo package` |
+
+The crate is a library and ships no committed `Cargo.lock`, so none of these takes `--locked`: with
+no lockfile to respect, that flag only makes the command refuse to write one.
 
 If one of these fails or no longer exists, read the relevant `package.json`, `pyproject.toml` or
 `Cargo.toml`, use what is there, and **update this file**.
@@ -237,7 +240,7 @@ Run, at every change that could affect them:
 5. **When `python/` changed** — run the Python unit suite, static types, schema check, wheel/sdist
    build, and distribution inspection. For package-surface changes, also clean-install the wheel.
 6. **When `rust/` changed** — run the Rust suite, clippy, and the asset check. For anything that
-   changes what ships, also `cargo package --locked`.
+   changes what ships, also `cargo package`.
 7. **When a contract fixture or schema changed** — re-run `node scripts/sync-assets.mjs` in `rust/`
    and `python scripts/sync_schemas.py` in `python/`, or the copies go stale and CI says so.
 8. **A real box build, or a real toolchain install** — expensive and network-bound. Ask the user
