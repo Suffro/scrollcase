@@ -42,6 +42,33 @@ jobs:
       - run: npm pack --dry-run
       - run: npm audit --omit=dev
 
+  rust-consumer:
+    name: rust consumer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      # The crate carries its own copies of the fixtures and schemas, because a published crate
+      # cannot read files outside itself. This is what keeps those copies honest.
+      - run: node rust/scripts/sync-assets.mjs --check
+      - run: cargo test --locked --all-targets
+        working-directory: rust
+      - run: cargo clippy --locked --all-targets -- -D warnings
+        working-directory: rust
+      - run: cargo package --locked
+        working-directory: rust
+        if: matrix.os == 'ubuntu-latest'
+
   python-consumer:
     name: python consumer (${{ matrix.python }})
     runs-on: ubuntu-latest
