@@ -38,7 +38,31 @@ Check the install:
 scrollcase --version
 ```
 
-## Install the Python consumer
+## Install consumers
+
+<Tabs :titles="['Node','Python','Rust']">
+<Tab title="Node">
+
+### Install the Node consumer
+
+The Node consumer needs the scrollcase package to be installed:
+
+```sh
+npm install scrollcase
+```
+
+The import name:
+
+```js
+import { runBox } from 'scrollcase/consumer';
+```
+
+The Node consumer prepares and executes release documents and archives already present on the local machine. Every path and trust anchor comes from the caller. It never selects a channel, downloads an archive or asset, installs globally, updates an existing destination, or applies application lifecycle policy.
+
+</Tab>
+<Tab title="Python">
+
+### Install the Python consumer
 
 A Python application that only verifies and runs caller-supplied local boxes does not need the
 Scrollcase CLI or a Node.js runtime:
@@ -70,7 +94,10 @@ automatically retries as a user install, keeping package files outside the manag
 If you select conda-forge but the `conda` command is unavailable, it asks whether to continue with
 PyPI instead.
 
-## Install the Rust consumer
+</Tab>
+<Tab title="Rust">
+
+### Install the Rust consumer
 
 A Rust application — a Tauri desktop client, a native service — consumes local boxes without a Node
 or Python runtime:
@@ -87,6 +114,11 @@ use scrollcase_consumer::run::run_box;
 
 Like the Python package it builds and downloads nothing, and `scrollcase init` does not install it:
 Cargo dependencies belong in the consuming crate's own manifest.
+
+</Tab>
+</Tabs>
+
+> Checkout the [Library APIs](/reference/api.md) section for more details.
 
 ## Let Scrollcase install the toolchain
 
