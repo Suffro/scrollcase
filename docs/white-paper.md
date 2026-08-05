@@ -2186,7 +2186,7 @@ agreeing about what must fail is where independent implementations drift.
 
 #### `consumer-conformance.json`
 
-Sixty-five language-neutral semantic cases shared by the Node and Python consumers, plus twenty-seven
+Sixty-five language-neutral semantic cases shared by the Node, Python and Rust consumers, plus twenty-seven
 error patterns each case's failure message must match. The cases cover valid preparation under both
 signing paths, every tampering scenario, unsafe archive entries, extraction collisions, per-platform
 entry points, attachment across process restarts, installed-payload verification, argument ordering,
@@ -3959,20 +3959,20 @@ two mirrors of one contract, and they are held to it by the same fixtures.
 
 <div class="h3-section-initial-part">
 
-### 8.1 Two implementations, one contract
+### 8.1 Three implementations, one contract
 
 <div class="h4-section">
 
 #### The parallel surfaces
 
-| Concern | Node — `scrollcase/consumer` | Python — `scrollcase_consumer` |
-| --- | --- | --- |
-| Verify and prepare | `verifyAndExtractBox()` | `verify_and_extract_box()` |
-| Re-attach an extracted box | `attachExtractedBox()` | `attach_extracted_box()` |
-| Verify an installed payload | `verifyExtractedPayload()` | `verify_extracted_payload()` |
-| Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` |
-| One-shot run | `runBox()` | `run_box()` |
-| Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass |
+| Concern | Node — `scrollcase/consumer` | Python — `scrollcase_consumer` | Rust — `scrollcase-consumer` |
+| --- | --- | --- | --- |
+| Verify and prepare | `verifyAndExtractBox()` | `verify_and_extract_box()` | `verify_and_extract_box()` |
+| Re-attach an extracted box | `attachExtractedBox()` | `attach_extracted_box()` | `attach_extracted_box()` |
+| Verify an installed payload | `verifyExtractedPayload()` | `verify_extracted_payload()` | `verify_extracted_payload()` |
+| Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` | `run_extracted_box()` |
+| One-shot run | `runBox()` | `run_box()` | `run_box()` |
+| Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass | `PreparedBox` with private fields |
 | Failure | `fail()` → `Error` | `ScrollcaseConsumerError` |
 | Private state binding | `WeakMap` | `weakref.WeakKeyDictionary` |
 | Process seam | `spawn` option | `popen_factory` argument |

@@ -15,13 +15,15 @@ This page explains how, and — more usefully — *why each step is where it is*
 ## The v2 consumer boundary
 
 Scrollcase has one canonical contract and two local consumer implementations: the Node/TypeScript
-API at `scrollcase/consumer` and the Python package imported as `scrollcase_consumer`.
+API at `scrollcase/consumer`, the Python package imported as `scrollcase_consumer`, and the Rust
+crate `scrollcase-consumer`.
 `scrollcase run` delegates to the Node API instead of implementing a third path.
 
 ```mermaid
 flowchart LR
   C["canonical v2 contract<br/>schemas + fixtures"] --> N["Node consumer<br/>scrollcase/consumer"]
   C --> P["Python consumer<br/>scrollcase_consumer"]
+  C --> R["Rust consumer<br/>scrollcase-consumer"]
   F["caller-supplied release, archive or root,<br/>trust keys, destination"] --> N
   F --> P
   N --> L["verified local box<br/>or child process"]
@@ -230,6 +232,10 @@ src/
 │   └── run-box.mjs             one-shot temporary execution and cleanup
 ├── sign/              key generation, local signing, external dispatch, verification
 └── cli.mjs            argument parsing and dispatch — thin, logic lives in the modules
+rust/
+├── src/                      the crate: contract mirror, verification, extraction, execution
+├── fixtures/                 bundled copies of the shared fixtures, drift-checked
+└── tests/                    contract, schema agreement, hostile archives, conformance
 python/
 ├── src/scrollcase_consumer/  typed Python verification, extraction, and execution
 ├── scripts/                  schema sync and distribution inspection
@@ -237,8 +243,8 @@ python/
 ```
 
 `src/contract/` is the source of truth for the format. Other languages **mirror** it and prove
-the mirror against `fixtures/target-id-contract.json`; they do not import it. That is how a Rust
-client, a Worker, and this builder stay in agreement without sharing a runtime.
+the mirror against `fixtures/target-id-contract.json`; they do not import it. That is how the Rust
+crate, a Worker, and this builder stay in agreement without sharing a runtime.
 
 ## Boundaries
 

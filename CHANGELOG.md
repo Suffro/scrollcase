@@ -6,6 +6,17 @@ All notable changes to Scrollcase are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A Rust consumer, `scrollcase-consumer`, under `rust/`. It verifies a signed release, prepares or
+  re-identifies a local box, checks an extracted payload against the entry list its release commits
+  to, and runs the declared entry point — the same surface as `scrollcase/consumer` and
+  `scrollcase_consumer`, proved against the same sixty-five conformance cases. A prepared receipt has
+  private fields and no public constructor, so the rule that verification precedes execution is
+  carried by the type system rather than by convention. Signals are forwarded through a channel the
+  caller owns: a library that installed process-wide handlers would displace those of the application
+  embedding it.
+
 ## [0.7.0] — 2026-08-03
 
 ### Added
