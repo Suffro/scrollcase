@@ -155,3 +155,6 @@ __pycache__/
 .mypy_cache/
 .venv/
 *.egg-info/
+
+# Rust build state
+rust/target/
