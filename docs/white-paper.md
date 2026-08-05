@@ -49,7 +49,7 @@ consumes it, then the properties that hold across all of it.
 | [5. The contract](#_5-the-contract) | `src/contract/`: targets, envelopes, links, schemas, fixtures, types |
 | [6. The build pipeline](#_6-the-build-pipeline) | `src/build/`: the ordered steps and every module that serves them |
 | [7. Signing and custody](#_7-signing-and-custody) | `src/sign/`: keys, local signing, external signers, verification |
-| [8. The consumers](#_8-the-consumers) | Node and Python, side by side, and their shared conformance fixtures |
+| [8. The consumers](#_8-the-consumers) | Node, Python, and Rust, side by side, and their shared conformance fixtures |
 | [9. The command line](#_9-the-command-line) | The nine verbs and where the thin-CLI boundary runs |
 | [10. The invariants](#_10-the-invariants) | Determinism, provenance, verify-never-trust, and the paths that break silently |
 | [11. Test map](#_11-test-map) | Which test proves which behaviour |
@@ -3716,7 +3716,7 @@ make plural and is what makes rotation expressible at all.
 
 Verification lives in the same module as key generation, because a signature nobody checks is
 theatre. Every code path that consumes a signed document — `build` re-verifying an external signer,
-`verify`, both consumers — arrives at these two functions.
+`verify`, every consumer — arrives at these two functions.
 
 </div>
 
@@ -3953,9 +3953,9 @@ Everything up to here produces a box. This section is about the other end: a mac
 signed [release](#release) document, a trusted public key, and either an archive plus destination or
 an already-extracted root, and wants a working Python environment whose identity it can establish.
 
-Scrollcase ships **two** implementations of that, in Node and in Python, because the code that
-consumes a box usually is not the code that built it. They are not a port and an original; they are
-two mirrors of one contract, and they are held to it by the same fixtures.
+Scrollcase ships **three** implementations of that — in Node, in Python, and in Rust — because the
+code that consumes a box usually is not the code that built it. They are not an original and its
+ports; they are three mirrors of one contract, and they are held to it by the same fixtures.
 
 <div class="h3-section-initial-part">
 
@@ -3973,17 +3973,25 @@ two mirrors of one contract, and they are held to it by the same fixtures.
 | Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` | `run_extracted_box()` |
 | One-shot run | `runBox()` | `run_box()` | `run_box()` |
 | Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass | `PreparedBox` with private fields |
-| Failure | `fail()` → `Error` | `ScrollcaseConsumerError` |
-| Private state binding | `WeakMap` | `weakref.WeakKeyDictionary` |
-| Process seam | `spawn` option | `popen_factory` argument |
-| Signal seam | `signalSource` option | `signal.signal` on the main thread |
-| Schemas | read from `src/contract/schema/` | bundled copies, checked by `sync_schemas.py --check` |
-| Dependencies | `yauzl` for reading archives | `cryptography`, `jsonschema` |
+| Failure | `fail()` → `Error` | `ScrollcaseConsumerError` | `fail!()` → opaque `Error` |
+| Private state binding | `WeakMap` | `weakref.WeakKeyDictionary` | private fields, no public constructor |
+| Process seam | `spawn` option | `popen_factory` argument | `SpawnBox` trait |
+| Signal seam | `signalSource` option | `signal.signal` on the main thread | a channel the caller owns |
+| Schemas | read from `src/contract/schema/` | bundled copies, checked by `sync_schemas.py --check` | bundled copies used by the tests, checked by `sync-assets.mjs --check` |
+| Dependencies | `yauzl` for reading archives | `cryptography`, `jsonschema` | `ed25519-dalek`, `zip`, `sha2`, `serde`, `base64` |
 
 The Python package is distributed separately (`scrollcase-consumer` on PyPI, requiring Python 3.10 or
 newer), ships `py.typed`, and is checked under `mypy --strict`. It depends on `cryptography` for
 ed25519 and `jsonschema` for schema validation, and on nothing else; ZIP reading uses the standard
 library's `zipfile`.
+
+The crate is distributed separately too (`scrollcase-consumer` on crates.io, requiring Rust 1.88 or
+newer). It forbids `unsafe`, is synchronous throughout so an application chooses its own runtime or
+none, and — being a library embedded in someone else's process — installs no signal handler of its
+own. Where Node and Python validate a release against the canonical schemas at run time, the crate
+encodes those schemas as types that refuse an unknown field; `rust/tests/schema.rs` then proves the
+types and the schemas still agree, with `jsonschema` as a development dependency that never reaches
+a consumer.
 
 </div>
 
@@ -3991,16 +3999,17 @@ library's `zipfile`.
 
 <div class="h4-section">
 
-#### Why two, and not a binding
+#### Why three, and not a binding
 
-A native binding, or a subprocess call into the Node implementation, would make one of the two
-runtimes a dependency of the other. A Python application that wants to run a box would have to ship
-Node; a Node application would have to ship Python. Both are unacceptable for the situation these
-boxes exist to serve, where the point is a self-contained artefact with a short dependency list.
+A native binding, or a subprocess call into the Node implementation, would make one runtime a
+dependency of the others. A Python application that wants to run a box would have to ship Node; a
+Node application would have to ship Python; a Rust desktop client would have to ship both to avoid
+writing either. All are unacceptable for the situation these boxes exist to serve, where the point
+is a self-contained artefact with a short dependency list.
 
-**Rejected:** a shared native core through FFI. It would replace two readable implementations of a
-few hundred lines each with a build matrix, a packaging problem per platform, and a class of bug
-neither language's tooling can see. What holds the two honest is not shared code — it is
+**Rejected:** a shared native core through FFI. It would replace three readable implementations of a
+few hundred lines each with a build matrix, a packaging problem per platform, and a class of bug no
+language's tooling can see. What holds them honest is not shared code — it is
 [section 8.7](#_8-7-the-shared-conformance-fixture)'s shared fixture, plus schemas copied from one
 canonical source by a checked step.
 
@@ -4011,7 +4020,7 @@ canonical source by a checked step.
 ### 8.2 The fixed verification order
 
 Nothing from inside a box runs until the complete trust chain has passed. The order is not an
-implementation detail; it is part of the contract, and both consumers follow it.
+implementation detail; it is part of the contract, and every consumer follows it.
 
 </div>
 
@@ -4345,7 +4354,7 @@ space against.
 
 ### 8.7 The shared conformance fixture
 
-Two implementations agreeing today is worth little; what matters is that they cannot silently
+Three implementations agreeing today is worth little; what matters is that they cannot silently
 diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that is enforced.
 
 </div>
@@ -4446,26 +4455,30 @@ cases already produce. The payload-entry expression is anchored at the start, fo
 therefore cannot steal *Extracted payload size does not match the signed release* from its existing
 classification.
 
-**Rejected:** requiring byte-identical messages in both languages. It would force one language's
-phrasing on the other, make any wording improvement a cross-language breaking change, and prove
-nothing extra — what matters is that both refuse the same input for the same reason.
+**Rejected:** requiring byte-identical messages in every language. It would force one language's
+phrasing on the others, make any wording improvement a cross-language breaking change, and prove
+nothing extra — what matters is that all of them refuse the same input for the same reason.
 
 </div>
 
 <div class="h4-section">
 
-#### The two harnesses
+#### The three harnesses
 
 Nothing is shared between the harnesses but the JSON. `tests/helpers/consumer-conformance.mjs`
 builds its fixture box with `yazl` and mutates real ZIP bytes — flipping the encryption bit in both
 the local and central headers, rewriting entry names in place under a byte-length constraint so
 offsets stay valid. `python/tests/conformance_support.py` builds an equivalent fixture with
-`zipfile` and its own `ArchiveEntry` records. Each drives its own consumer through its own fake
-process factory, then compares its observed result with the *same* expected object.
+`zipfile` and its own `ArchiveEntry` records. `rust/tests/support/mod.rs` builds a third with the
+`zip` crate and patches the central directory itself. Each drives its own consumer through its own
+fake process factory, then compares its observed result with the *same* expected object.
 
-That independence is the point. A shared harness would let one bug hide in both languages; two
+That independence is the point. A shared harness would let one bug hide in every language; three
 harnesses agreeing on one expectation file is evidence about the contract rather than about the test
-code.
+code. It has already paid for itself: bringing the Rust consumer to the file surfaced two real
+defects — an archive naming one path twice, whose duplicate the `zip` crate collapses before a
+reader can see it, and a linked interpreter that was refused on attach and then sized as though it
+were nothing.
 
 </div>
 
@@ -5463,10 +5476,10 @@ always better than adding a note here.
 
 <div class="h3-section-initial-part">
 
-### 11.1 Two suites, one contract
+### 11.1 Three suites, one contract
 
-There are two independent test suites, in two languages, and neither one is authoritative over the
-other. They meet at the shared conformance fixture described in section 8.7.
+There are three independent test suites, in three languages, and none is authoritative over the
+others. They meet at the shared conformance fixture described in section 8.7.
 
 </div>
 
@@ -5474,10 +5487,15 @@ other. They meet at the shared conformance fixture described in section 8.7.
 | --- | --- | --- | --- |
 | Node | Vitest | `npm test` | The contract, the build pipeline, signing, the Node consumer, the CLI, the package surface, the docs |
 | Python | `unittest` | `python -m unittest discover -s tests -t .` from `python/` | The contract mirror, the Python consumer, the packaging surface |
+| Rust | `cargo test` | `cargo test --locked --all-targets` from `rust/` | The contract mirror, the schemas the types stand in for, the Rust consumer |
 
 The Python suite is also gated by three checks that are not tests but fail the same way: `mypy src`
 for static types, `python scripts/sync_schemas.py --check` for the bundled schema copies, and
-`python scripts/check_distribution.py dist/*` for what the wheel and sdist actually contain.
+`python scripts/check_distribution.py dist/*` for what the wheel and sdist actually contain. The
+Rust suite is gated the same way by `cargo clippy --locked --all-targets -- -D warnings`, by
+`node scripts/sync-assets.mjs --check` for the copied fixtures and schemas, and by `cargo package
+--locked` for what the crate would actually publish. All three run on Linux, macOS and Windows,
+because the layout differences of section 10.6 are exactly where a consumer breaks.
 
 <div class="h4-section">
 
@@ -5615,7 +5633,7 @@ fixture describes.
 
 <div class="h3-section-initial-part">
 
-### 11.4 The Python suite
+### 11.4 The Python and Rust suites
 
 Six test files under `python/tests/`, plus two support modules.
 
@@ -5632,8 +5650,27 @@ Six test files under `python/tests/`, plus two support modules.
 
 `support.py` and `conformance_support.py` are the Python counterparts of the Node helpers, and
 deliberately share no code with them: `zipfile` and hand-built `ArchiveEntry` records against `yazl`
-and mutated ZIP bytes. Two independent harnesses agreeing on one expectation file is evidence about
-the contract; one shared harness would only be evidence about itself.
+and mutated ZIP bytes. Three independent harnesses agreeing on one expectation file is evidence
+about the contract; one shared harness would only be evidence about itself.
+
+Seven test files under `rust/tests/`, plus one support module.
+
+| File | What it proves |
+| --- | --- |
+| `contract.rs` | The mirror is faithful: every canonical target-ID and payload-digest vector in the shared fixtures, and the link rule accepting and refusing exactly what the other implementations do |
+| `schema.rs` | The types the crate parses with and the canonical schemas reach the same verdict on the examples and on mutations chosen where a typed parse and a schema most plausibly drift — an unknown field, a missing required field, a pattern violation, a broken bound, the `weights`/`assets` co-requirement |
+| `release_document.rs` | The half of the trust chain that needs no archive, over a real release signed the way `signWithLocalKey` signs — so the crate is proved against documents the signer it exists to read produced, not documents it produced itself |
+| `archive.rs` | The read-only chain over real archives: each case breaks exactly one thing and asserts *which* check fired, because a check that fires for the wrong reason has stopped working |
+| `prepare.rs` | Preparation, attachment and payload verification: the only three ways to obtain the receipt the execution surface accepts |
+| `run.rs` | Execution against a really spawned fixture interpreter — the argument vector, the environment, the process lifecycle, and forwarded signals |
+| `conformance.rs` | Every case in the shared fixture, through the Rust consumer |
+
+`support/mod.rs` is the third harness: the `zip` crate, its own `Entry` records, and its own
+central-directory patching for the cases that need a hostile archive. `run.rs` is unix-gated, because
+its stand-in interpreter is a shell script; the code it exercises is not, and its Windows branches
+are read against the same expectations. The rest of the suite does run there, which is how a
+Windows-only defect in preparation — a staging path canonicalised after the rename that had moved
+it, so that every preparation failed — was caught before the crate was published.
 
 <div class="h3-section-initial-part">
 
@@ -5684,7 +5721,8 @@ Stated plainly, because "the tests pass" is only meaningful next to this list.
 ::: info The escalation ladder
 `npm test` after every change. `cd docs && npm run build` when documentation changed. `npm run types`
 then `npm test` when a schema changed. The Python suite, `mypy`, the schema check, the wheel build
-and the distribution inspection when `python/` changed. A real build only when a human asks for one.
+and the distribution inspection when `python/` changed. `cargo test`, `cargo clippy`, the asset
+check and `cargo package` when `rust/` changed. A real build only when a human asks for one.
 :::
 
 ## 12. Appendices
@@ -5695,7 +5733,7 @@ and the distribution inspection when `python/` changed. A real build only when a
 
 Every JavaScript module the package ships, with the section that describes it. Four directories, one
 responsibility each: the format, what produces it, what signs it, what consumes it — and the command
-line over all of them.
+line over all of them. The Rust crate follows at the end, since it ships separately.
 
 </div>
 
@@ -5776,6 +5814,29 @@ line over all of them.
 | `src/cli-signing.mjs` | The read-only signing preflight | 7.6 |
 | `src/cli-run.mjs` | Translating a child's terminal result into this process's own | 8.8 |
 | `src/cli-output.mjs` | Status symbols, optional colour, and the distribution summary | 9.5 |
+
+</div>
+
+<div class="h4-section">
+
+#### `rust/src/` — the crate
+
+Published separately, and listed here because it implements the same section 8 as the modules above.
+
+| Module | Role | Section |
+| --- | --- | --- |
+| `error.rs` | One opaque error type and the `fail!` macro — the single failure path, deliberately not an enum a caller could match on and come to depend on | 8.1 |
+| `path.rs` | The path-safety primitive every extraction and attachment goes through | 8.2 |
+| `contract/` | The mirror: `targets.rs`, `documents.rs`, `links.rs`, `payload_digest.rs` | 5.2–5.5 |
+| `trust.rs` | The trust file, key rotation, and strict ed25519 verification | 7.4 |
+| `release.rs` | The typed release and box manifests, refusing an unknown field where the others run a schema | 8.1 |
+| `archive.rs` | Defensive reading and extraction, including the duplicate-name check the ZIP backend cannot make | 8.2, 8.6 |
+| `filesystem.rs` | Walking, sizing and validating an extracted tree, links included | 8.3 |
+| `execution.rs` | The static execution prerequisites | 8.4 |
+| `environment.rs` | Environment precedence, masking and the report | 8.4 |
+| `verify.rs` | Release inspection, manifest agreement, archive inspection | 8.2 |
+| `prepare.rs` | `PreparedBox` and the three ways to obtain one | 8.3, 8.9 |
+| `run.rs` | Shell-free execution, the `SpawnBox` seam, and caller-owned signal forwarding | 8.4, 8.5 |
 
 </div>
 

@@ -54,8 +54,8 @@ The consuming application must:
 - supply the local release, archive, and trust keys to a conforming consumer;
 - own updates, activation, rollback, and removal policy.
 
-The official Node and Python consumers verify, safely extract, and run local caller-supplied boxes.
-They do not select channels or download boxes.
+The official Node, Python, and Rust consumers verify, safely extract, and run local caller-supplied
+boxes. They do not select channels or download boxes.
 
 </Tab>
 </Tabs>
@@ -292,8 +292,9 @@ Scrollcase prepares the files, but does not upload them anywhere.
 
 ## Preparing and running a local box
 
-The Node API at `scrollcase/consumer` and the Python package imported as
-`scrollcase_consumer` accept local release documents, archives, trust keys, and destinations.
+The Node API at `scrollcase/consumer`, the Python package imported as `scrollcase_consumer`, and the
+Rust crate `scrollcase-consumer` accept local release documents, archives, trust keys, and
+destinations.
 They share verification, safe extraction, re-attachment to a persistent root, opt-in installed
 payload checking, execution, receipt, signal, cleanup, and on-demand asset semantics.
 

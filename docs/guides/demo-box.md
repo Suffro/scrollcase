@@ -111,8 +111,8 @@ prints is `sys.prefix`, which is the point: the interpreter answering is the one
 
 ### Run it from your own app
 
-The CLI is the quickest way to see a box work, but an application does not shell out to it: both
-consumers expose the same verify-then-run semantics as a library. `run-box.ts` and `run_box.py` are
+The CLI is the quickest way to see a box work, but an application does not shell out to it: every
+consumer exposes the same verify-then-run semantics as a library. `run-box.ts` and `run_box.py` are
 already in the folder you unpacked, so this is two commands, not a copy-paste.
 
 <Tabs :titles="['Node', 'Python']">
@@ -150,9 +150,10 @@ without repeating the trust chain itself.
 Neither file names the box archive. Both find the release document by its suffix and let the
 consumer resolve the archive beside it, under the hash that document commits to.
 
-The Python package is published separately: `npm install scrollcase` does not install it, and
-`pip install scrollcase-consumer` needs no Node at all. Full surface in the
-[Library APIs reference](/reference/api).
+The Python package and the Rust crate are published separately: `npm install scrollcase` installs
+neither, and `pip install scrollcase-consumer` or `cargo add scrollcase-consumer` needs no Node at
+all. There is no Rust file in the folder, but the same two calls verify and run this same box from a
+native application. Full surface in the [Library APIs reference](/reference/api).
 
 </Tab>
 </Tabs>

@@ -48,7 +48,7 @@ Scrollcase adds:
 - dependency licence inventory;
 - signed release metadata;
 - content-addressed archives;
-- safe extraction and execution through Node and Python consumers.
+- safe extraction and execution through Node, Python, and Rust consumers.
 
 ### Choose Pixi alone when
 
@@ -121,7 +121,7 @@ verify and consume it through a defined contract
 - the archive must be tied to a declarative source and committed lock;
 - the release needs signed identity, hashes, provenance, and runtime metadata;
 - hostile or malformed archives must be rejected before extraction;
-- Node and Python applications need the same documented consumption semantics;
+- Node, Python, and Rust applications need the same documented consumption semantics;
 - model files, licence inventory, and target metadata belong in the build contract.
 
 </Tab>

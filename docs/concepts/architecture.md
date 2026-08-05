@@ -30,7 +30,7 @@ flowchart LR
   P --> L
 ```
 
-Both consumers must agree on verification, safe extraction, attachment across restarts,
+Every consumer must agree on verification, safe extraction, attachment across restarts,
 installed-payload checking, execution, receipts, errors, signals, cleanup, and on-demand assets by
 passing the same language-neutral conformance cases. Generated or checked schema copies are
 projections of the canonical contract, never independent definitions.

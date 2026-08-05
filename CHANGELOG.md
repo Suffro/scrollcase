@@ -15,7 +15,9 @@ All notable changes to Scrollcase are documented here. The format follows
   private fields and no public constructor, so the rule that verification precedes execution is
   carried by the type system rather than by convention. Signals are forwarded through a channel the
   caller owns: a library that installed process-wide handlers would displace those of the application
-  embedding it.
+  embedding it. It is released independently on crates.io as `scrollcase-consumer`, requires Rust
+  1.88 or newer, forbids `unsafe`, and is synchronous throughout so an embedding application picks
+  its own runtime or none. Nothing in the npm package changed to accommodate it.
 
 ## [0.7.0] — 2026-08-03
 

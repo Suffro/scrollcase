@@ -74,7 +74,7 @@ Use **Scrollcase** when the goal is:
 - the publisher needs deterministic, content-addressed artifacts;
 - consumers must verify signatures, archive bytes, paths, and manifests before execution;
 - offline or air-gapped installation is required;
-- the project wants Node and Python consumers to follow the same contract.
+- the project wants Node, Python, and Rust consumers to follow the same contract.
 
 ## When to prefer simpler tools
 

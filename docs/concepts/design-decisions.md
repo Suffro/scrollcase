@@ -42,14 +42,15 @@ composable verifier into a distribution system.
 
 ## One contract, multiple consumer implementations
 
-`src/contract/` and its schemas remain the single source of truth. Node and Python expose the same
-verification, extraction, execution, receipt, error, signal, cleanup, and on-demand-asset semantics.
-Language-neutral fixtures and expected results prove their parity. The Python package carries
-checked generated copies of the canonical schemas; it does not hand-maintain a second format.
+`src/contract/` and its schemas remain the single source of truth. Node, Python, and Rust expose the
+same verification, extraction, execution, receipt, error, signal, cleanup, and on-demand-asset
+semantics. Language-neutral fixtures and expected results prove their parity. The Python package
+carries checked generated copies of the canonical schemas, and the crate checked copies of the same
+schemas and fixtures; neither hand-maintains a second format.
 
-**Rejected:** independent Node and Python contracts that merely look similar. Security behavior
-drifts at edge cases — links, traversal, collisions, signals, or argument handling — unless both
-implementations are held to the same observable cases.
+**Rejected:** independent per-language contracts that merely look similar. Security behavior
+drifts at edge cases — links, traversal, collisions, signals, or argument handling — unless every
+implementation is held to the same observable cases.
 
 ## Persistent installations earn a new receipt; payload verification stays separate
 

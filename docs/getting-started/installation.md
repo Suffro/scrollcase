@@ -9,8 +9,8 @@ Scrollcase is a Node.js command line tool. The CLI itself has no native dependen
 box for real additionally needs `pixi` and `conda-pack` on the machine that builds — and
 `scrollcase init` can install those for you, after asking.
 
-The Python consumer is a separate PyPI package. Installing `scrollcase` through npm does not provide
-the `scrollcase_consumer` Python module.
+The Python and Rust consumers are separate distributions. Installing `scrollcase` through npm
+provides neither the `scrollcase_consumer` Python module nor the `scrollcase-consumer` crate.
 
 ## Requirements at a glance
 
@@ -21,6 +21,7 @@ the `scrollcase_consumer` Python module.
 | Build a box (`build`) | Node.js ≥ 20, pinned `pixi`, conda-pack, and a local key or external signer |
 | Verify with `--self-test` | The same OS and architecture the box targets |
 | Consume an existing local box from Python | Python ≥ 3.10 and `scrollcase-consumer` |
+| Consume an existing local box from Rust | Rust ≥ 1.88 and the `scrollcase-consumer` crate |
 
 Auditing, key generation, signing primitives, and verification need no dependency toolchain.
 `lock` invokes pixi; `build` invokes both pixi and conda-pack.
@@ -68,6 +69,24 @@ starting any installation. If pip reports a PEP 668 externally managed interpret
 automatically retries as a user install, keeping package files outside the managed Python prefix.
 If you select conda-forge but the `conda` command is unavailable, it asks whether to continue with
 PyPI instead.
+
+## Install the Rust consumer
+
+A Rust application — a Tauri desktop client, a native service — consumes local boxes without a Node
+or Python runtime:
+
+```sh
+cargo add scrollcase-consumer
+```
+
+The crate name uses a hyphen and the import name an underscore:
+
+```rust
+use scrollcase_consumer::run::run_box;
+```
+
+Like the Python package it builds and downloads nothing, and `scrollcase init` does not install it:
+Cargo dependencies belong in the consuming crate's own manifest.
 
 ## Let Scrollcase install the toolchain
 

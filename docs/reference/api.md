@@ -1,6 +1,6 @@
 ---
 title: Library APIs
-description: The Node and Python surfaces for contracts, local consumers, build primitives, and signing.
+description: The Node, Python, and Rust surfaces for contracts, local consumers, build primitives, and signing.
 ---
 
 # Library APIs
@@ -289,6 +289,55 @@ The distribution is not a downloader: callers still supply local release, archiv
 destination, and on-demand asset paths. It verifies Ed25519 signatures with `cryptography` and
 validates bundled, generated copies of the canonical schemas.
 
+## `scrollcase-consumer` (Rust)
+
+The Rust crate mirrors the same local consumer for applications — a Tauri desktop client, a native
+service — that would otherwise have to embed a second runtime just to start a box:
+
+```sh
+cargo add scrollcase-consumer
+```
+
+```rust
+use std::path::Path;
+
+use scrollcase_consumer::prepare::{verify_and_extract_box, PrepareOptions};
+use scrollcase_consumer::run::{run_extracted_box, RunOptions};
+
+let prepared = verify_and_extract_box(
+    Path::new("release.json"),
+    &PrepareOptions {
+        public_key_path: Path::new("trusted-keys.json"),
+        archive: Some(Path::new("box.zip")),
+        destination: Path::new("/srv/boxes/example-1.0.0"),
+        environment: Default::default(),
+    },
+)?;
+
+let result = run_extracted_box(
+    &prepared,
+    &RunOptions {
+        args: vec!["--port".into(), "8080".into()],
+        env: vec![("APPLICATION_MODE".into(), "local".into())],
+        ..Default::default()
+    },
+)?;
+```
+
+`attach_extracted_box` and `verify_extracted_payload` behave exactly as their Node and Python
+counterparts, including the `attached` status and the refusal of a release that commits to no
+payload digest; `run_box` performs the same one-shot prepare/run/cleanup composition. The receipt
+fields are accessor methods (`prepared.box_id()`, `prepared.target_id()`,
+`prepared.environment_report()`) rather than public fields, because `PreparedBox` has no public
+constructor: the rule that verification precedes execution is carried by the type system, so a
+caller cannot assemble one without having verified a box.
+
+Everything is synchronous and needs no async runtime. Signals are forwarded from a channel the
+caller owns rather than through process-wide handlers, which a library embedded in someone else's
+application has no business installing. The crate forbids `unsafe`, and the modules are the same
+concerns as the other two consumers: `contract`, `trust`, `release`, `archive`, `filesystem`,
+`execution`, `environment`, `verify`, `prepare`, `run`.
+
 ## `scrollcase/contract`
 
 The single source of truth for what a box is. See [The Box Format](/reference/box-format).
@@ -466,7 +515,8 @@ pipeline without a real toolchain.
 
 ## Stability
 
-The exported surface follows the package version. The active v2 **format** — target IDs, document
+The exported surface follows the package version, and each consumer distribution — the npm package,
+the PyPI package, the crate — carries its own. The active v2 **format** — target IDs, document
 kinds, payload encoding, and signature algorithm — changes only through an explicit new schema
 version. The v2 API rejects v1 rather than widening its types or runtime paths into a compatibility
 union.
