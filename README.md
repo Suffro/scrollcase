@@ -69,13 +69,14 @@ npm install -g scrollcase
 scrollcase --version
 ```
 
-Python applications that only consume existing local boxes do not need the npm package or Node.js:
+Applications that only consume existing local boxes need neither the npm package nor Node.js:
 
 ```sh
-python -m pip install scrollcase-consumer
+python -m pip install scrollcase-consumer   # imported as scrollcase_consumer
+cargo add scrollcase-consumer               # imported as scrollcase_consumer
 ```
 
-The package is imported as `scrollcase_consumer`. It does not build or download boxes.
+Neither builds nor downloads boxes; both verify, prepare and run one the caller already holds.
 
 Otherwise from a checkout:
 
