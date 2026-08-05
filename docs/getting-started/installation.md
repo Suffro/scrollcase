@@ -45,11 +45,7 @@ scrollcase --version
 
 ### Install the Node consumer
 
-The Node consumer needs the scrollcase package to be installed:
-
-```sh
-npm install scrollcase
-```
+The Node consumer needs the scrollcase package to be installed, therefor if you already installed the scrollcase CLI, you do not have to install anything else, otherwise [install the CLI](#install-the-cli) first.
 
 The import name:
 
