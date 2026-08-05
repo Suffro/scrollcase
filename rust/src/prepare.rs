@@ -76,6 +76,23 @@ fn root_identity(path: &Path, _metadata: &Metadata) -> Result<RootIdentity> {
         .map_err(|error| Error::new(format!("cannot identify {}: {error}", path.display())))
 }
 
+/// Whether the directory that landed at the destination is the one that was staged.
+///
+/// On unix the inode pair survives a rename, so this is a real check: it catches the staged tree
+/// being swapped for another between the move and the receipt. Elsewhere a directory's identity *is*
+/// its path, and the rename changed the path deliberately, so there is nothing to compare — saying
+/// so is better than inventing a comparison that would either always pass or always fail.
+#[cfg(unix)]
+fn survived_the_rename(staged: &Metadata, installed: &Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt as _;
+    (staged.dev(), staged.ino()) == (installed.dev(), installed.ino())
+}
+
+#[cfg(not(unix))]
+fn survived_the_rename(_staged: &Metadata, installed: &Metadata) -> bool {
+    installed.is_dir()
+}
+
 /// The immutable result of a successfully verified box.
 #[derive(Debug, Clone)]
 pub struct PreparedBox {
@@ -423,7 +440,7 @@ fn prepare_into(
     })?;
 
     let installed = std::fs::symlink_metadata(final_root)?;
-    if root_identity(final_root, &installed)? != root_identity(&extracted_root, &staged)? {
+    if !survived_the_rename(&staged, &installed) {
         fail!("Prepared destination identity changed during installation.");
     }
 

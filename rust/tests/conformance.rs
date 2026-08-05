@@ -890,35 +890,39 @@ fn run_case(case: &Value, patterns: &Map<String, Value>) -> Outcome {
             .is_some_and(|call| call.stdio == [StdioMode::Piped; 3]));
     }
     if expected_raw.get("argv").is_some() {
-        let call = calls.calls.first().expect("a case asserting argv must spawn");
-        let root = destination.as_path();
-        actual["argv"] = json!(call
-            .argv
-            .iter()
-            .map(|value| normalize_path(root, value))
-            .collect::<Vec<_>>());
-        actual["cwd"] = json!(normalize_path(root, &call.cwd.to_string_lossy()));
-        // There is no shell option to report: the argument vector is passed as built, always.
-        actual["shell"] = json!(false);
+        // Reported as absent rather than asserted, so a case that failed before spawning shows the
+        // error that stopped it instead of an opaque panic here.
+        if let Some(call) = calls.calls.first() {
+            let root = destination.as_path();
+            actual["argv"] = json!(call
+                .argv
+                .iter()
+                .map(|value| normalize_path(root, value))
+                .collect::<Vec<_>>());
+            actual["cwd"] = json!(normalize_path(root, &call.cwd.to_string_lossy()));
+            // There is no shell option to report: the argument vector is passed as built, always.
+            actual["shell"] = json!(false);
+        }
     }
     if let Some(names) = expected_raw
         .get("effectiveEnvironment")
         .and_then(Value::as_object)
     {
-        let call = calls.calls.first().expect("a case asserting the environment must spawn");
-        actual["effectiveEnvironment"] = Value::Object(
-            names
-                .keys()
-                .map(|name| {
-                    (
-                        name.clone(),
-                        call.environment
-                            .get(name)
-                            .map_or(Value::Null, |value| json!(value)),
-                    )
-                })
-                .collect(),
-        );
+        if let Some(call) = calls.calls.first() {
+            actual["effectiveEnvironment"] = Value::Object(
+                names
+                    .keys()
+                    .map(|name| {
+                        (
+                            name.clone(),
+                            call.environment
+                                .get(name)
+                                .map_or(Value::Null, |value| json!(value)),
+                        )
+                    })
+                    .collect(),
+            );
+        }
     }
 
     Outcome { actual, expected }
