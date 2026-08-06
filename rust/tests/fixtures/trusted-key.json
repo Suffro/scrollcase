@@ -1,0 +1,6 @@
+{
+  "algorithm": "ed25519",
+  "keyId": "scrollcase-71146297b2a0d761",
+  "publicKeyBase64": "Fom+OnGSoGV6kdg6WVD2OrrhLUNuCUZ6A9GhKbcmSXs=",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAFom+OnGSoGV6kdg6WVD2OrrhLUNuCUZ6A9GhKbcmSXs=\n-----END PUBLIC KEY-----\n"
+}
