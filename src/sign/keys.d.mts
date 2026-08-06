@@ -34,6 +34,30 @@ export function readSigningKey({ privatePath, publicPath }: {
     metadata: TrustedKey;
 }>;
 /**
+ * Reads the two trust-file shapes from bytes or text a caller already holds.
+ *
+ * The point is that an application keeping its keys somewhere other than a file — a keyring, an
+ * environment variable, a secrets manager — no longer has to write them to disk to use them, which
+ * put key material on disk purely to satisfy a signature.
+ *
+ * @param {string | Buffer} source the contents of a trust file, not a path to one
+ * @returns {TrustedKey[]}
+ */
+export function parseTrustedKeys(source: string | Buffer): TrustedKey[];
+/**
+ * Resolves the one trust source a caller named into the keys verification runs against.
+ *
+ * Exactly one, never both and never neither: a caller that names two sources has not decided which
+ * keys it trusts, and silently preferring one of them would decide for it.
+ *
+ * @param {{ publicPath?: string | null, trustedKeys?: TrustedKey[] | null }} options
+ * @returns {Promise<TrustedKey[]>}
+ */
+export function resolveTrustedKeys({ publicPath, trustedKeys }?: {
+    publicPath?: string | null;
+    trustedKeys?: TrustedKey[] | null;
+}): Promise<TrustedKey[]>;
+/**
  * Signs payload bytes with a local key, producing the envelope the format defines.
  *
  * @param {Buffer} payloadBytes the exact bytes to sign, which are also the bytes published
@@ -56,17 +80,17 @@ export function decodeSignedDocument(document: import("../contract/types/index.d
     payload: unknown;
 };
 /**
- * Verifies a signed document against a trusted key file and returns its payload.
+ * Verifies a signed document against the caller's trusted keys and returns its payload.
  *
  * The document is accepted when *any one* signature verifies against a trusted key, which is what
  * allows a document signed by both an outgoing and an incoming key to stay valid across a rotation.
  *
  * @param {import('../contract/types/index.d.ts').SignedBoxDocument} document
- * @param {string} publicKeyPath a single trusted key, or a `{ keys: [...] }` bundle
+ * @param {string | TrustedKey[]} trust a trust file path, or the keys themselves
  * @returns {Promise<unknown>} the payload, once a signature has verified against a trusted key
  * @throws {Error} when no signature verifies
  */
-export function verifySignedDocument(document: import("../contract/types/index.d.ts").SignedBoxDocument, publicKeyPath: string): Promise<unknown>;
+export function verifySignedDocument(document: import("../contract/types/index.d.ts").SignedBoxDocument, trust: string | TrustedKey[]): Promise<unknown>;
 /**
  * A published public key, as written by `keygen` and read back when verifying.
  */

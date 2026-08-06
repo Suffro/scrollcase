@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { assertNativeHost, assertPythonEntryPoint, boxTargetAdapter, boxTargetId } from '../contract/targets.mjs';
 import { BOX_SCHEMA_VERSION, parseDocumentKind } from '../contract/documents.mjs';
-import { verifySignedDocument } from '../sign/index.mjs';
+import { resolveTrustedKeys, verifySignedDocument } from '../sign/index.mjs';
 
 const AGREEMENT_FIELDS = [
   'schemaVersion',
@@ -77,9 +77,9 @@ async function loadManifestSchemas() {
  * `inspectBoxArchive` exists to prevent.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null }} options exactly one source
  */
-export async function inspectReleaseDocument(releaseDocumentPath, { publicPath }) {
+export async function inspectReleaseDocument(releaseDocumentPath, { publicPath, trustedKeys }) {
   const releasePath = resolve(releaseDocumentPath);
   const signed = JSON.parse(await readFile(releasePath, 'utf8'));
   if (signed?.schemaVersion === 1) {
@@ -89,7 +89,7 @@ export async function inspectReleaseDocument(releaseDocumentPath, { publicPath }
     await loadManifestSchemas();
   const signedError = schemaValidationError(signed, signedSchema);
   if (signedError) fail(`Invalid signed document: ${signedError}.`);
-  const release = await verifySignedDocument(signed, publicPath);
+  const release = await verifySignedDocument(signed, await resolveTrustedKeys({ publicPath, trustedKeys }));
   if (release?.schemaVersion === 1) {
     fail('Unsupported schemaVersion 1; rebuild this box with Scrollcase v2.');
   }
@@ -124,14 +124,14 @@ export async function inspectReleaseDocument(releaseDocumentPath, { publicPath }
  * in-memory objects and exact archive path, but extraction and execution remain separate steps.
  */
 export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
-  const { publicPath, archive: archiveOverride = null } = options;
+  const { publicPath, trustedKeys, archive: archiveOverride = null } = options;
   const {
     releasePath,
     signed,
     release,
     adapter,
     schemas: { releaseSchema, boxSchema, targetSchema, executionSchema },
-  } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
+  } = await inspectReleaseDocument(releaseDocumentPath, { publicPath, trustedKeys });
 
   // The archive sits next to its release document under the hash that document commits to — the
   // same name it is published under, so this resolves identically against a local dist tree and a
@@ -183,7 +183,8 @@ export async function inspectBoxArchive(releaseDocumentPath, options = {}) {
 /**
  * Verifies a signed release document and the archive it commits to.
  *
- * `publicPath` names the trusted key file; `archive` overrides the convention of the archive
+ * `publicPath` names the trusted key file, or `trustedKeys` supplies the keys directly; `archive`
+ * overrides the convention of the archive
  * sitting next to its release document; `selfTest` additionally extracts the box and runs its own
  * interpreter, which only works on a matching native host. Returns a summary of what was checked.
  */

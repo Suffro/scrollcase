@@ -198,12 +198,14 @@ function mintReceipt(status, {
  * rename stays on one filesystem and exposes either the complete verified tree or nothing.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, archive?: string | null, destination: string,
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null,
+ *   archive?: string | null, destination: string,
  *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
 export async function verifyAndExtractBox(releaseDocumentPath, {
   publicPath,
+  trustedKeys,
   archive = null,
   destination,
   envReport = false,
@@ -213,7 +215,7 @@ export async function verifyAndExtractBox(releaseDocumentPath, {
   const finalRoot = resolve(destination);
   if (await pathExists(finalRoot)) fail(`Destination already exists: ${finalRoot}`);
 
-  const inspected = await inspectBoxArchive(releaseDocumentPath, { publicPath, archive });
+  const inspected = await inspectBoxArchive(releaseDocumentPath, { publicPath, trustedKeys, archive });
   const {
     archivePath,
     signed,
@@ -291,17 +293,19 @@ async function resolveExtractedRoot(root) {
  * minted here exists to be executed.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null, root: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
 export async function attachExtractedBox(releaseDocumentPath, {
   publicPath,
+  trustedKeys,
   root,
   envReport = false,
   envReportValues = false,
 }) {
   const { root: boxRoot, metadata } = await resolveExtractedRoot(root);
-  const { signed, release, adapter } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
+  const { signed, release, adapter } = await inspectReleaseDocument(releaseDocumentPath, { publicPath, trustedKeys });
   try {
     assertNativeHost(adapter);
   } catch {
@@ -365,17 +369,19 @@ export async function attachExtractedBox(releaseDocumentPath, {
  * release describes, and is it still whole.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null, root: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PayloadVerification>>}
  */
 export async function verifyExtractedPayload(releaseDocumentPath, {
   publicPath,
+  trustedKeys,
   root,
   envReport = false,
   envReportValues = false,
 }) {
   const { root: boxRoot } = await resolveExtractedRoot(root);
-  const { release } = await inspectReleaseDocument(releaseDocumentPath, { publicPath });
+  const { release } = await inspectReleaseDocument(releaseDocumentPath, { publicPath, trustedKeys });
   if (release.payloadDigest === undefined) {
     fail('This release does not commit to a payload digest; it was built before payload verification existed.');
   }

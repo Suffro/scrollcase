@@ -3973,7 +3973,7 @@ ports; they are three mirrors of one contract, and they are held to it by the sa
 | Verify an installed payload | `verifyExtractedPayload()` | `verify_extracted_payload()` | `verify_extracted_payload()` |
 | Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` | `run_extracted_box()` |
 | One-shot run | `runBox()` | `run_box()` | `run_box()` |
-| Trust source | `publicKeyPath` | `public_key_path` | `TrustAnchors`: a trust file, or keys the caller holds |
+| Trust source | `publicPath` or `trustedKeys` | `public_key_path` or `trusted_keys` | `TrustAnchors::KeyFile` or `::Keys` |
 | Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass | `PreparedBox` with private fields |
 | Failure | `fail()` → `Error` | `ScrollcaseConsumerError` | `fail!()` → opaque `Error` |
 | Private state binding | `WeakMap` | `weakref.WeakKeyDictionary` | private fields, no public constructor |
@@ -3992,14 +3992,21 @@ newer). It forbids `unsafe`, is synchronous throughout so an application chooses
 none, and — being a library embedded in someone else's process — installs no signal handler of its
 own.
 
-It also differs on one deliberate point: where the trusted keys come from. Node and Python are
-invoked by something that is already a script on the operator's machine, and a trust file is the
-natural form there. The crate is compiled into an application handed to someone else, and a trust
-file beside that application is editable by whoever holds the machine — so editing it, signing a box
-with the substituted key, and having the application accept the result is a chain the format cannot
-close from the inside. `TrustAnchors::Keys` closes it, by letting an application carry anchors it
-compiled in. This is not a second verification path: both sources resolve to the same slice of keys
-at the entry point, and everything below sees one. Where Node and Python validate a release against the canonical schemas at run time, the crate
+All three take their trusted keys from a file **or** from the caller directly, and for the same
+reason: an application that holds its keys in a keyring, an environment variable or a secrets
+manager should not have to write key material to disk to check a signature. Naming both sources, or
+neither, is refused rather than resolved by preference — a caller that named two has not decided
+which keys it trusts. In every implementation the named source is resolved once, at the entry point,
+and everything below it sees one list of keys; supplying them directly is not a second verification
+path.
+
+What differs is what that buys. In Rust it additionally closes a chain the format cannot close from
+the inside: the crate is compiled into an application handed to someone else, a trust file beside
+that application is editable by whoever holds the machine, and editing it, signing a box with the
+substituted key, and having the application accept the result is otherwise a complete attack.
+Anchors compiled in with `include_str!` move that decision into the binary. The same trick buys
+Node and Python far less, because there is no binary: a hard-coded key sits in a source file the
+attacker can edit exactly as easily as the trust file. Where Node and Python validate a release against the canonical schemas at run time, the crate
 encodes those schemas as types that refuse an unknown field; `rust/tests/schema.rs` then proves the
 types and the schemas still agree, with `jsonschema` as a development dependency that never reaches
 a consumer.
@@ -5924,7 +5931,9 @@ disk beside the installed package rather than something a browser can fetch.
 | `generateSigningKey` | Creates a local [ed25519](#ed25519) pair, writing the private and public files |
 | `readSigningKey` | Reads a pair back, cross-checking that the two files belong together |
 | `signDocument` | Signs a payload with a local key, or through an external signer command |
-| `verifySignedDocument` | Verifies an envelope against a [trust key](#trust-key) set |
+| `verifySignedDocument` | Verifies an envelope against a [trust key](#trust-key) set, named by path or supplied directly |
+| `parseTrustedKeys` | Reads both trust-file shapes from text or bytes rather than from a path |
+| `resolveTrustedKeys` | Resolves exactly one named trust source — `publicPath` or `trustedKeys` — into the keys verification runs against |
 | `decodeSignedDocument` | Decodes an envelope **without** verifying it — named for what it does not do |
 | `verifyAndExtractBox` | Verifies a local box and prepares it at a destination, returning a receipt |
 | `attachExtractedBox` | Re-identifies an already-extracted box in a new process, without its archive |

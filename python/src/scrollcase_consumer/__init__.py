@@ -17,6 +17,7 @@ from .models import (
 )
 from .run import run_box, run_extracted_box
 from .verify import (
+    parse_trusted_keys,
     attach_extracted_box,
     verify_and_extract_box,
     verify_extracted_payload,
@@ -39,6 +40,7 @@ __all__ = [
     "attach_extracted_box",
     "run_box",
     "run_extracted_box",
+    "parse_trusted_keys",
     "verify_and_extract_box",
     "verify_extracted_payload",
 ]

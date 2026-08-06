@@ -16,10 +16,11 @@ export function assertBoxManifestAgreement(box: any, release: any): void;
  * `inspectBoxArchive` exists to prevent.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null }} options exactly one source
  */
-export function inspectReleaseDocument(releaseDocumentPath: string, { publicPath }: {
-    publicPath: string;
+export function inspectReleaseDocument(releaseDocumentPath: string, { publicPath, trustedKeys }: {
+    publicPath?: string | null;
+    trustedKeys?: object[] | null;
 }): Promise<{
     releasePath: string;
     signed: any;
@@ -57,7 +58,8 @@ export function inspectBoxArchive(releaseDocumentPath: any, options?: {}): Promi
 /**
  * Verifies a signed release document and the archive it commits to.
  *
- * `publicPath` names the trusted key file; `archive` overrides the convention of the archive
+ * `publicPath` names the trusted key file, or `trustedKeys` supplies the keys directly; `archive`
+ * overrides the convention of the archive
  * sitting next to its release document; `selfTest` additionally extracts the box and runs its own
  * interpreter, which only works on a matching native host. Returns a summary of what was checked.
  */

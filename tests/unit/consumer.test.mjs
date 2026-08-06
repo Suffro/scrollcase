@@ -24,6 +24,7 @@ import {
   verifyExtractedPayload,
 } from '../../src/consumer/index.mjs';
 import { PAYLOAD_DIGEST_FILE } from '../../src/contract/payload-digest.mjs';
+import { parseTrustedKeys } from '../../src/sign/index.mjs';
 import {
   createConsumerBoxFixture,
   writeSignedRelease,
@@ -194,6 +195,31 @@ describe('Node consumer re-attachment', () => {
     });
     return { fixture, root };
   }
+
+  it('accepts keys the caller already holds, so key material need not reach disk', async () => {
+    const { fixture, root } = await installed();
+    // What an application reads out of a keyring or an environment variable. Parsed by the package
+    // rather than at the call site, so both trust sources read the trust-file shapes identically.
+    const trustedKeys = parseTrustedKeys(await readFile(fixture.publicPath, 'utf8'));
+
+    const attached = await attachExtractedBox(fixture.releasePath, { trustedKeys, root });
+    expect(attached).toMatchObject({ status: 'attached', boxId: 'consumer-fixture' });
+
+    // Genuinely checking, not waving the box through because a file was not named.
+    await expect(attachExtractedBox(fixture.releasePath, {
+      trustedKeys: [{ ...trustedKeys[0], keyId: 'someone-else' }],
+      root,
+    })).rejects.toThrow(/no valid signature/);
+
+    // Naming both sources is a caller that has not decided; naming neither is unverifiable.
+    await expect(attachExtractedBox(fixture.releasePath, {
+      publicPath: fixture.publicPath,
+      trustedKeys,
+      root,
+    })).rejects.toThrow(/not both/);
+    await expect(attachExtractedBox(fixture.releasePath, { root }))
+      .rejects.toThrow(/trusted key file or trusted keys are required/);
+  });
 
   it('mints a receipt from an existing directory, marked for what it did not check', async () => {
     const { fixture, root } = await installed();

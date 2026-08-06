@@ -285,6 +285,11 @@ previous handlers are restored.
 models. Their fields mirror the Node structure in snake case; `BoxRunResult` and every verification
 receipt include one.
 
+Every operation takes `public_key_path` **or** `trusted_keys`, exactly one, and
+`parse_trusted_keys(source)` reads both trust-file shapes from text or bytes — so an application
+holding its keys in a keyring, an environment variable or a secrets manager verifies against them
+directly instead of writing key material to a file first.
+
 The distribution is not a downloader: callers still supply local release, archive, trust-key,
 destination, and on-demand asset paths. It verifies Ed25519 signatures with `cryptography` and
 validates bundled, generated copies of the canonical schemas.
@@ -455,11 +460,15 @@ for (const { target } of cases.invalid) {
 | `generateSigningKey` | `({ privatePath, publicPath, keyId, force }) => Promise<{ keyId, privatePath, publicPath }>` | What `keygen` runs. Refuses to overwrite without `force` |
 | `readSigningKey` | `({ privatePath, publicPath }) => Promise<{ privateKey, metadata }>` | Loads the private key and cross-checks it against the published public key |
 | `signDocument` | `(payload, { signerCommand, privatePath, publicPath, runResult }) => Promise<Document>` | Wraps a payload in the signed envelope, locally or through an external signer; `runResult` is an optional process seam |
-| `verifySignedDocument` | `(document, publicKeyPath) => Promise<object>` | Verifies against a trusted key file and returns the payload. Throws otherwise |
+| `verifySignedDocument` | `(document, trust) => Promise<object>` | Verifies against a trusted key file path or an array of keys, and returns the payload. Throws otherwise |
+| `parseTrustedKeys` | `(source) => TrustedKey[]` | Reads both trust-file shapes from text or bytes a caller already holds, rather than from a path |
+| `resolveTrustedKeys` | `({ publicPath, trustedKeys }) => Promise<TrustedKey[]>` | Resolves exactly one named trust source into the keys verification runs against |
 | `decodeSignedDocument` | `(document) => { bytes, payload }` | Unwraps and checks the payload hash. Does **not** check the signature |
 
 The trusted key file is either a single key object or a `{ "keys": [...] }` bundle; a document is
-accepted when any one of its signatures verifies. See
+accepted when any one of its signatures verifies. Every consumer operation takes `publicPath` **or**
+`trustedKeys`, exactly one: an application holding its keys in a keyring, an environment variable or
+a secrets manager should not have to write them to disk to verify a signature. See
 [Signing & Key Custody](/guides/signing-and-custody).
 
 ## `scrollcase/build`

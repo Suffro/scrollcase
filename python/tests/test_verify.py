@@ -13,6 +13,7 @@ from scrollcase_consumer import (
     PreparedBox,
     ScrollcaseConsumerError,
     attach_extracted_box,
+    parse_trusted_keys,
     verify_and_extract_box,
     verify_extracted_payload,
 )
@@ -258,6 +259,35 @@ class ReattachmentTests(unittest.TestCase):
             public_key_path=self.fixture.public_key_path,
             root=self.root if root is None else root,
         )
+
+    def test_accepts_keys_the_caller_already_holds(self) -> None:
+        # What an application reads out of a keyring or an environment variable. Parsed by the
+        # package rather than at the call site, so both trust sources read the shapes identically.
+        keys = parse_trusted_keys(Path(self.fixture.public_key_path).read_text("utf8"))
+
+        attached = attach_extracted_box(
+            self.fixture.release_path, trusted_keys=keys, root=self.root
+        )
+        self.assertEqual(attached.status, "attached")
+        self.assertEqual(attached.box_id, "consumer-fixture")
+
+        # Genuinely checking, not waving the box through because no file was named.
+        stranger = [{**keys[0], "keyId": "someone-else"}]
+        with self.assertRaisesRegex(ScrollcaseConsumerError, "no valid signature"):
+            attach_extracted_box(
+                self.fixture.release_path, trusted_keys=stranger, root=self.root
+            )
+
+        # Naming both sources is a caller that has not decided; naming neither is unverifiable.
+        with self.assertRaisesRegex(ScrollcaseConsumerError, "not both"):
+            attach_extracted_box(
+                self.fixture.release_path,
+                public_key_path=self.fixture.public_key_path,
+                trusted_keys=keys,
+                root=self.root,
+            )
+        with self.assertRaisesRegex(ScrollcaseConsumerError, "are required"):
+            attach_extracted_box(self.fixture.release_path, root=self.root)
 
     def test_mints_a_receipt_marked_for_what_it_did_not_check(self) -> None:
         attached = self.attach()

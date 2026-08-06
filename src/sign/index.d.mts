@@ -18,4 +18,4 @@ export function signDocument(payload: unknown, { signerCommand, privatePath, pub
     runResult?: typeof defaultRunResult;
 }): Promise<import("../contract/types/index.d.ts").SignedBoxDocument>;
 import { runResult as defaultRunResult } from '../build/process.mjs';
-export { decodeSignedDocument, generateSigningKey, readSigningKey, verifySignedDocument } from "./keys.mjs";
+export { decodeSignedDocument, generateSigningKey, parseTrustedKeys, readSigningKey, resolveTrustedKeys, verifySignedDocument } from "./keys.mjs";

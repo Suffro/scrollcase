@@ -27,12 +27,14 @@ export function verifyRequiredAssets(root: string, assets: readonly RequiredAsse
  * rename stays on one filesystem and exposes either the complete verified tree or nothing.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, archive?: string | null, destination: string,
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null,
+ *   archive?: string | null, destination: string,
  *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
-export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, archive, destination, envReport, envReportValues, }: {
-    publicPath: string;
+export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, trustedKeys, archive, destination, envReport, envReportValues, }: {
+    publicPath?: string | null;
+    trustedKeys?: object[] | null;
     archive?: string | null;
     destination: string;
     envReport?: boolean;
@@ -51,11 +53,13 @@ export function verifyAndExtractBox(releaseDocumentPath: string, { publicPath, a
  * minted here exists to be executed.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null, root: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PreparedBox>>}
  */
-export function attachExtractedBox(releaseDocumentPath: string, { publicPath, root, envReport, envReportValues, }: {
-    publicPath: string;
+export function attachExtractedBox(releaseDocumentPath: string, { publicPath, trustedKeys, root, envReport, envReportValues, }: {
+    publicPath?: string | null;
+    trustedKeys?: object[] | null;
     root: string;
     envReport?: boolean;
     envReportValues?: boolean;
@@ -83,11 +87,13 @@ export function attachExtractedBox(releaseDocumentPath: string, { publicPath, ro
  * release describes, and is it still whole.
  *
  * @param {string} releaseDocumentPath
- * @param {{ publicPath: string, root: string, envReport?: boolean, envReportValues?: boolean }} options
+ * @param {{ publicPath?: string | null, trustedKeys?: object[] | null, root: string,
+ *   envReport?: boolean, envReportValues?: boolean }} options
  * @returns {Promise<Readonly<PayloadVerification>>}
  */
-export function verifyExtractedPayload(releaseDocumentPath: string, { publicPath, root, envReport, envReportValues, }: {
-    publicPath: string;
+export function verifyExtractedPayload(releaseDocumentPath: string, { publicPath, trustedKeys, root, envReport, envReportValues, }: {
+    publicPath?: string | null;
+    trustedKeys?: object[] | null;
     root: string;
     envReport?: boolean;
     envReportValues?: boolean;

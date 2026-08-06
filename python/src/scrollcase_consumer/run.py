@@ -210,7 +210,8 @@ def run_extracted_box(
 def run_box(
     release_document_path: str | os.PathLike[str],
     *,
-    public_key_path: str | os.PathLike[str],
+    public_key_path: str | os.PathLike[str] | None = None,
+    trusted_keys: Sequence[Mapping[str, Any]] | None = None,
     archive: str | os.PathLike[str] | None = None,
     args: Sequence[str] = (),
     env: Mapping[str, str] | None = None,
@@ -238,6 +239,7 @@ def run_box(
         prepared = verify_and_extract_box(
             release_document_path,
             public_key_path=public_key_path,
+            trusted_keys=trusted_keys,
             archive=archive,
             destination=temporary_root / "box",
             env_report=env_report,

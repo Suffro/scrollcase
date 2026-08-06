@@ -18,7 +18,9 @@ import { readSigningKey, signWithLocalKey, verifySignedDocument } from './keys.m
 export {
   decodeSignedDocument,
   generateSigningKey,
+  parseTrustedKeys,
   readSigningKey,
+  resolveTrustedKeys,
   verifySignedDocument,
 } from './keys.mjs';
 

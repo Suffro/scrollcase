@@ -18,7 +18,7 @@ import tempfile
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Mapping, Sequence, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
@@ -126,14 +126,53 @@ def _trusted_keys(value: object) -> list[Mapping[str, Any]]:
     return [cast(Mapping[str, Any], entry) for entry in entries]
 
 
+def parse_trusted_keys(source: str | bytes) -> list[Mapping[str, Any]]:
+    """Read both trust-file shapes from text or bytes a caller already holds.
+
+    The point is that an application keeping its keys somewhere other than a file — a keyring, an
+    environment variable, a secrets manager — no longer has to write them to disk to use them,
+    which put key material on disk purely to satisfy a signature.
+    """
+
+    try:
+        value = json.loads(source)
+    except ValueError as error:
+        raise ScrollcaseConsumerError("Invalid trusted ed25519 key file.") from error
+    return _trusted_keys(value)
+
+
+def _resolve_trusted_keys(
+    public_key_path: str | os.PathLike[str] | None,
+    trusted_keys: Sequence[Mapping[str, Any]] | None,
+) -> list[Mapping[str, Any]]:
+    """Resolve the one trust source a caller named into the keys verification runs against.
+
+    Exactly one, never both and never neither: a caller that names two sources has not decided
+    which keys it trusts, and silently preferring one of them would decide for it.
+    """
+
+    if public_key_path is not None and trusted_keys is not None:
+        raise ScrollcaseConsumerError(
+            "Name either a trusted key file or trusted keys, not both."
+        )
+    if trusted_keys is not None:
+        return _trusted_keys({"keys": list(trusted_keys)})
+    if public_key_path is None:
+        raise ScrollcaseConsumerError(
+            "A trusted key file or trusted keys are required."
+        )
+    return _trusted_keys(
+        _read_json(absolute_path(public_key_path), "trusted ed25519 key file")
+    )
+
+
 def _verify_signed_document(
     signed: dict[str, Any],
-    public_key_path: Path,
+    trusted: Sequence[Mapping[str, Any]],
 ) -> tuple[bytes, dict[str, Any]]:
     payload_bytes = _decode_base64(signed["payloadBase64"], "signed payload base64")
     if sha256_bytes(payload_bytes) != signed["payloadSha256"]:
         raise ScrollcaseConsumerError("Signed payload SHA-256 mismatch.")
-    trusted = _trusted_keys(_read_json(public_key_path, "trusted ed25519 key file"))
     valid = False
     for signature in cast(list[dict[str, Any]], signed["signatures"]):
         key = next(
@@ -210,7 +249,7 @@ class _InspectedRelease:
 
 def _inspect_release_document(
     release_document_path: str | os.PathLike[str],
-    public_key_path: str | os.PathLike[str],
+    trusted: Sequence[Mapping[str, Any]],
 ) -> _InspectedRelease:
     """Performs the half of the trust chain that needs no archive.
 
@@ -226,7 +265,7 @@ def _inspect_release_document(
         )
     validate_schema(signed_value, "signed-document.schema.json", "signed document")
     signed = cast(dict[str, Any], signed_value)
-    _, release = _verify_signed_document(signed, absolute_path(public_key_path))
+    _, release = _verify_signed_document(signed, trusted)
     if release.get("schemaVersion") == 1:
         raise ScrollcaseConsumerError(
             "Unsupported schemaVersion 1; rebuild this box with Scrollcase v2."
@@ -257,10 +296,10 @@ def _inspect_release_document(
 
 def _inspect_box_archive(
     release_document_path: str | os.PathLike[str],
-    public_key_path: str | os.PathLike[str],
+    trusted: Sequence[Mapping[str, Any]],
     archive: str | os.PathLike[str] | None,
 ) -> _InspectedBox:
-    inspected = _inspect_release_document(release_document_path, public_key_path)
+    inspected = _inspect_release_document(release_document_path, trusted)
     release_path = inspected.release_path
     signed = inspected.signed
     release = inspected.release
@@ -325,7 +364,8 @@ def _inspect_box_archive(
 def verify_and_extract_box(
     release_document_path: str | os.PathLike[str],
     *,
-    public_key_path: str | os.PathLike[str],
+    public_key_path: str | os.PathLike[str] | None = None,
+    trusted_keys: Sequence[Mapping[str, Any]] | None = None,
     destination: str | os.PathLike[str],
     archive: str | os.PathLike[str] | None = None,
     env_report: bool = False,
@@ -338,7 +378,7 @@ def verify_and_extract_box(
         raise ScrollcaseConsumerError(f"Destination already exists: {final_root}")
     inspected = _inspect_box_archive(
         release_document_path,
-        public_key_path,
+        _resolve_trusted_keys(public_key_path, trusted_keys),
         archive,
     )
     release = inspected.release
@@ -474,7 +514,8 @@ def _resolve_extracted_root(root: str | os.PathLike[str]) -> tuple[Path, os.stat
 def attach_extracted_box(
     release_document_path: str | os.PathLike[str],
     *,
-    public_key_path: str | os.PathLike[str],
+    public_key_path: str | os.PathLike[str] | None = None,
+    trusted_keys: Sequence[Mapping[str, Any]] | None = None,
     root: str | os.PathLike[str],
     env_report: bool = False,
     env_report_values: bool = False,
@@ -489,7 +530,9 @@ def attach_extracted_box(
     """
 
     box_root, metadata = _resolve_extracted_root(root)
-    inspected = _inspect_release_document(release_document_path, public_key_path)
+    inspected = _inspect_release_document(
+        release_document_path, _resolve_trusted_keys(public_key_path, trusted_keys)
+    )
     release = inspected.release
     target = inspected.target
     assert_native_host(target)
@@ -563,7 +606,8 @@ def attach_extracted_box(
 def verify_extracted_payload(
     release_document_path: str | os.PathLike[str],
     *,
-    public_key_path: str | os.PathLike[str],
+    public_key_path: str | os.PathLike[str] | None = None,
+    trusted_keys: Sequence[Mapping[str, Any]] | None = None,
     root: str | os.PathLike[str],
     env_report: bool = False,
     env_report_values: bool = False,
@@ -579,7 +623,9 @@ def verify_extracted_payload(
     """
 
     box_root, _ = _resolve_extracted_root(root)
-    release = _inspect_release_document(release_document_path, public_key_path).release
+    release = _inspect_release_document(
+        release_document_path, _resolve_trusted_keys(public_key_path, trusted_keys)
+    ).release
     payload_digest = release.get("payloadDigest")
     if payload_digest is None:
         raise ScrollcaseConsumerError(

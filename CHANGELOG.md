@@ -40,6 +40,19 @@ All notable changes to Scrollcase are documented here. The format follows
   the `{ "keys": [...] }` bundle rather than a single key. Both keys are trusted at once, which is
   what lets a rotation land without stranding the boxes signed by the outgoing one.
 
+- The same in-memory trust source for the Node and Python consumers, additively: every operation
+  takes `publicPath` **or** `trustedKeys` (`public_key_path` or `trusted_keys`), exactly one, and
+  `parseTrustedKeys` / `parse_trusted_keys` reads both trust-file shapes from text or bytes. An
+  application holding its keys in a keyring, an environment variable or a secrets manager had to
+  write them to a file to verify a signature — putting key material on disk for no reason but the
+  API's shape. Naming both sources or neither is refused rather than resolved by preference.
+
+  Nothing is removed and no signature changes meaning, so existing callers are unaffected. Unlike
+  the crate, this is not about compiling anchors in: a hard-coded key in a script is as editable as
+  the trust file beside it, so the security argument that shaped the Rust change does not carry —
+  only the plain one, that a library should not force a caller's key material through the
+  filesystem.
+
 - An `unsupported-schema-version` error pattern and case in `consumer-conformance.json`, so the
   refusal of a `schemaVersion: 1` document is pinned across all three consumers instead of only being
   asserted per language. Without it, dropping the by-name refusal degrades the message to a schema

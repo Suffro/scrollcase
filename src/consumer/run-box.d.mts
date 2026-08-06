@@ -1,6 +1,7 @@
 /**
  * @typedef {import('./run-extracted.mjs').RunExtractedBoxOptions & {
- *   publicPath: string,
+ *   publicPath?: string | null,
+ *   trustedKeys?: object[] | null,
  *   archive?: string | null,
  *   temporaryDirectory?: string,
  *   onPrepared?: (prepared: Readonly<import('./verify-and-extract.mjs').PreparedBox>) =>
@@ -16,7 +17,8 @@
  */
 export function runBox(releaseDocumentPath: string, options: RunBoxOptions): Promise<import("./run-extracted.mjs").BoxRunResult>;
 export type RunBoxOptions = import("./run-extracted.mjs").RunExtractedBoxOptions & {
-    publicPath: string;
+    publicPath?: string | null;
+    trustedKeys?: object[] | null;
     archive?: string | null;
     temporaryDirectory?: string;
     onPrepared?: (prepared: Readonly<import("./verify-and-extract.mjs").PreparedBox>) => void | Promise<void>;

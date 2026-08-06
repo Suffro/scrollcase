@@ -14,7 +14,8 @@ import { verifyAndExtractBox } from './verify-and-extract.mjs';
 
 /**
  * @typedef {import('./run-extracted.mjs').RunExtractedBoxOptions & {
- *   publicPath: string,
+ *   publicPath?: string | null,
+ *   trustedKeys?: object[] | null,
  *   archive?: string | null,
  *   temporaryDirectory?: string,
  *   onPrepared?: (prepared: Readonly<import('./verify-and-extract.mjs').PreparedBox>) =>
@@ -35,6 +36,7 @@ export async function runBox(releaseDocumentPath, options) {
   try {
     const prepared = await verifyAndExtractBox(releaseDocumentPath, {
       publicPath: options.publicPath,
+      trustedKeys: options.trustedKeys,
       archive: options.archive,
       destination: join(temporaryRoot, 'box'),
       envReport: options.envReport,
