@@ -7,6 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
+use scrollcase_consumer::trust::TrustAnchors;
 use scrollcase_consumer::verify::inspect_release_document;
 
 fn fixture(name: &str) -> PathBuf {
@@ -41,7 +42,7 @@ fn scratch() -> PathBuf {
 #[test]
 fn a_genuine_signed_release_is_accepted_and_fully_interpreted() {
     let inspected =
-        inspect_release_document(&fixture("signed-release.json"), &fixture("trusted-key.json"))
+        inspect_release_document(&fixture("signed-release.json"), TrustAnchors::KeyFile(&fixture("trusted-key.json")))
             .expect("the fixture release must verify");
 
     assert_eq!(inspected.release.schema_version, 2);
@@ -62,7 +63,7 @@ fn nothing_survives_an_edit_to_the_signed_bytes() {
     let altered_payload = mutated(&directory, |document| {
         document["payloadBase64"] = serde_json::json!("eyJzY2hlbWFWZXJzaW9uIjoyfQ==");
     });
-    let error = inspect_release_document(&altered_payload, &fixture("trusted-key.json")).unwrap_err();
+    let error = inspect_release_document(&altered_payload, TrustAnchors::KeyFile(&fixture("trusted-key.json"))).unwrap_err();
     assert!(
         error.message().contains("Signed payload SHA-256 mismatch"),
         "{error}"
@@ -77,21 +78,21 @@ fn nothing_survives_an_edit_to_the_signed_bytes() {
         document["payloadBase64"] = serde_json::json!(BASE64.encode(payload));
         document["payloadSha256"] = serde_json::json!(sha256_hex(payload));
     });
-    let error = inspect_release_document(&restated, &fixture("trusted-key.json")).unwrap_err();
+    let error = inspect_release_document(&restated, TrustAnchors::KeyFile(&fixture("trusted-key.json"))).unwrap_err();
     assert!(error.message().contains("no valid signature"), "{error}");
 
     // A signature naming a key this caller does not trust.
     let foreign_key = mutated(&directory, |document| {
         document["signatures"][0]["keyId"] = serde_json::json!("someone-elses-key");
     });
-    let error = inspect_release_document(&foreign_key, &fixture("trusted-key.json")).unwrap_err();
+    let error = inspect_release_document(&foreign_key, TrustAnchors::KeyFile(&fixture("trusted-key.json"))).unwrap_err();
     assert!(error.message().contains("no valid signature"), "{error}");
 
     // A v1 envelope is refused by name rather than reinterpreted.
     let legacy = mutated(&directory, |document| {
         document["schemaVersion"] = serde_json::json!(1);
     });
-    let error = inspect_release_document(&legacy, &fixture("trusted-key.json")).unwrap_err();
+    let error = inspect_release_document(&legacy, TrustAnchors::KeyFile(&fixture("trusted-key.json"))).unwrap_err();
     assert!(
         error.message().contains("Unsupported schemaVersion 1"),
         "{error}"

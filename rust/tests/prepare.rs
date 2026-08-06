@@ -9,6 +9,7 @@ use scrollcase_consumer::prepare::{
     attach_extracted_box, verify_and_extract_box, verify_extracted_payload, AttachOptions,
     EnvironmentReportOptions, PrepareOptions, PreparedStatus,
 };
+use scrollcase_consumer::trust::{parse_trusted_keys, TrustAnchors};
 use serde_json::json;
 // Only the link case needs it, and that case is unix-gated.
 #[cfg(unix)]
@@ -19,7 +20,7 @@ fn prepare_options<'a>(
     destination: &'a std::path::Path,
 ) -> PrepareOptions<'a> {
     PrepareOptions {
-        public_key_path: &fixture.key_path,
+        trust: TrustAnchors::KeyFile(&fixture.key_path),
         archive: Some(&fixture.archive_path),
         destination,
         environment: EnvironmentReportOptions::default(),
@@ -31,7 +32,7 @@ fn attach_options<'a>(
     root: &'a std::path::Path,
 ) -> AttachOptions<'a> {
     AttachOptions {
-        public_key_path: &fixture.key_path,
+        trust: TrustAnchors::KeyFile(&fixture.key_path),
         root,
         environment: EnvironmentReportOptions::default(),
     }
@@ -142,6 +143,69 @@ fn attaching_re_identifies_an_extracted_box_without_its_archive() {
     assert_eq!(attached.status(), PreparedStatus::Attached);
     assert_eq!(attached.box_id(), "fixture-box");
     assert_eq!(attached.root(), destination);
+}
+
+/// What `include_str!` hands an application that compiles its anchors in, through the crate's own
+/// parser. Reading the fixture's bytes rather than restating them is the point: an application must
+/// not need a second reading of the trust-file format to embed one.
+fn embedded_anchors(fixture: &support::BoxFixture) -> Vec<scrollcase_consumer::trust::TrustedKey> {
+    parse_trusted_keys(&std::fs::read(&fixture.key_path).unwrap())
+        .expect("the fixture trust file is one of the two shapes")
+}
+
+#[test]
+fn anchors_held_in_memory_verify_exactly_what_a_trust_file_verifies() {
+    // With a payload digest, so both in-memory entry points are exercised on one box.
+    let fixture = support::build_with_payload_digest("attach-embedded-anchors", |_| {});
+    let destination = fixture.directory.join("installed");
+    verify_and_extract_box(&fixture.release_path, &prepare_options(&fixture, &destination)).unwrap();
+
+    let embedded = embedded_anchors(&fixture);
+    let options = AttachOptions {
+        trust: TrustAnchors::Keys(&embedded),
+        root: &destination,
+        environment: EnvironmentReportOptions::default(),
+    };
+
+    let attached = attach_extracted_box(&fixture.release_path, &options)
+        .expect("compiled-in anchors must attach exactly as a trust file does");
+    assert_eq!(attached.status(), PreparedStatus::Attached);
+    assert_eq!(attached.signing_key_ids(), [support::KEY_ID]);
+
+    // The second entry point that had no in-memory door at all before.
+    let verified = verify_extracted_payload(&fixture.release_path, &options)
+        .expect("compiled-in anchors must verify a payload");
+    assert_eq!(verified.box_id, "fixture-box");
+    assert!(verified.entry_count > 0);
+}
+
+#[test]
+fn rewriting_the_trust_file_cannot_change_what_compiled_in_anchors_accept() {
+    let fixture = support::valid("attach-anchors-outlive-the-file");
+    let destination = fixture.directory.join("installed");
+    verify_and_extract_box(&fixture.release_path, &prepare_options(&fixture, &destination)).unwrap();
+    let embedded = embedded_anchors(&fixture);
+
+    // Whoever can write the trust file decides what a caller reading it will accept.
+    support::write_foreign_key(&fixture.key_path);
+
+    // A caller trusting the file now refuses the box it accepted a moment ago.
+    let error =
+        attach_extracted_box(&fixture.release_path, &attach_options(&fixture, &destination))
+            .unwrap_err();
+    assert!(error.message().contains("no valid signature"), "{error}");
+
+    // A caller carrying its own anchors is unaffected: the file is no longer part of the decision.
+    let attached = attach_extracted_box(
+        &fixture.release_path,
+        &AttachOptions {
+            trust: TrustAnchors::Keys(&embedded),
+            root: &destination,
+            environment: EnvironmentReportOptions::default(),
+        },
+    )
+    .expect("an edited trust file must not reach a caller that carries its anchors");
+    assert_eq!(attached.signing_key_ids(), [support::KEY_ID]);
 }
 
 #[test]

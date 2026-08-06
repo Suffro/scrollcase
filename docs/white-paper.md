@@ -3973,6 +3973,7 @@ ports; they are three mirrors of one contract, and they are held to it by the sa
 | Verify an installed payload | `verifyExtractedPayload()` | `verify_extracted_payload()` | `verify_extracted_payload()` |
 | Execute a prepared box | `runExtractedBox()` | `run_extracted_box()` | `run_extracted_box()` |
 | One-shot run | `runBox()` | `run_box()` | `run_box()` |
+| Trust source | `publicKeyPath` | `public_key_path` | `TrustAnchors`: a trust file, or keys the caller holds |
 | Receipt | frozen `PreparedBox` object | frozen `PreparedBox` dataclass | `PreparedBox` with private fields |
 | Failure | `fail()` → `Error` | `ScrollcaseConsumerError` | `fail!()` → opaque `Error` |
 | Private state binding | `WeakMap` | `weakref.WeakKeyDictionary` | private fields, no public constructor |
@@ -3989,7 +3990,16 @@ library's `zipfile`.
 The crate is distributed separately too (`scrollcase-consumer` on crates.io, requiring Rust 1.88 or
 newer). It forbids `unsafe`, is synchronous throughout so an application chooses its own runtime or
 none, and — being a library embedded in someone else's process — installs no signal handler of its
-own. Where Node and Python validate a release against the canonical schemas at run time, the crate
+own.
+
+It also differs on one deliberate point: where the trusted keys come from. Node and Python are
+invoked by something that is already a script on the operator's machine, and a trust file is the
+natural form there. The crate is compiled into an application handed to someone else, and a trust
+file beside that application is editable by whoever holds the machine — so editing it, signing a box
+with the substituted key, and having the application accept the result is a chain the format cannot
+close from the inside. `TrustAnchors::Keys` closes it, by letting an application carry anchors it
+compiled in. This is not a second verification path: both sources resolve to the same slice of keys
+at the entry point, and everything below sees one. Where Node and Python validate a release against the canonical schemas at run time, the crate
 encodes those schemas as types that refuse an unknown field; `rust/tests/schema.rs` then proves the
 types and the schemas still agree, with `jsonschema` as a development dependency that never reaches
 a consumer.
@@ -5832,7 +5842,7 @@ Published separately, and listed here because it implements the same section 8 a
 | `error.rs` | One opaque error type and the `fail!` macro — the single failure path, deliberately not an enum a caller could match on and come to depend on | 8.1 |
 | `path.rs` | The path-safety primitive every extraction and attachment goes through | 8.2 |
 | `contract/` | The mirror: `targets.rs`, `documents.rs`, `links.rs`, `payload_digest.rs` | 5.2–5.5 |
-| `trust.rs` | The trust file, key rotation, and strict ed25519 verification | 7.4 |
+| `trust.rs` | Trust anchors from either source, key rotation, and strict ed25519 verification | 7.4 |
 | `release.rs` | The typed release and box manifests, refusing an unknown field where the others run a schema | 8.1 |
 | `archive.rs` | Defensive reading and extraction, including the duplicate-name check the ZIP backend cannot make | 8.2, 8.6 |
 | `filesystem.rs` | Walking, sizing and validating an extracted tree, links included | 8.3 |

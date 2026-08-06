@@ -23,6 +23,7 @@ use scrollcase_consumer::prepare::{
     EnvironmentReportOptions, PrepareOptions, PreparedBox, PreparedStatus,
 };
 use scrollcase_consumer::release::Execution;
+use scrollcase_consumer::trust::TrustAnchors;
 use scrollcase_consumer::run::{
     run_box, run_extracted_box, BoxInvocation, ForwardedSignal, RunBoxOptions, RunOptions,
     RunningBox, SpawnBox, StdioMode,
@@ -955,7 +956,7 @@ fn execute(
     post_extraction: Option<&str>,
 ) -> Result<Value, String> {
     let prepare_options = |environment: EnvironmentReportOptions| PrepareOptions {
-        public_key_path: &fixture.key_path,
+        trust: TrustAnchors::KeyFile(&fixture.key_path),
         archive: Some(&fixture.archive_path),
         destination,
         environment,
@@ -980,7 +981,7 @@ fn execute(
             None => prepared.root().to_path_buf(),
         };
         let attach_options = AttachOptions {
-            public_key_path: &fixture.key_path,
+            trust: TrustAnchors::KeyFile(&fixture.key_path),
             root: &root,
             environment: environment.clone(),
         };
@@ -1056,7 +1057,7 @@ fn execute(
             attach_extracted_box(
                 &fixture.release_path,
                 &AttachOptions {
-                    public_key_path: &fixture.key_path,
+                    trust: TrustAnchors::KeyFile(&fixture.key_path),
                     root: prepared.root(),
                     environment: environment.clone(),
                 },
@@ -1076,7 +1077,7 @@ fn execute(
             run_box(
                 &fixture.release_path,
                 &RunBoxOptions {
-                    public_key_path: &fixture.key_path,
+                    trust: TrustAnchors::KeyFile(&fixture.key_path),
                     archive: Some(&fixture.archive_path),
                     temporary_root: temporary,
                     run: run_options(),

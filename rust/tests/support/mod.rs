@@ -31,6 +31,8 @@ use zip::write::SimpleFileOptions;
 
 pub const KEY_ID: &str = "scrollcase-fixture";
 const SIGNING_SEED: [u8; 32] = [7u8; 32];
+/// A second pair, for the cases that need a key which signed nothing in this fixture.
+const FOREIGN_SEED: [u8; 32] = [11u8; 32];
 
 /// The target this host can actually run.
 ///
@@ -215,6 +217,29 @@ pub fn sign(payload: &Value) -> Value {
 /// Writes the trust file naming the fixture's public key.
 pub fn write_key(path: &Path) {
     let key = SigningKey::from_bytes(&SIGNING_SEED);
+    let pem = key
+        .verifying_key()
+        .to_public_key_pem(LineEnding::LF)
+        .unwrap();
+    std::fs::write(
+        path,
+        serde_json::to_vec_pretty(&json!({
+            "algorithm": "ed25519",
+            "keyId": KEY_ID,
+            "publicKeyPem": pem,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+}
+
+/// Overwrites a trust file with a key that signed nothing here, keeping the fixture's key id.
+///
+/// Substituting the key material while leaving the id alone is the sharper form of an edited trust
+/// file: every downstream name still matches, so only the signature check can catch it. A test that
+/// changed the id instead would stop at the lookup and never reach ed25519 at all.
+pub fn write_foreign_key(path: &Path) {
+    let key = SigningKey::from_bytes(&FOREIGN_SEED);
     let pem = key
         .verifying_key()
         .to_public_key_pem(LineEnding::LF)

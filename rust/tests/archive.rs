@@ -7,6 +7,7 @@
 mod support;
 
 use scrollcase_consumer::archive::{extract_zip_archive, list_zip_entries};
+use scrollcase_consumer::trust::TrustAnchors;
 use scrollcase_consumer::verify::inspect_box_archive;
 use serde_json::json;
 use support::Entry;
@@ -16,7 +17,7 @@ fn a_valid_box_passes_the_whole_chain() {
     let fixture = support::valid("archive-valid");
     let inspected = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .expect("a valid fixture box must pass");
@@ -37,7 +38,7 @@ fn the_archive_must_be_the_one_the_release_signed() {
     );
     let error = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .unwrap_err();
@@ -51,7 +52,7 @@ fn the_archive_must_be_the_one_the_release_signed() {
     );
     let error = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .unwrap_err();
@@ -106,7 +107,7 @@ fn box_json_must_agree_with_the_signed_release_field_by_field() {
         );
         let error = inspect_box_archive(
             &fixture.release_path,
-            &fixture.key_path,
+            TrustAnchors::KeyFile(&fixture.key_path),
             Some(&fixture.archive_path),
         )
         .unwrap_err();
@@ -131,7 +132,7 @@ fn an_archive_without_its_declared_interpreter_is_refused() {
     );
     let error = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .unwrap_err();
@@ -150,7 +151,7 @@ fn an_archive_without_its_declared_script_is_refused() {
     );
     let error = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .unwrap_err();
@@ -171,7 +172,7 @@ fn box_json_must_be_an_entry_with_its_own_bytes() {
     );
     let error = inspect_box_archive(
         &fixture.release_path,
-        &fixture.key_path,
+        TrustAnchors::KeyFile(&fixture.key_path),
         Some(&fixture.archive_path),
     )
     .unwrap_err();

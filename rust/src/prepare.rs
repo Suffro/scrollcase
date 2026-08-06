@@ -29,6 +29,7 @@ use crate::execution::assert_execution_files;
 use crate::filesystem::{collect_files, payload_size, sha256_file};
 use crate::path::{join_relative, safe_relative_path};
 use crate::release::{AssetDescriptor, Execution, ReleaseManifest};
+use crate::trust::TrustAnchors;
 use crate::verify::{inspect_archive_for, inspect_release_document, InspectedRelease};
 
 /// Which producer minted a receipt.
@@ -347,8 +348,8 @@ fn mint(
 
 /// Where the caller wants a box prepared, and how much to say about the environment.
 pub struct PrepareOptions<'a> {
-    /// Trust file naming the keys the caller accepts.
-    pub public_key_path: &'a Path,
+    /// The keys the caller accepts, from a trust file or already in hand.
+    pub trust: TrustAnchors<'a>,
     /// The archive, when it is not beside its release document under its own hash.
     pub archive: Option<&'a Path>,
     /// Where the box must end up. Must not already exist.
@@ -376,7 +377,7 @@ pub fn verify_and_extract_box(
         fail!("Destination already exists: {}", final_root.display());
     }
 
-    let inspected = inspect_release_document(release_document_path, options.public_key_path)?;
+    let inspected = inspect_release_document(release_document_path, options.trust)?;
     let archive = inspect_archive_for(inspected, options.archive)?;
     let release = &archive.release.release;
 
@@ -456,8 +457,8 @@ fn prepare_into(
 
 /// Where an already-extracted box lives.
 pub struct AttachOptions<'a> {
-    /// Trust file naming the keys the caller accepts.
-    pub public_key_path: &'a Path,
+    /// The keys the caller accepts, from a trust file or already in hand.
+    pub trust: TrustAnchors<'a>,
     /// The extracted box root.
     pub root: &'a Path,
     /// Environment reporting.
@@ -498,7 +499,7 @@ pub fn attach_extracted_box(
     options: &AttachOptions<'_>,
 ) -> Result<PreparedBox> {
     let (root, metadata) = resolve_extracted_root(options.root)?;
-    let inspected = inspect_release_document(release_document_path, options.public_key_path)?;
+    let inspected = inspect_release_document(release_document_path, options.trust)?;
     let release = &inspected.release;
 
     if assert_native_host(inspected.adapter).is_err() {
@@ -578,7 +579,7 @@ pub fn verify_extracted_payload(
     options: &AttachOptions<'_>,
 ) -> Result<PayloadVerification> {
     let (root, _) = resolve_extracted_root(options.root)?;
-    let inspected = inspect_release_document(release_document_path, options.public_key_path)?;
+    let inspected = inspect_release_document(release_document_path, options.trust)?;
     let release = &inspected.release;
 
     let Some(commitment) = release.payload_digest.as_ref() else {

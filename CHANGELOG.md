@@ -19,6 +19,27 @@ All notable changes to Scrollcase are documented here. The format follows
   1.88 or newer, forbids `unsafe`, and is synchronous throughout so an embedding application picks
   its own runtime or none. Nothing in the npm package changed to accommodate it.
 
+- `scrollcase-consumer` 0.2.0 (Rust): every entry point now takes `trust::TrustAnchors` instead of a
+  trust-file path, so a caller can verify against keys it already holds — anchors compiled into the
+  binary with `include_str!`, a keychain, anywhere. An application shipped to someone else's machine
+  could previously be made to accept a box by editing the trust file beside it; carrying the anchors
+  moves that decision inside the binary. `trust::parse_trusted_keys` reads the single-key and bundle
+  shapes from bytes, so an embedded bundle goes through the same parser a trust file does rather than
+  a second reading of the format at the call site.
+
+  **Breaking, crate only.** The `public_key_path` field of `PrepareOptions`, `AttachOptions` and
+  `RunBoxOptions` becomes `trust`, and the same argument of `inspect_release_document` and
+  `inspect_box_archive` changes type; wrap an existing path in `TrustAnchors::KeyFile(path)`.
+  `inspect_release_document_with_keys` is gone — `TrustAnchors::Keys(&keys)` covers it on the regular
+  entry point, and keeping both would have meant two ways to state one trust decision.
+  `verify_signed_document_with_key_file` becomes `verify_signed_document_with_anchors`. The box
+  format, the npm package and the Python package are untouched, and boxes already signed and
+  distributed verify exactly as before.
+
+  Note for anyone compiling anchors in: rotating a key then means releasing the application, so embed
+  the `{ "keys": [...] }` bundle rather than a single key. Both keys are trusted at once, which is
+  what lets a rotation land without stranding the boxes signed by the outgoing one.
+
 - An `unsupported-schema-version` error pattern and case in `consumer-conformance.json`, so the
   refusal of a `schemaVersion: 1` document is pinned across all three consumers instead of only being
   asserted per language. Without it, dropping the by-name refusal degrades the message to a schema

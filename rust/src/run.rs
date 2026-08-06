@@ -29,6 +29,7 @@ use crate::prepare::{
     PreparedBox,
 };
 use crate::release::Execution;
+use crate::trust::TrustAnchors;
 
 /// What would be spawned, once the trust chain has finished and the environment is resolved.
 ///
@@ -397,8 +398,8 @@ fn terminating_signal(_status: std::process::ExitStatus) -> Option<String> {
 
 /// Where a one-shot run should stage the box.
 pub struct RunBoxOptions<'a> {
-    /// Trust file naming the keys the caller accepts.
-    pub public_key_path: &'a Path,
+    /// The keys the caller accepts, from a trust file or already in hand.
+    pub trust: TrustAnchors<'a>,
     /// The archive, when it is not beside its release document under its own hash.
     pub archive: Option<&'a Path>,
     /// Directory the temporary box is created inside. The caller owns it.
@@ -429,7 +430,7 @@ pub fn run_box(release_document_path: &Path, options: &RunBoxOptions<'_>) -> Res
     let prepared = verify_and_extract_box(
         release_document_path,
         &PrepareOptions {
-            public_key_path: options.public_key_path,
+            trust: options.trust,
             archive: options.archive,
             destination: &destination,
             environment: options.run.environment.clone(),

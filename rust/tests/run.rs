@@ -18,13 +18,14 @@ use scrollcase_consumer::prepare::{
 use scrollcase_consumer::run::{
     run_box, run_extracted_box, ForwardedSignal, RunBoxOptions, RunOptions, StdioMode,
 };
+use scrollcase_consumer::trust::TrustAnchors;
 use serde_json::json;
 
 fn prepare(fixture: &support::BoxFixture, destination: &Path) -> PreparedBox {
     verify_and_extract_box(
         &fixture.release_path,
         &PrepareOptions {
-            public_key_path: &fixture.key_path,
+            trust: TrustAnchors::KeyFile(&fixture.key_path),
             archive: Some(&fixture.archive_path),
             destination,
             environment: EnvironmentReportOptions::default(),
@@ -256,7 +257,7 @@ fn a_one_shot_run_removes_the_box_it_created() {
     let result = run_box(
         &fixture.release_path,
         &RunBoxOptions {
-            public_key_path: &fixture.key_path,
+            trust: TrustAnchors::KeyFile(&fixture.key_path),
             archive: Some(&fixture.archive_path),
             temporary_root: &temporary_root,
             run: quiet(),
@@ -284,7 +285,7 @@ fn a_one_shot_run_cleans_up_even_when_the_child_is_signalled() {
     let result = run_box(
         &fixture.release_path,
         &RunBoxOptions {
-            public_key_path: &fixture.key_path,
+            trust: TrustAnchors::KeyFile(&fixture.key_path),
             archive: Some(&fixture.archive_path),
             temporary_root: &temporary_root,
             run: RunOptions {

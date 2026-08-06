@@ -1,15 +1,26 @@
 //! Trusted keys, and the signature check every consumer path begins with.
 //!
-//! A trust anchor is a file the *caller* names. This crate never discovers a key, never fetches one,
-//! and never treats a key shipped beside an archive as trusted because it arrived: whoever calls
-//! decides which public keys they accept, and that decision is the whole basis of every guarantee
-//! below it.
+//! The *caller* decides which public keys it accepts, and that decision is the whole basis of every
+//! guarantee below it. This crate never discovers a key, never fetches one, and never treats a key
+//! shipped beside an archive as trusted because it arrived.
+//!
+//! Where those keys come from is the caller's business rather than this crate's, and the difference
+//! is a security property, not an ergonomic one. A trust file on disk suits a command line, whose
+//! operator is also its administrator. An application shipped to someone else's machine usually
+//! wants the opposite: anchors compiled into the binary with `include_str!`, so that editing a file
+//! cannot substitute a key, sign a box with it, and have the application accept the result. Both
+//! reach verification as [`TrustAnchors`], and everything past this module sees the same resolved
+//! slice — there is one verification path, not one per source.
 //!
 //! A document is accepted when **any one** of its signatures verifies against a trusted key. That is
 //! what lets a document signed by both an outgoing and an incoming key stay valid across a rotation,
 //! and it is why a signature naming an unknown key is skipped rather than treated as an attack — a
-//! build that carries only one of the two keys must still be able to verify.
+//! build that carries only one of the two keys must still be able to verify. Compiled-in anchors do
+//! not change that rule, but they do change who pays for it: rotating a key an application carries
+//! means releasing the application, so an application that may ever rotate should compile in the
+//! bundle shape and not the single key.
 
+use std::borrow::Cow;
 use std::path::Path;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -64,10 +75,52 @@ pub fn load_trusted_keys(path: &Path) -> Result<Vec<TrustedKey>> {
             path.display()
         ))
     })?;
-    match serde_json::from_slice::<TrustFile>(&raw) {
+    parse_trusted_keys(&raw)
+}
+
+/// The same two shapes, from bytes the caller already holds.
+///
+/// This is the half an application compiling its anchors in needs: `include_str!` produces the
+/// bytes, and they go through the parser the file path uses rather than a second reading of the
+/// same format written at the call site. A second reading is how the single-key and bundle shapes
+/// come to disagree between a CLI and an application that are supposed to trust identically.
+///
+/// # Errors
+///
+/// When the bytes are neither a single key nor a bundle.
+pub fn parse_trusted_keys(raw: &[u8]) -> Result<Vec<TrustedKey>> {
+    match serde_json::from_slice::<TrustFile>(raw) {
         Ok(TrustFile::Bundle { keys }) => Ok(keys),
         Ok(TrustFile::Single(key)) => Ok(vec![key]),
         Err(_) => Err(Error::new("Invalid trusted ed25519 key file.")),
+    }
+}
+
+/// Where the keys a caller accepts come from.
+///
+/// Every entry point in this crate takes one of these rather than a path, because a library cannot
+/// know whether its caller's trust decision is administrative or compiled in, and choosing for them
+/// would decide their threat model. Resolution happens once, at the entry point, and the rest of the
+/// crate only ever sees `&[TrustedKey]`.
+#[derive(Debug, Clone, Copy)]
+pub enum TrustAnchors<'a> {
+    /// A trust file, read at the moment of verification. Whoever can write it decides what verifies.
+    KeyFile(&'a Path),
+    /// Keys the caller already holds — parsed from a compiled-in bundle, a keychain, wherever.
+    Keys(&'a [TrustedKey]),
+}
+
+impl<'a> TrustAnchors<'a> {
+    /// Produces the keys to verify against, reading the trust file only when there is one.
+    ///
+    /// # Errors
+    ///
+    /// See [`load_trusted_keys`].
+    pub fn resolve(&self) -> Result<Cow<'a, [TrustedKey]>> {
+        match *self {
+            Self::KeyFile(path) => Ok(Cow::Owned(load_trusted_keys(path)?)),
+            Self::Keys(keys) => Ok(Cow::Borrowed(keys)),
+        }
     }
 }
 
@@ -134,22 +187,27 @@ pub fn verify_signed_document(
     Ok(VerifiedPayload { bytes, value })
 }
 
-/// Verifies a signed document against a trust file the caller names.
+/// Verifies a signed document against anchors from either source.
+///
+/// The one to reach for when the document is not a release — a channel or a revocations document
+/// has no consumer entry point of its own, and this keeps it on the same trust resolution.
 ///
 /// # Errors
 ///
-/// See [`load_trusted_keys`] and [`verify_signed_document`].
-pub fn verify_signed_document_with_key_file(
+/// See [`TrustAnchors::resolve`] and [`verify_signed_document`].
+pub fn verify_signed_document_with_anchors(
     document: &SignedDocument,
-    public_key_path: &Path,
+    trust: TrustAnchors<'_>,
 ) -> Result<VerifiedPayload> {
-    let trusted = load_trusted_keys(public_key_path)?;
-    verify_signed_document(document, &trusted)
+    verify_signed_document(document, &trust.resolve()?)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{load_trusted_keys, verify_signed_document, TrustedKey};
+    use super::{
+        load_trusted_keys, parse_trusted_keys, verify_signed_document,
+        verify_signed_document_with_anchors, TrustAnchors, TrustedKey,
+    };
     use crate::contract::documents::SignedDocument;
 
     // A real signature, not a mock. The pair was generated with the same `node:crypto` calls
@@ -211,6 +269,52 @@ mod tests {
             verify_signed_document(&document(&BASE64.encode(raw), "fixture-key"), &trusted())
                 .unwrap_err();
         assert!(error.message().contains("no valid signature"), "{error}");
+    }
+
+    #[test]
+    fn a_document_verifies_identically_from_a_file_and_from_compiled_in_bytes() {
+        // The bytes an application would reach `include_str!` for. Both anchors are built from this
+        // one value, so the test can only pass if the two sources agree on how to read it.
+        let embedded = format!(
+            r#"{{"keys":[{{"keyId":"fixture-key","publicKeyPem":{}}}]}}"#,
+            serde_json::to_string(PUBLIC_PEM).unwrap()
+        );
+        let signed = document(SIGNATURE_BASE64, "fixture-key");
+
+        let keys = parse_trusted_keys(embedded.as_bytes()).expect("a bundle must parse");
+        let in_memory = verify_signed_document_with_anchors(&signed, TrustAnchors::Keys(&keys))
+            .expect("compiled-in anchors must verify");
+
+        let directory = std::env::temp_dir().join(format!(
+            "scrollcase-anchors-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("trusted-keys.json");
+        std::fs::write(&path, embedded.as_bytes()).unwrap();
+
+        let from_file = verify_signed_document_with_anchors(&signed, TrustAnchors::KeyFile(&path))
+            .expect("the same bytes as a file must verify");
+        assert_eq!(in_memory.bytes, from_file.bytes);
+
+        // And the in-memory source is genuinely checking: an anchor set without the signing key
+        // refuses the document a moment after the same call accepted it.
+        let stranger = parse_trusted_keys(
+            format!(
+                r#"{{"keys":[{{"keyId":"someone-else","publicKeyPem":{}}}]}}"#,
+                serde_json::to_string(PUBLIC_PEM).unwrap()
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        let error = verify_signed_document_with_anchors(&signed, TrustAnchors::Keys(&stranger))
+            .unwrap_err();
+        assert!(error.message().contains("no valid signature"), "{error}");
+
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

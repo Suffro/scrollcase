@@ -303,11 +303,12 @@ use std::path::Path;
 
 use scrollcase_consumer::prepare::{verify_and_extract_box, PrepareOptions};
 use scrollcase_consumer::run::{run_extracted_box, RunOptions};
+use scrollcase_consumer::trust::TrustAnchors;
 
 let prepared = verify_and_extract_box(
     Path::new("release.json"),
     &PrepareOptions {
-        public_key_path: Path::new("trusted-keys.json"),
+        trust: TrustAnchors::KeyFile(Path::new("trusted-keys.json")),
         archive: Some(Path::new("box.zip")),
         destination: Path::new("/srv/boxes/example-1.0.0"),
         environment: Default::default(),
@@ -323,6 +324,32 @@ let result = run_extracted_box(
     },
 )?;
 ```
+
+### Where the trusted keys come from
+
+Every entry point takes a `TrustAnchors`, not a path, because the two sources are not equivalent
+security decisions. `TrustAnchors::KeyFile` reads a trust file at the moment of verification, which
+suits a command line whose operator is also its administrator. `TrustAnchors::Keys` verifies against
+keys the caller already holds — and an application shipped to someone else's machine usually wants
+exactly that, because a trust file sitting beside the application can be edited, and whoever edits it
+decides which boxes the application will accept:
+
+```rust
+use scrollcase_consumer::trust::{parse_trusted_keys, TrustAnchors};
+
+// Compiled in, so substituting a key means rebuilding the application rather than editing a file.
+static ANCHORS: &str = include_str!("../anchors/production.json");
+
+let keys = parse_trusted_keys(ANCHORS.as_bytes())?;
+let trust = TrustAnchors::Keys(&keys);
+```
+
+`parse_trusted_keys` accepts the same two shapes a trust file holds — a single key object, or a
+`{ "keys": [...] }` bundle — so an embedded bundle is read by the crate rather than by a second
+parser at the call site. Prefer the bundle shape: keys compiled into an application can only be
+rotated by releasing the application, and a bundle lets the outgoing and incoming keys both be
+trusted while that release makes its way out. Verification is unchanged either way, a document being
+accepted when any one of its signatures verifies against any trusted key.
 
 `attach_extracted_box` and `verify_extracted_payload` behave exactly as their Node and Python
 counterparts, including the `attached` status and the refusal of a release that commits to no

@@ -17,7 +17,7 @@ use crate::error::{fail, Error, Result};
 use crate::execution::assert_execution_files;
 use crate::filesystem::sha256_file;
 use crate::release::{BoxManifest, ReleaseManifest};
-use crate::trust::{load_trusted_keys, verify_signed_document, TrustedKey};
+use crate::trust::{verify_signed_document, TrustAnchors};
 
 /// A signed release that has passed every check possible without its archive.
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ pub struct InspectedRelease {
     pub adapter: &'static BoxTargetAdapter,
 }
 
-/// Verifies a signed release document against a caller-supplied trust file.
+/// Verifies a signed release document against the caller's trust anchors.
 ///
 /// The order is the guarantee. The envelope is shape-checked, then its signature is verified, and
 /// only then is the payload interpreted as a release: nothing about the release is believed — not
@@ -41,25 +41,13 @@ pub struct InspectedRelease {
 ///
 /// # Errors
 ///
-/// When the document cannot be read, is not a v2 envelope, carries no signature from a trusted key,
-/// or describes a release this build cannot accept.
+/// When the anchors cannot be resolved, the document cannot be read, is not a v2 envelope, carries
+/// no signature from a trusted key, or describes a release this build cannot accept.
 pub fn inspect_release_document(
     release_document_path: &Path,
-    public_key_path: &Path,
+    trust: TrustAnchors<'_>,
 ) -> Result<InspectedRelease> {
-    let trusted = load_trusted_keys(public_key_path)?;
-    inspect_release_document_with_keys(release_document_path, &trusted)
-}
-
-/// The same inspection against keys a caller already holds in memory.
-///
-/// # Errors
-///
-/// See [`inspect_release_document`].
-pub fn inspect_release_document_with_keys(
-    release_document_path: &Path,
-    trusted: &[TrustedKey],
-) -> Result<InspectedRelease> {
+    let trusted = trust.resolve()?;
     let release_path = release_document_path
         .canonicalize()
         .unwrap_or_else(|_| release_document_path.to_path_buf());
@@ -71,7 +59,7 @@ pub fn inspect_release_document_with_keys(
     })?;
 
     let signed = SignedDocument::parse(&raw)?;
-    let payload = verify_signed_document(&signed, trusted)?;
+    let payload = verify_signed_document(&signed, &trusted)?;
 
     // A v1 payload inside a v2 envelope is refused by name rather than reinterpreted.
     if payload.value.get("schemaVersion").and_then(serde_json::Value::as_u64) == Some(1) {
@@ -171,10 +159,10 @@ pub struct InspectedArchive {
 /// hash, the archive holds an entry the format forbids, or `box.json` disagrees with the release.
 pub fn inspect_box_archive(
     release_document_path: &Path,
-    public_key_path: &Path,
+    trust: TrustAnchors<'_>,
     archive_override: Option<&Path>,
 ) -> Result<InspectedArchive> {
-    let release = inspect_release_document(release_document_path, public_key_path)?;
+    let release = inspect_release_document(release_document_path, trust)?;
     inspect_archive_for(release, archive_override)
 }
 
