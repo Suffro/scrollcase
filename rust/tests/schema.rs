@@ -7,6 +7,10 @@
 //! parse and a schema most plausibly drift apart: an unknown field, a missing required field, a
 //! pattern violation, a broken bound, and the `weights`/`assets` co-requirement.
 //!
+//! Agreement is checked in both directions. Drifting *stricter* than the schema is as much a
+//! divergence as drifting looser, and it is the direction a typed parse drifts by default: the last
+//! test here is the one open object in the format, where agreeing means accepting.
+//!
 //! `jsonschema` is a development dependency only. It never ships to a consumer of this crate; it
 //! exists so a divergence between the types and the format is a red test here instead of a
 //! difference of behaviour on someone's machine.
@@ -207,6 +211,15 @@ fn the_types_and_the_schema_agree_on_every_mutation() {
                 value["compatibility"]["hostEnvironments"] = json!(["docker"]);
             }),
         ),
+        // `compatibility` is open, so the types collect what they do not recognise. A defined key
+        // must not slip into that collection when its value is the wrong type: it is a malformed
+        // constraint, not a project's own.
+        (
+            "a defined compatibility constraint carrying the wrong type",
+            Box::new(|value: &mut Value| {
+                value["compatibility"]["minRamGb"] = json!("plenty");
+            }),
+        ),
     ];
 
     for (name, mutate) in mutations {
@@ -221,4 +234,38 @@ fn the_types_and_the_schema_agree_on_every_mutation() {
         );
         assert!(!schema_accepts, "{name}: the mutation was supposed to be invalid");
     }
+}
+
+/// The battery above is all rejections; this is the case where agreement means *accepting*.
+///
+/// `compatibility` is the one object the canonical schema leaves open, because a publishing project
+/// may state constraints in its own vocabulary and the builder copies them through untouched. A
+/// typed parse that refused them would be stricter than the schema this crate ships — and would
+/// refuse boxes Node and Python accept.
+#[test]
+fn a_compatibility_constraint_the_format_does_not_define_is_carried_not_refused() {
+    let registry = registry();
+    let schema = validator(&registry, RELEASE_SCHEMA);
+    let mut release: Value = serde_json::from_str(RELEASE_EXAMPLE).unwrap();
+    release["compatibility"]["org.example.minVramGb"] = json!(24);
+
+    assert!(schema.is_valid(&release), "the canonical schema leaves compatibility open");
+    assert!(
+        types_accept_release(&release),
+        "the types refused a constraint the schema they mirror accepts"
+    );
+
+    // Carried, not merely tolerated: the application is the one that has to refuse a box over a
+    // constraint it cannot evaluate, and it cannot do that with a value the parse threw away.
+    let parsed: ReleaseManifest = serde_json::from_value(release.clone()).unwrap();
+    assert_eq!(
+        parsed.compatibility.additional.get("org.example.minVramGb"),
+        Some(&json!(24))
+    );
+    assert!(parsed.compatibility.min_ram_gb.is_some(), "a defined constraint stays typed");
+    assert_eq!(
+        serde_json::to_value(&parsed.compatibility).unwrap()["org.example.minVramGb"],
+        json!(24),
+        "an unknown constraint must survive a round trip unchanged"
+    );
 }

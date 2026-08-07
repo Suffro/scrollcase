@@ -2186,9 +2186,10 @@ agreeing about what must fail is where independent implementations drift.
 
 #### `consumer-conformance.json`
 
-Sixty-six language-neutral semantic cases shared by the Node, Python and Rust consumers, plus
+Sixty-seven language-neutral semantic cases shared by the Node, Python and Rust consumers, plus
 twenty-eight error patterns each case's failure message must match. The cases cover valid preparation
-under both signing paths, every tampering scenario, a v1 document refused by name, unsafe archive
+under both signing paths, a project's own `compatibility` constraint carried rather than refused,
+every tampering scenario, a v1 document refused by name, unsafe archive
 entries, extraction collisions, per-platform entry points, attachment across process restarts,
 installed-payload verification, argument ordering, stream forwarding, exit codes and signals,
 temporary-directory cleanup, on-demand asset failures, signed environment agreement, precedence,
@@ -4007,9 +4008,12 @@ substituted key, and having the application accept the result is otherwise a com
 Anchors compiled in with `include_str!` move that decision into the binary. The same trick buys
 Node and Python far less, because there is no binary: a hard-coded key sits in a source file the
 attacker can edit exactly as easily as the trust file. Where Node and Python validate a release against the canonical schemas at run time, the crate
-encodes those schemas as types that refuse an unknown field; `rust/tests/schema.rs` then proves the
-types and the schemas still agree, with `jsonschema` as a development dependency that never reaches
-a consumer.
+encodes those schemas as types that refuse an unknown field wherever the schema is closed — and, in
+the one object it is not, `compatibility`, keep what they do not recognise instead. `rust/tests/schema.rs`
+then proves the types and the schemas still agree, with `jsonschema` as a development dependency that
+never reaches a consumer. That equivalence has to be checked in both directions: a typed parse
+drifting *stricter* than the schema refuses documents the format defines as valid, which is how the
+crate once came to reject a project's own compatibility constraint.
 
 </div>
 
@@ -4381,8 +4385,8 @@ diverge tomorrow. `src/contract/fixtures/consumer-conformance.json` is how that 
 
 #### What is in the file
 
-Sixty-six cases and twenty-eight error patterns, in a language-neutral JSON document. Each case is a
-small declarative record:
+Sixty-seven cases and twenty-eight error patterns, in a language-neutral JSON document. Each case is
+a small declarative record:
 
 ```json
 {
@@ -4426,7 +4430,7 @@ the box format's `schemaVersion: 2`.
 
 | Group | Cases | What is pinned |
 | --- | --- | --- |
-| Valid preparation | 3 | Local and external signing paths both produce the same receipt; an interpreter reached through a payload link is accepted |
+| Valid preparation | 4 | Local and external signing paths both produce the same receipt; an interpreter reached through a payload link is accepted; a `compatibility` constraint the format does not define is carried rather than refused |
 | Tampering | 6 | Altered signature, altered payload, altered archive bytes, altered size, release/`box.json` disagreement, altered execution metadata |
 | Missing pieces | 3 | Absent interpreter, absent script, undiscoverable module |
 | Hostile archives | 7 | Traversal, absolute path, escaping link, special entry, encrypted entry, duplicate entry, file/directory collision |
@@ -4497,6 +4501,13 @@ code. It has already paid for itself: bringing the Rust consumer to the file sur
 defects — an archive naming one path twice, whose duplicate the `zip` crate collapses before a
 reader can see it, and a linked interpreter that was refused on attach and then sized as though it
 were nothing.
+
+A third was found later, and by then only a case in this file could have caught it: the Rust
+consumer refused a release carrying a `compatibility` constraint the format does not define, which
+the schema allows, the builder copies through, and the other two consumers accept. A divergence in
+what an implementation *accepts* leaves no error message behind in the languages that behave, so
+nothing but a shared case that expects success can pin it. `unknown-compatibility-constraint` is
+that case.
 
 </div>
 
@@ -5679,7 +5690,7 @@ Seven test files under `rust/tests/`, plus one support module.
 | File | What it proves |
 | --- | --- |
 | `contract.rs` | The mirror is faithful: every canonical target-ID and payload-digest vector in the shared fixtures, and the link rule accepting and refusing exactly what the other implementations do |
-| `schema.rs` | The types the crate parses with and the canonical schemas reach the same verdict on the examples and on mutations chosen where a typed parse and a schema most plausibly drift — an unknown field, a missing required field, a pattern violation, a broken bound, the `weights`/`assets` co-requirement |
+| `schema.rs` | The types the crate parses with and the canonical schemas reach the same verdict on the examples and on mutations chosen where a typed parse and a schema most plausibly drift — an unknown field, a missing required field, a pattern violation, a broken bound, the `weights`/`assets` co-requirement, and the one open object where agreement means accepting rather than refusing |
 | `release_document.rs` | The half of the trust chain that needs no archive, over a real release signed the way `signWithLocalKey` signs — so the crate is proved against documents the signer it exists to read produced, not documents it produced itself |
 | `archive.rs` | The read-only chain over real archives: each case breaks exactly one thing and asserts *which* check fired, because a check that fires for the wrong reason has stopped working |
 | `prepare.rs` | Preparation, attachment and payload verification: the only three ways to obtain the receipt the execution surface accepts |
@@ -5850,7 +5861,7 @@ Published separately, and listed here because it implements the same section 8 a
 | `path.rs` | The path-safety primitive every extraction and attachment goes through | 8.2 |
 | `contract/` | The mirror: `targets.rs`, `documents.rs`, `links.rs`, `payload_digest.rs` | 5.2–5.5 |
 | `trust.rs` | Trust anchors from either source, key rotation, and strict ed25519 verification | 7.4 |
-| `release.rs` | The typed release and box manifests, refusing an unknown field where the others run a schema | 8.1 |
+| `release.rs` | The typed release and box manifests, refusing an unknown field where the others run a schema — except in `compatibility`, the one object the schema leaves open, whose unfamiliar constraints are carried to the caller | 8.1 |
 | `archive.rs` | Defensive reading and extraction, including the duplicate-name check the ZIP backend cannot make | 8.2, 8.6 |
 | `filesystem.rs` | Walking, sizing and validating an extracted tree, links included | 8.3 |
 | `execution.rs` | The static execution prerequisites | 8.4 |

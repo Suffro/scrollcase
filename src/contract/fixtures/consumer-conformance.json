@@ -69,6 +69,22 @@
       }
     },
     {
+      "id": "unknown-compatibility-constraint",
+      "action": "prepare",
+      "mutation": "add-unknown-compatibility-constraint",
+      "expected": {
+        "outcome": "prepared",
+        "receipt": {
+          "status": "prepared",
+          "boxId": "consumer-fixture",
+          "executionKind": "python-script",
+          "requiredAssetCount": 0,
+          "pythonEntryPoint": "$NATIVE_PYTHON",
+          "targetId": "$NATIVE_TARGET"
+        }
+      }
+    },
+    {
       "id": "declared-environment-in-prepare-report",
       "action": "prepare",
       "fixture": {

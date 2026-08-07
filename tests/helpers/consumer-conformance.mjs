@@ -190,6 +190,17 @@ async function mutateFixture(fixture, mutation, destination) {
     await writeSignedRelease(fixture, fixture.release);
     return;
   }
+  if (mutation === 'add-unknown-compatibility-constraint') {
+    // Not a tamper: a signed constraint in a publishing project's own vocabulary, which the schema
+    // allows and the builder copies through. The consumer must carry it, not refuse the document —
+    // refusing it is what takes the decision away from the application that has to make it.
+    fixture.release.compatibility = {
+      ...fixture.release.compatibility,
+      'org.example.minVramGb': 24,
+    };
+    await writeSignedRelease(fixture, fixture.release);
+    return;
+  }
   if (mutation === 'create-destination') {
     await mkdir(destination);
     return;

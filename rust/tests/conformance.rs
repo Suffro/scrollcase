@@ -637,6 +637,13 @@ fn mutate_fixture(fixture: &mut Fixture, mutation: &str, destination: &Path) {
             fixture.release["environment"] = json!({ "SCROLLCASE_CHANGED_AFTER_BUILD": "1" });
             fixture.sign();
         }
+        // Not a tamper: a signed constraint in a publishing project's own vocabulary, which the
+        // schema allows and the builder copies through. The consumer must carry it, not refuse the
+        // document — refusing it takes the decision away from the application that has to make it.
+        "add-unknown-compatibility-constraint" => {
+            fixture.release["compatibility"]["org.example.minVramGb"] = json!(24);
+            fixture.sign();
+        }
         "create-destination" => std::fs::create_dir_all(destination).unwrap(),
         "remove-interpreter" | "remove-script" | "remove-module" => {
             let removed = match mutation {
@@ -1114,7 +1121,7 @@ fn the_shared_consumer_conformance_suite_passes() {
     let suite: Value = serde_json::from_str(SUITE).unwrap();
     let patterns = suite["errorPatterns"].as_object().unwrap();
     let cases = suite["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 66, "the suite changed size");
+    assert_eq!(cases.len(), 67, "the suite changed size");
 
     let mut failures: Vec<String> = Vec::new();
     let mut ran = 0usize;

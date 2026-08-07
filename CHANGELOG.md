@@ -58,6 +58,33 @@ All notable changes to Scrollcase are documented here. The format follows
   asserted per language. Without it, dropping the by-name refusal degrades the message to a schema
   shape complaint — a v2 consumer would still refuse a v1 release, but stop saying why.
 
+- An `unknown-compatibility-constraint` case in `consumer-conformance.json`, expecting a *successful*
+  preparation. Every case before it expected either the canonical outcome or a refusal, so a consumer
+  that refused something the format allows could diverge without any harness noticing.
+
+### Fixed
+
+- `scrollcase-consumer` 0.3.0 (Rust): a release whose `compatibility` carries a constraint the format
+  does not define is now accepted, and the constraint is carried to the caller, instead of the document
+  being refused at the door. That object is `additionalProperties: true` in the release schema on
+  purpose — a publishing project may state constraints in its own vocabulary, and the builder copies
+  them through verbatim without interpreting any of them — and the Node and Python consumers, which
+  validate against that schema at run time, accepted them all along. The crate encodes the schemas as
+  types instead, and `deny_unknown_fields` had been applied to `Compatibility` along with every
+  closed object, making the crate stricter than the schema it ships and refusing boxes the format
+  defines as valid.
+
+  Unknown constraints now land in `Compatibility::additional`, a `BTreeMap<String, Value>` carried
+  verbatim through the parse. No safety is given up: the obligation the schema states falls on the
+  application — *a consumer that cannot evaluate a constraint must refuse the box rather than assume
+  it passes* — and refusing the document instead took away the very value the application needed to
+  make that call. The shared conformance case above pins the behaviour in all three consumers, and
+  `rust/tests/schema.rs` now checks type/schema agreement in the accepting direction too, which is
+  the direction a typed parse drifts by default.
+
+  **Breaking, crate only, and only for a caller constructing `Compatibility` with a struct literal:**
+  the struct has a new public field. Callers that deserialize a release are unaffected.
+
 ## [0.7.0] — 2026-08-03
 
 ### Added

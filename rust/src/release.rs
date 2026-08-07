@@ -2,10 +2,15 @@
 //!
 //! These types are the runtime shape check. Node and Python validate the same documents against the
 //! canonical JSON schemas at runtime; this crate encodes those schemas as types instead, because the
-//! schemas set `additionalProperties: false` throughout and a typed `deny_unknown_fields` parse says
-//! exactly that — while a JSON Schema evaluator for the eighteen keywords these schemas actually use
-//! would be six hundred lines of validation logic whose failure mode is validating *less* than it
-//! claims.
+//! schemas set `additionalProperties: false` almost everywhere and a typed `deny_unknown_fields`
+//! parse says exactly that — while a JSON Schema evaluator for the eighteen keywords these schemas
+//! actually use would be six hundred lines of validation logic whose failure mode is validating
+//! *less* than it claims.
+//!
+//! *Almost* everywhere: [`Compatibility`] is the one object the schemas leave open, and the types
+//! leave it open too. A typed parse is a faithful stand-in for a schema only where the schema is
+//! closed, and reading `deny_unknown_fields` as the house style rather than as a per-object
+//! statement is exactly how this crate once came to refuse releases the format defines as valid.
 //!
 //! The equivalence is not assumed. `tests/schema.rs` validates the same documents against the
 //! bundled canonical schemas and asserts the two agree, so a type that drifts from its schema is a
@@ -17,6 +22,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::contract::documents::{parse_document_kind, DocumentType, BOX_SCHEMA_VERSION};
 use crate::contract::targets::BoxTarget;
@@ -24,8 +30,20 @@ use crate::error::{fail, Result};
 use crate::path::safe_relative_path;
 
 /// Host requirements a caller may enforce. Scrollcase records them; it does not decide policy.
+///
+/// This is the one object the canonical schemas declare `additionalProperties: true`. A publishing
+/// project may state constraints of its own beside the defined ones, and the builder copies them
+/// through verbatim without interpreting any of them, so a parse that refused an unrecognised key
+/// would make this crate stricter than the schema it ships — and would refuse boxes the schema, the
+/// builder, and the Node and Python consumers all accept. Unknown constraints therefore land in
+/// [`Compatibility::additional`], carried rather than dropped or rejected.
+///
+/// Carrying them costs no safety, because the schema puts the obligation on the application, not on
+/// the parser: *a consumer that cannot evaluate a constraint must refuse the box rather than assume
+/// it passes.* That decision needs the constraint in hand to be made at all, which is precisely what
+/// refusing the document took away.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Compatibility {
     /// Minimum version of the consuming application.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -45,6 +63,12 @@ pub struct Compatibility {
     /// Execution environments this payload was validated for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host_environments: Option<Vec<String>>,
+    /// Constraints this format does not define, in the publishing project's own vocabulary.
+    ///
+    /// Empty for a box that declares only the fields above. Scrollcase never evaluates an entry
+    /// here; an application that finds one it does not understand must refuse the box.
+    #[serde(flatten)]
+    pub additional: BTreeMap<String, Value>,
 }
 
 /// Where the archive lives and what it must hash and weigh.
