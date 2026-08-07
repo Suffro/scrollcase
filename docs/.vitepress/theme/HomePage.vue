@@ -86,7 +86,7 @@ const capabilities = [
         <div class="hero-content">
           <span class="status-badge">
             <span class="status-dot"></span>
-            v{{ globalStore.packageVersion }} · schema v1
+            v{{ globalStore.packageVersion }} · schema v{{ globalStore.schemaVersion }}
           </span>
 
           <h1 class="name hero-title">Scrollcase</h1>
